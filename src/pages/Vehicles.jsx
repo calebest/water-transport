@@ -137,11 +137,19 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel }) 
               className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative"
               onClick={() => setSelectedVeh(v)}>
               <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-black text-slate-800 text-lg">{v.plate}</h3>
+                <div className="flex flex-col items-start gap-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-slate-800 text-lg">{v.plate}</h3>
+                    <Badge color={v.status === "Active" ? "green" : "slate"}>{v.status}</Badge>
+                  </div>
                   <p className="text-xs text-slate-500 font-semibold">{v.name}</p>
                 </div>
-                <Badge color={v.status === "Active" ? "green" : "slate"}>{v.status}</Badge>
+                {isAdmin && (
+                  <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => setEditVeh(v)} className="text-blue-500 hover:text-blue-700 p-1" title="Edit Vehicle">✏️</button>
+                    <button onClick={() => setDelVeh(v)} className="text-rose-500 hover:text-rose-700 p-1" title="Delete Vehicle">🗑️</button>
+                  </div>
+                )}
               </div>
               <div className="space-y-2 mt-4 text-sm">
                 <div className="flex justify-between text-slate-600">
@@ -156,14 +164,6 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel }) 
                   <p className="text-xs text-slate-400 mt-2 truncate border-t border-slate-50 pt-2">{v.notes}</p>
                 )}
               </div>
-              
-              {isAdmin && (
-                <div className="absolute top-4 right-4 flex gap-2" onClick={e => e.stopPropagation()}>
-                   {/* We stop propagation so clicking edit doesn't open the profile */}
-                   <button onClick={() => setEditVeh(v)} className="text-blue-500 hover:text-blue-700 p-1">✏️</button>
-                   <button onClick={() => setDelVeh(v)} className="text-rose-500 hover:text-rose-700 p-1">🗑️</button>
-                </div>
-              )}
             </div>
           );
         })}
