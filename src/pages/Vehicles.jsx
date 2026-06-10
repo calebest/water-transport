@@ -136,16 +136,16 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel }) 
             <div key={v.id} 
               className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative"
               onClick={() => setSelectedVeh(v)}>
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex flex-col items-start gap-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-slate-800 text-lg">{v.plate}</h3>
+              <div className="flex flex-wrap justify-between items-start mb-3 gap-2">
+                <div className="flex flex-col items-start gap-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-black text-slate-800 text-lg truncate">{v.plate}</h3>
                     <Badge color={v.status === "Active" ? "green" : "slate"}>{v.status}</Badge>
                   </div>
-                  <p className="text-xs text-slate-500 font-semibold">{v.name}</p>
+                  <p className="text-xs text-slate-500 font-semibold truncate w-full">{v.name}</p>
                 </div>
                 {isAdmin && (
-                  <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                  <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
                     <button onClick={() => setEditVeh(v)} className="text-blue-500 hover:text-blue-700 p-1" title="Edit Vehicle">✏️</button>
                     <button onClick={() => setDelVeh(v)} className="text-rose-500 hover:text-rose-700 p-1" title="Delete Vehicle">🗑️</button>
                   </div>
