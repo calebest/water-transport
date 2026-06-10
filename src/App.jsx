@@ -33,6 +33,7 @@ const NAV_ITEMS = [
 function Layout({ trips, locations, vehicles, personnel, maintenance }) {
   const { profile, logout, isAdmin } = useAuth();
   const [page, setPage] = useState("dashboard");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
   const pages = {
@@ -48,7 +49,16 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      <aside className="hidden lg:flex lg:flex-col w-60 bg-white border-r border-slate-100 shadow-sm fixed inset-y-0 left-0 z-20">
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 z-30 lg:hidden transition-opacity"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar / Drawer */}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-100 shadow-2xl lg:shadow-sm transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"} flex flex-col`}>
         <div className="p-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center text-xl shadow">🚛</div>
@@ -60,7 +70,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {navItems.map(n => (
-            <button key={n.id} onClick={() => setPage(n.id)}
+            <button key={n.id} onClick={() => { setPage(n.id); setMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${page === n.id ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" : "text-slate-600 hover:bg-slate-50"
                 }`}>
               <span>{n.icon}</span>{n.label}
@@ -84,36 +94,29 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
         </div>
       </aside>
 
-      <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
-        <header className="lg:hidden sticky top-0 z-10 flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🚛</span>
-            <span className="font-black text-slate-800 text-sm">Water Transport</span>
+      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+        <header className="lg:hidden sticky top-0 z-20 flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileMenuOpen(true)} className="p-1 -ml-1 text-slate-500 hover:text-slate-800 focus:outline-none">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🚛</span>
+              <span className="font-black text-slate-800 text-sm">Water Transport</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge color={isAdmin ? "green" : "slate"}>{profile?.role}</Badge>
-            <button onClick={logout} className="text-xs text-slate-400 hover:text-rose-500 font-semibold">Sign Out</button>
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 pb-24 lg:pb-8">
+        <main className="flex-1 p-4 lg:p-8 pb-8">
           <div className="max-w-5xl mx-auto">
             {pages[page] || pages.dashboard}
           </div>
         </main>
-
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 shadow-lg z-20">
-          <div className="flex">
-            {navItems.map(n => (
-              <button key={n.id} onClick={() => setPage(n.id)}
-                className={`flex-1 flex flex-col items-center py-2.5 text-xs font-semibold transition-colors ${page === n.id ? "text-emerald-600" : "text-slate-400 hover:text-slate-600"
-                  }`}>
-                <span className="text-xl mb-0.5">{n.icon}</span>
-                <span>{n.label}</span>
-              </button>
-            ))}
-          </div>
-        </nav>
       </div>
     </div>
   );
