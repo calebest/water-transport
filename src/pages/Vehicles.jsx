@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { vehicleService } from "../services/vehicles";
 import { Badge, Modal, StatCard } from "../components/ui";
 import { fmt, summarize } from "../utils/helpers";
+import TripGroup from "../components/TripGroup";
 
 export default function VehiclesPage({ vehicles, trips }) {
   const { isAdmin } = useAuth();
@@ -16,6 +18,19 @@ export default function VehiclesPage({ vehicles, trips }) {
     const vehTrips = trips.filter(t => t.lorry === selectedVeh.plate);
     const sum = summarize(vehTrips);
 
+    const groupedTrips = useMemo(() => {
+      const groups = {};
+      vehTrips.forEach(t => {
+        if (!groups[t.date]) groups[t.date] = [];
+        groups[t.date].push(t);
+      });
+      return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(date => ({
+        date,
+        trips: groups[date],
+        summary: summarize(groups[date])
+      }));
+    }, [vehTrips]);
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
@@ -23,54 +38,29 @@ export default function VehiclesPage({ vehicles, trips }) {
             ← Back
           </button>
           <h2 className="text-xl font-black text-slate-800">{selectedVeh.name} ({selectedVeh.plate})</h2>
-          <Badge color={selectedVeh.status === "Active" ? "green" : "rose"}>{selectedVeh.status}</Badge>
+          <Badge color={selectedVeh.status === "Active" ? "green" : "red"}>{selectedVeh.status}</Badge>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard label="Total Trips" value={sum.count} icon="🚛" color="blue" />
-          <StatCard label="Total Revenue" value={fmt(sum.revenue)} icon="💰" color="emerald" />
-          <StatCard label="Total Expenses" value={fmt(sum.expenses)} icon="📉" color="rose" />
-          <StatCard label="Total Profit" value={fmt(sum.profit)} icon="📈" color={sum.profit >= 0 ? "emerald" : "rose"} />
+          <StatCard label="Total Revenue" value={fmt(sum.revenue)} icon="💰" color="green" />
+          <StatCard label="Total Expenses" value={fmt(sum.expenses)} icon="📉" color="red" />
+          <StatCard label="Total Profit" value={fmt(sum.profit)} icon="📈" color={sum.profit >= 0 ? "green" : "red"} />
         </div>
 
-        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden mt-6">
-          <div className="p-4 bg-slate-50 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800">Trip History</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-white">
-                  {["Date", "Trip #", "Location", "Revenue", "Expenses", "Profit", "Status"].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {vehTrips.length === 0 ? (
-                  <tr><td colSpan={7} className="py-12 text-center text-slate-400">No trips logged yet</td></tr>
-                ) : vehTrips.map(t => (
-                  <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-slate-700">{t.date}</td>
-                    <td className="px-4 py-3 text-slate-600 font-semibold">{t.tripNumber}</td>
-                    <td className="px-4 py-3 text-slate-600">{t.location || "N/A"}</td>
-                    <td className="px-4 py-3 font-semibold text-blue-600">{fmt(t.revenue)}</td>
-                    <td className="px-4 py-3 font-semibold text-rose-500">{fmt(t.totalExpenses)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`font-bold ${Number(t.profit) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                        {fmt(t.profit)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge color={t.status === "Paid" ? "green" : t.status === "Partial" ? "amber" : "rose"}>
-                        {t.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="mt-6">
+          <h3 className="font-bold text-slate-800 mb-2 px-1">Trip History</h3>
+          {groupedTrips.length === 0 ? (
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm py-12 text-center text-slate-400">
+              No trips logged yet
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {groupedTrips.map(group => (
+                <TripGroup key={group.date} group={group} isAdmin={false} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
