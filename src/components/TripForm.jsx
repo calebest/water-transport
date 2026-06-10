@@ -7,6 +7,10 @@ const EMPTY_FORM = {
   location: "",
   revenue: "",
   amountPaid: "",
+  driverId: "",
+  conductorId: "",
+  odometerStart: "",
+  odometerEnd: "",
   expenses: {
     water: "", diesel: "", petrol: "", police: "", driver: "", conductor: "",
     custom: []   // [{ id, label, amount }]
@@ -23,10 +27,20 @@ const normaliseExpenses = (exp = {}) => ({
   custom: (exp.custom || []).map((c, i) => ({ id: Date.now() + i, label: c.label || "", amount: c.amount ?? "" }))
 });
 
-export default function TripForm({ initial, locations = [], onSave, onCancel }) {
+export default function TripForm({ initial, locations = [], personnel = [], vehicles = [], onSave, onCancel }) {
   const [form, setForm] = useState(() => {
-    if (!initial) return EMPTY_FORM;
-    return { ...initial, expenses: normaliseExpenses(initial.expenses) };
+    if (!initial) return {
+      ...EMPTY_FORM,
+      lorry: vehicles.length > 0 ? vehicles[0].plate : "KBZ",
+    };
+    return {
+      ...initial,
+      driverId: initial.driverId || "",
+      conductorId: initial.conductorId || "",
+      odometerStart: initial.odometerStart || "",
+      odometerEnd: initial.odometerEnd || "",
+      expenses: normaliseExpenses(initial.expenses)
+    };
   });
   const [saving, setSaving] = useState(false);
 
@@ -144,7 +158,9 @@ export default function TripForm({ initial, locations = [], onSave, onCancel }) 
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Lorry *</label>
           <select className={inp} value={form.lorry} onChange={e => setField("lorry", e.target.value)}>
-            <option>KBZ</option><option>KBL</option>
+            {vehicles.length > 0
+              ? vehicles.map(v => <option key={v.id} value={v.plate}>{v.plate}</option>)
+              : <><option>KBZ</option><option>KBL</option></>}
           </select>
         </div>
         <div>
@@ -174,6 +190,38 @@ export default function TripForm({ initial, locations = [], onSave, onCancel }) 
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Amount Paid (KES)</label>
           <input type="number" className={inp} placeholder="Leave blank if fully paid" value={form.amountPaid} onChange={e => setField("amountPaid", e.target.value)} />
+        </div>
+
+        {personnel.length > 0 && (
+          <>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Driver</label>
+              <select className={inp} value={form.driverId} onChange={e => setField("driverId", e.target.value)}>
+                <option value="">— None —</option>
+                {personnel.filter(p => p.role === "Driver" || p.role === "Both").map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Conductor</label>
+              <select className={inp} value={form.conductorId} onChange={e => setField("conductorId", e.target.value)}>
+                <option value="">— None —</option>
+                {personnel.filter(p => p.role === "Conductor" || p.role === "Both").map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1">Odometer Start (km)</label>
+          <input type="number" className={inp} placeholder="Optional" value={form.odometerStart} onChange={e => setField("odometerStart", e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1">Odometer End (km)</label>
+          <input type="number" className={inp} placeholder="Optional" value={form.odometerEnd} onChange={e => setField("odometerEnd", e.target.value)} />
         </div>
 
         {showInlineAdd && (

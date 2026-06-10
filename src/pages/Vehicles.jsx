@@ -129,7 +129,15 @@ export default function VehiclesPage({ vehicles, trips }) {
         })}
         {vehicles.length === 0 && (
           <div className="col-span-full rounded-2xl border-2 border-dashed border-slate-200 py-12 text-center text-slate-400">
-            No vehicles registered
+            <p className="mb-4">No vehicles registered</p>
+            {isAdmin && (
+              <button onClick={async () => {
+                await vehicleService.add({ plate: "KBZ", name: "Lorry KBZ", status: "Active", notes: "Legacy migrated vehicle" });
+                await vehicleService.add({ plate: "KBL", name: "Lorry KBL", status: "Active", notes: "Legacy migrated vehicle" });
+              }} className="rounded-lg bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-200 transition-colors">
+                Auto-Add KBZ & KBL
+              </button>
+            )}
           </div>
         )}
       </div>

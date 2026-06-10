@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 
 export const locationService = {
@@ -19,9 +19,12 @@ export const locationService = {
   },
   delete: async (id) => deleteDoc(doc(db, "locations", id)),
   subscribe: (callback) => {
-    const q = query(collection(db, "locations"), orderBy("name", "asc"));
-    return onSnapshot(q, (snap) => {
-      callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    return onSnapshot(collection(db, "locations"), (snap) => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      callback(docs);
+    }, (err) => {
+      console.error("locations subscribe error:", err.code, err.message);
     });
   }
 };

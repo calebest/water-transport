@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { tripService } from "./services/trips";
 import { locationService } from "./services/locations";
 import { vehicleService } from "./services/vehicles";
+import { personnelService } from "./services/personnel";
+import { maintenanceService } from "./services/maintenance";
 import { Badge } from "./components/ui";
 
 import LoginPage from "./pages/Login";
@@ -12,6 +14,8 @@ import LocationsPage from "./pages/Locations";
 import ReportsPage from "./pages/Reports";
 import UsersPage from "./pages/Users";
 import VehiclesPage from "./pages/Vehicles";
+import PersonnelPage from "./pages/Personnel";
+import MaintenancePage from "./pages/Maintenance";
 
 import "./App.css";
 
@@ -20,21 +24,25 @@ const NAV_ITEMS = [
   { id: "trips", label: "Trips", icon: "🚛" },
   { id: "locations", label: "Locations", icon: "📍" },
   { id: "vehicles", label: "Vehicles", icon: "🚚", adminOnly: true },
+  { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true },
+  { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true },
   { id: "reports", label: "Reports", icon: "📄" },
   { id: "users", label: "Users", icon: "👥", adminOnly: true },
 ];
 
-function Layout({ trips, locations, vehicles }) {
+function Layout({ trips, locations, vehicles, personnel, maintenance }) {
   const { profile, logout, isAdmin } = useAuth();
   const [page, setPage] = useState("dashboard");
 
   const navItems = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
   const pages = {
     dashboard: <DashboardPage trips={trips} vehicles={vehicles} />,
-    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} />,
+    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} />,
     locations: <LocationsPage locations={locations} />,
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} />,
-    reports: <ReportsPage trips={trips} />,
+    personnel: <PersonnelPage personnel={personnel} trips={trips} />,
+    maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
+    reports: <ReportsPage trips={trips} vehicles={vehicles} />,
     users: <UsersPage />
   };
 
@@ -116,17 +124,23 @@ function AppInner() {
   const [trips, setTrips] = useState([]);
   const [locations, setLocations] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [personnel, setPersonnel] = useState([]);
+  const [maintenance, setMaintenance] = useState([]);
 
   useEffect(() => {
     if (!user) return;
     const unsubTrips = tripService.subscribe(setTrips);
     const unsubLocs = locationService.subscribe(setLocations);
     const unsubVehs = vehicleService.subscribe(setVehicles);
+    const unsubPersonnel = personnelService.subscribe(setPersonnel);
+    const unsubMaintenance = maintenanceService.subscribe(setMaintenance);
     
     return () => {
       unsubTrips();
       unsubLocs();
       unsubVehs();
+      unsubPersonnel();
+      unsubMaintenance();
     };
   }, [user]);
 
@@ -140,7 +154,7 @@ function AppInner() {
   );
 
   if (!user) return <LoginPage />;
-  return <Layout trips={trips} locations={locations} vehicles={vehicles} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} />;
 }
 
 export default function App() {

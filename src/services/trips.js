@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { calcExpenses, calcProfit } from "../utils/helpers";
 
@@ -52,9 +52,12 @@ export const tripService = {
   delete: async (id) => deleteDoc(doc(db, "trips", id)),
   
   subscribe: (callback) => {
-    const q = query(collection(db, "trips"), orderBy("date", "desc"));
-    return onSnapshot(q, (snap) => {
-      callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    return onSnapshot(collection(db, "trips"), (snap) => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      callback(docs);
+    }, (err) => {
+      console.error("trips subscribe error:", err.code, err.message);
     });
   }
 };

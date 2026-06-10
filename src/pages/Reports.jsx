@@ -3,27 +3,37 @@ import { today, getWeekRange, getMonthRange, filterByRange, summarize, collectEx
 import { exportCSV, exportPDF } from "../utils/export";
 import { StatCard } from "../components/ui";
 
-export default function ReportsPage({ trips }) {
+export default function ReportsPage({ trips, vehicles }) {
   const [range, setRange] = useState("daily");
   const [customStart, setCustomStart] = useState(today());
   const [customEnd, setCustomEnd] = useState(today());
+  const [filterVehicle, setFilterVehicle] = useState("All Vehicles");
 
   const rangeTrips = useMemo(() => {
-    if (range === "daily") return filterByRange(trips, today(), today());
-    if (range === "weekly") { const [s, e] = getWeekRange(); return filterByRange(trips, s, e); }
-    if (range === "monthly") { const [s, e] = getMonthRange(); return filterByRange(trips, s, e); }
-    return filterByRange(trips, customStart, customEnd);
-  }, [trips, range, customStart, customEnd]);
+    let filtered = trips;
+    if (filterVehicle !== "All Vehicles") {
+      filtered = filtered.filter(t => t.lorry === filterVehicle);
+    }
+    if (range === "daily") return filterByRange(filtered, today(), today());
+    if (range === "weekly") { const [s, e] = getWeekRange(); return filterByRange(filtered, s, e); }
+    if (range === "monthly") { const [s, e] = getMonthRange(); return filterByRange(filtered, s, e); }
+    return filterByRange(filtered, customStart, customEnd);
+  }, [trips, range, customStart, customEnd, filterVehicle]);
 
   const sum = useMemo(() => summarize(rangeTrips), [rangeTrips]);
-  const kbzSum = useMemo(() => summarize(rangeTrips.filter(t => t.lorry === "KBZ")), [rangeTrips]);
-  const kblSum = useMemo(() => summarize(rangeTrips.filter(t => t.lorry === "KBL")), [rangeTrips]);
+
+  // Identify all unique vehicles that have trips in this filtered range
+  const activeLorryPlates = useMemo(() => {
+    return [...new Set(rangeTrips.map(t => t.lorry))].sort();
+  }, [rangeTrips]);
 
   const { fixed, custom: customLabels } = useMemo(() => collectExpenseKeys(rangeTrips), [rangeTrips]);
 
-  const title = range === "custom"
-    ? `Report ${customStart} to ${customEnd}`
-    : `${range.charAt(0).toUpperCase() + range.slice(1)} Report`;
+  const dateTitle = range === "custom"
+    ? `${customStart} to ${customEnd}`
+    : `${range.charAt(0).toUpperCase() + range.slice(1)}`;
+    
+  const title = `${dateTitle} Report${filterVehicle !== "All Vehicles" ? ` - ${filterVehicle}` : ""}`;
 
   const btnCls = (v) =>
     `px-4 py-2 rounded-xl text-sm font-bold transition-all ${range === v
@@ -35,12 +45,24 @@ export default function ReportsPage({ trips }) {
     <div className="space-y-5">
       <h2 className="text-xl font-black text-slate-800">Reports</h2>
 
-      <div className="flex flex-wrap gap-2">
-        {["daily", "weekly", "monthly", "custom"].map(v => (
-          <button key={v} className={btnCls(v)} onClick={() => setRange(v)}>
-            {v.charAt(0).toUpperCase() + v.slice(1)}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <div className="flex flex-wrap gap-2">
+          {["daily", "weekly", "monthly", "custom"].map(v => (
+            <button key={v} className={btnCls(v)} onClick={() => setRange(v)}>
+              {v.charAt(0).toUpperCase() + v.slice(1)}
+            </button>
+          ))}
+        </div>
+        <select 
+          value={filterVehicle} 
+          onChange={e => setFilterVehicle(e.target.value)}
+          className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none"
+        >
+          <option value="All Vehicles">All Vehicles</option>
+          {vehicles.map(v => (
+            <option key={v.id} value={v.plate}>{v.plate} ({v.name})</option>
+          ))}
+        </select>
       </div>
 
       {range === "custom" && (
@@ -65,18 +87,20 @@ export default function ReportsPage({ trips }) {
         <StatCard label="Trips" value={sum.count} icon="🚛" color="amber" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-400 mb-2">KBZ</p>
-          <p className="text-lg font-black text-slate-800">{fmt(kbzSum.profit)}</p>
-          <p className="text-xs text-slate-500">{kbzSum.count} trips · Rev {fmt(kbzSum.revenue)} · Exp {fmt(kbzSum.expenses)}</p>
+      {filterVehicle === "All Vehicles" && activeLorryPlates.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {activeLorryPlates.map(plate => {
+            const vehSum = summarize(rangeTrips.filter(t => t.lorry === plate));
+            return (
+              <div key={plate} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{plate}</p>
+                <p className="text-lg font-black text-slate-800">{fmt(vehSum.profit)}</p>
+                <p className="text-xs text-slate-500 mt-1">{vehSum.count} trips · Rev {fmt(vehSum.revenue)} · Exp {fmt(vehSum.expenses)}</p>
+              </div>
+            );
+          })}
         </div>
-        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-2">KBL</p>
-          <p className="text-lg font-black text-slate-800">{fmt(kblSum.profit)}</p>
-          <p className="text-xs text-slate-500">{kblSum.count} trips · Rev {fmt(kblSum.revenue)} · Exp {fmt(kblSum.expenses)}</p>
-        </div>
-      </div>
+      )}
 
       <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
         <p className="text-sm font-bold text-slate-700 mb-4">Expense Breakdown</p>

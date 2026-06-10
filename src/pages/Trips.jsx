@@ -6,7 +6,7 @@ import { fmt, summarize } from "../utils/helpers";
 import { exportVoucher } from "../utils/export";
 import TripForm from "../components/TripForm";
 
-export default function TripsPage({ trips, locations, vehicles }) {
+export default function TripsPage({ trips, locations, vehicles, personnel = [] }) {
   const { isAdmin } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editTrip, setEditTrip] = useState(null);
@@ -97,10 +97,10 @@ export default function TripsPage({ trips, locations, vehicles }) {
       </div>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add New Trip" wide>
-        <TripForm locations={locations} onSave={handleAdd} onCancel={() => setAddOpen(false)} />
+        <TripForm locations={locations} personnel={personnel} vehicles={vehicles} onSave={handleAdd} onCancel={() => setAddOpen(false)} />
       </Modal>
       <Modal open={!!editTrip} onClose={() => setEditTrip(null)} title="Edit Trip" wide>
-        {editTrip && <TripForm locations={locations} initial={editTrip} onSave={handleEdit} onCancel={() => setEditTrip(null)} />}
+        {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} initial={editTrip} onSave={handleEdit} onCancel={() => setEditTrip(null)} />}
       </Modal>
       <Modal open={!!delTrip} onClose={() => setDelTrip(null)} title="Delete Trip">
         {delTrip && (
