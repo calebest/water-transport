@@ -136,7 +136,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [] }
   );
 }
 
-function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, markingPaid }) {
+export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, markingPaid }) {
   const [expanded, setExpanded] = useState(true);
 
   return (

@@ -40,7 +40,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
     dashboard: <DashboardPage trips={trips} vehicles={vehicles} />,
     trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} />,
     locations: <LocationsPage locations={locations} />,
-    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} />,
+    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} />,

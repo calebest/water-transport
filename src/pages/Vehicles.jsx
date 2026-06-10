@@ -1,20 +1,61 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { vehicleService } from "../services/vehicles";
+import { tripService } from "../services/trips";
 import { Badge, Modal, StatCard } from "../components/ui";
 import { fmt, summarize } from "../utils/helpers";
+import { TripGroup } from "./Trips";
+import TripForm from "../components/TripForm";
 
-export default function VehiclesPage({ vehicles, trips }) {
+export default function VehiclesPage({ vehicles, trips, locations, personnel }) {
   const { isAdmin } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editVeh, setEditVeh] = useState(null);
   const [delVeh, setDelVeh] = useState(null);
   const [selectedVeh, setSelectedVeh] = useState(null);
 
+  // Trip management states
+  const [editTrip, setEditTrip] = useState(null);
+  const [delTrip, setDelTrip] = useState(null);
+  const [markingPaid, setMarkingPaid] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   // If a vehicle is selected, show its profile
   if (selectedVeh) {
     const vehTrips = trips.filter(t => t.lorry === selectedVeh.plate);
     const sum = summarize(vehTrips);
+
+    const groupedTrips = (() => {
+      const groups = {};
+      vehTrips.forEach(t => {
+        if (!groups[t.date]) groups[t.date] = [];
+        groups[t.date].push(t);
+      });
+      return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(date => ({
+        date,
+        trips: groups[date],
+        summary: summarize(groups[date])
+      }));
+    })();
+
+    const handleEditTrip = (form) => tripService.update(editTrip.id, form);
+    const handleStatusChange = async (trip, newStatus) => {
+      setMarkingPaid(trip.id);
+      try {
+        const amountPaid = newStatus === "Paid" ? Number(trip.revenue)
+          : newStatus === "Pending" ? 0
+          : Number(trip.amountPaid || 0);
+        await tripService.markPaid(trip.id, amountPaid, newStatus);
+      }
+      catch (e) { alert(e.message); }
+      finally { setMarkingPaid(null); }
+    };
+    const handleDelTrip = async () => {
+      setDeleting(true);
+      try { await tripService.delete(delTrip.id); setDelTrip(null); }
+      catch (e) { alert(e.message); }
+      finally { setDeleting(false); }
+    };
 
     return (
       <div className="space-y-4">
@@ -33,45 +74,44 @@ export default function VehiclesPage({ vehicles, trips }) {
           <StatCard label="Total Profit" value={fmt(sum.profit)} icon="📈" color={sum.profit >= 0 ? "green" : "red"} />
         </div>
 
-        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden mt-6">
-          <div className="p-4 bg-slate-50 border-b border-slate-100">
+        <div className="space-y-4 mt-6">
+          <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
             <h3 className="font-bold text-slate-800">Trip History</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-white">
-                  {["Date", "Trip #", "Location", "Revenue", "Expenses", "Profit", "Status"].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {vehTrips.length === 0 ? (
-                  <tr><td colSpan={7} className="py-12 text-center text-slate-400">No trips logged yet</td></tr>
-                ) : vehTrips.map(t => (
-                  <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-slate-700">{t.date}</td>
-                    <td className="px-4 py-3 text-slate-600 font-semibold">{t.tripNumber}</td>
-                    <td className="px-4 py-3 text-slate-600">{t.location || "N/A"}</td>
-                    <td className="px-4 py-3 font-semibold text-blue-600">{fmt(t.revenue)}</td>
-                    <td className="px-4 py-3 font-semibold text-rose-500">{fmt(t.totalExpenses)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`font-bold ${Number(t.profit) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                        {fmt(t.profit)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge color={t.status === "Paid" ? "green" : t.status === "Partial" ? "amber" : "red"}>
-                        {t.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {groupedTrips.length === 0 ? (
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm py-16 text-center text-slate-400">
+              No trips logged yet
+            </div>
+          ) : groupedTrips.map(group => (
+            <TripGroup 
+              key={group.date} 
+              group={group} 
+              isAdmin={isAdmin} 
+              onEdit={setEditTrip} 
+              onDel={setDelTrip} 
+              onStatusChange={handleStatusChange} 
+              markingPaid={markingPaid} 
+            />
+          ))}
         </div>
+
+        <Modal open={!!editTrip} onClose={() => setEditTrip(null)} title="Edit Trip" wide>
+          {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} initial={editTrip} onSave={handleEditTrip} onCancel={() => setEditTrip(null)} />}
+        </Modal>
+        <Modal open={!!delTrip} onClose={() => setDelTrip(null)} title="Delete Trip">
+          {delTrip && (
+            <div className="space-y-4">
+              <p className="text-slate-600">
+                Delete trip <strong>{delTrip.tripNumber}</strong> on {delTrip.date} ({delTrip.lorry})?
+                <br /><span className="text-rose-500 font-semibold">This cannot be undone.</span>
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setDelTrip(null)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button onClick={handleDelTrip} disabled={deleting} className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-60">{deleting ? "Deleting…" : "Delete"}</button>
+              </div>
+            </div>
+          )}
+        </Modal>
       </div>
     );
   }
