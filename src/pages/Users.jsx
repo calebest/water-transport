@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, doc, setDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, updateDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { db, auth } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
 import { Badge } from "../components/ui";
 
 // Secondary Firebase app — used ONLY for creating new users.
@@ -12,6 +13,7 @@ const secondaryApp = initializeApp(auth.app.options, "secondary-user-creator");
 const secondaryAuth = getAuth(secondaryApp);
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
@@ -48,6 +50,14 @@ export default function UsersPage() {
     finally { setAdding(false); }
   };
 
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      await updateDoc(doc(db, "users", userId), { role: newRole });
+    } catch (e) {
+      alert("Failed to update role: " + e.message);
+    }
+  };
+
   const inp = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none";
 
   return (
@@ -80,10 +90,10 @@ export default function UsersPage() {
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1">Role</label>
               <select className={inp} value={newRole} onChange={e => setNewRole(e.target.value)}>
-                <option value="viewer">Viewer (read-only)</option>
-                <option value="driver">Driver (can submit trips)</option>
-                <option value="conductor">Conductor (can submit trips)</option>
-                <option value="admin">Admin (full access)</option>
+                <option value="viewer">Viewer</option>
+                <option value="driver">Driver</option>
+                <option value="conductor">Conductor</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
           </div>
@@ -111,7 +121,20 @@ export default function UsersPage() {
                 <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
                 <td className="px-4 py-3 text-slate-500">{u.email}</td>
                 <td className="px-4 py-3">
-                  <Badge color={u.role === "admin" ? "green" : u.role === "driver" ? "blue" : u.role === "conductor" ? "amber" : "slate"}>{u.role}</Badge>
+                  {u.id === currentUser?.uid ? (
+                    <Badge color="green">{u.role}</Badge>
+                  ) : (
+                    <select
+                      value={u.role || "viewer"}
+                      onChange={e => handleRoleChange(u.id, e.target.value)}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                    >
+                      <option value="viewer">Viewer</option>
+                      <option value="driver">Driver</option>
+                      <option value="conductor">Conductor</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  )}
                 </td>
               </tr>
             ))}
