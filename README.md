@@ -1,8 +1,8 @@
 # Water Transport Manager
 
-A web app for tracking water delivery trips, expenses, and profit across your lorry fleet. Built for day-to-day operations in Kenya (KES currency), with real-time data sync, role-based access, and exportable reports.
+A web app for tracking water delivery trips, expenses, and profit across your lorry fleet. Built for day-to-day operations in Kenya (KES currency), with real-time data sync, role-based access, trip approval workflows, exportable reports, and full offline/PWA support.
 
-**Live stack:** React + Vite · Firebase Auth & Firestore · Tailwind CSS · Recharts · jsPDF
+**Live stack:** React + Vite · Firebase Auth & Firestore · Tailwind CSS · Recharts · jsPDF · Vite PWA
 
 ---
 
@@ -11,63 +11,68 @@ A web app for tracking water delivery trips, expenses, and profit across your lo
 Water Transport Manager helps you run delivery operations from one place:
 
 - **Set delivery routes** with standard prices per location
+- **Manage Personnel & Vehicles** to keep track of your fleet and staff (Drivers, Conductors)
 - **Log every trip** for each lorry, including revenue, expenses, and payment status
+- **Trip Approvals** — Drivers can submit trips, but they remain "Pending" until an Admin approves them
 - **See profit automatically** — expenses are totaled and subtracted from revenue on save
 - **Monitor performance** on a live dashboard with daily, weekly, and monthly summaries
 - **Generate reports** and export them as CSV or PDF for accounting and records
+- **Offline Mode** — Installed as a Progressive Web App (PWA), the app works offline and caches data for seamless use on the road
 
-The app tracks two lorries by default: **KBZ** and **KBL**. All monetary values are shown in **KES**.
+All monetary values are shown in **KES**.
 
 ---
 
 ## How the system works
 
+```text
+Locations / Personnel / Vehicles  →  Trips  →  Approvals  →  Dashboard & Reports
+         (setup)                  (records)   (admins)     (charts + exports)
 ```
-Locations  →  Trips  →  Auto-calculations  →  Dashboard & Reports
-(routes)      (records)   (profit/expenses)     (charts + exports)
-```
 
-### 1. Set routes and prices
+### 1. Set routes, vehicles, and personnel
 
-Admins create **locations** — each location is a delivery route with a standard revenue price (e.g. Mombasa → KES 15,000).
+Admins can create:
+- **Locations**: A delivery route with a standard revenue price (e.g., Mombasa → KES 15,000).
+- **Vehicles**: The lorries in your fleet (e.g., KBZ, KBL) with status tracking.
+- **Personnel**: Profiles for your Drivers and Conductors.
 
-When recording a trip, selecting a location auto-fills the expected revenue. New locations can also be added inline while creating a trip.
+### 2. Link Auth Users to Personnel
 
-### 2. Record each trip
+When creating a User account for a Driver or Conductor, Admins can link their login to a Personnel profile. When a linked driver logs in to submit a trip, their name is auto-filled and locked in the "Driver" field, ensuring accountability.
+
+### 3. Record each trip
 
 Each trip captures:
 
 | Field | Description |
 |-------|-------------|
 | Date | Day the trip happened |
-| Lorry | KBZ or KBL |
-| Trip # | Your internal trip reference |
+| Lorry | Selected from the Vehicles list |
+| Trip # | Internal trip reference (auto-pads to 3 digits, e.g., 001) |
 | Location | Delivery route (from the locations list) |
 | Revenue | Amount earned (KES) |
-| Status | `Pending` or `Paid` |
+| Status | `Pending`, `Partial`, or `Paid` |
 
 **Standard expenses** (fixed fields on every trip):
-
 - Water, Diesel, Petrol, Police, Driver, Conductor
 
-**Custom expenses** can be added per trip (e.g. repairs, tolls) with a label and amount.
+**Custom expenses** can be added per trip (e.g., repairs, tolls) with a label and amount.
 
-### 3. Profit is calculated automatically
+### 4. Profit is calculated automatically
 
 On every save, the app:
-
 1. Sums all standard + custom expenses → `totalExpenses`
 2. Subtracts from revenue → `profit`
 3. Syncs the result to Firestore in real time
 
-All connected users see updated figures immediately — no manual refresh needed.
+### 5. Review, Approve, and Export
 
-### 4. Review and export
-
-- **Dashboard** — today's totals, 14-day profit trend, KBZ vs KBL comparison, week/month summaries
-- **Trips** — searchable list with filters by lorry, date, and keyword
-- **Reports** — daily, weekly, monthly, or custom date range with expense breakdown and lorry split
-- **Export** — download any report period as CSV or PDF
+- **Trip Approvals** — Trips submitted by Drivers appear with a red notification badge for Admins to review and approve.
+- **Dashboard** — Live overview of revenue, expenses, profit, and trends (excludes unapproved pending trips).
+- **Trips** — Searchable list with filters by lorry, date, and keyword.
+- **Reports** — Daily, weekly, monthly, or custom date range summaries.
+- **Export** — Download any report period as CSV or PDF.
 
 ---
 
@@ -75,22 +80,10 @@ All connected users see updated figures immediately — no manual refresh needed
 
 | Role | Access |
 |------|--------|
-| **Admin** | Full access: add/edit/delete trips and locations, manage users, view all pages |
+| **Admin** | Full access: approve trips, manage users/personnel/vehicles, view all pages |
+| **Driver** | Can submit new trips and propose edits to their own trips. Submissions require Admin approval. |
+| **Conductor** | Same as Driver. Can submit new trips and propose edits. |
 | **Viewer** | Read-only: view dashboard, trips, locations, and reports. Cannot create or delete records |
-
-Admins manage users from the **Users** page (admin-only). New users are created with email/password via Firebase Authentication and assigned a role stored in Firestore.
-
----
-
-## Pages
-
-| Page | Purpose |
-|------|---------|
-| **Dashboard** | Live overview — revenue, expenses, profit, trip count, charts |
-| **Trips** | Full trip log with search and filters |
-| **Locations** | Manage delivery routes and standard prices |
-| **Reports** | Period summaries with expense breakdown and exports |
-| **Users** | Create and view team members (admin only) |
 
 ---
 
@@ -101,26 +94,9 @@ Admins manage users from the **Users** page (admin-only). New users are created 
 | Frontend | React 19, Vite 8, Tailwind CSS 4 |
 | Backend | Firebase Authentication (email/password) |
 | Database | Cloud Firestore (real-time listeners) |
+| Offline | Vite PWA Plugin + Workbox |
 | Charts | Recharts |
 | PDF export | jsPDF + jspdf-autotable |
-
----
-
-## Project structure
-
-```
-water-transport/
-├── src/
-│   ├── App.jsx          # Main app — all pages, services, and UI
-│   ├── firebase.js      # Firebase initialization (reads from .env)
-│   ├── main.jsx         # React entry point
-│   └── index.css        # Global styles
-├── public/              # Static assets (favicon, icons)
-├── .env.example         # Template for Firebase config (safe to commit)
-├── .env                 # Your real Firebase keys (never commit this)
-├── WaterTransportManager.jsx  # Standalone reference copy of the app
-└── package.json
-```
 
 ---
 
@@ -163,7 +139,7 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
 
-> **Important:** Never commit `.env` to git. It is listed in `.gitignore`. Only `.env.example` (with placeholders) belongs in the repository.
+> **Important:** Never commit `.env` to git. It is listed in `.gitignore`. Only `.env.example` belongs in the repository.
 
 ### 4. Apply Firestore security rules
 
@@ -181,16 +157,37 @@ service cloud.firestore {
 
     match /trips/{tripId} {
       allow read: if isAuthed();
-      allow create, update, delete: if isAuthed() && isAdmin();
+      // Allow drivers and conductors to submit and edit trips
+      allow create, update: if isAuthed() && (role() == 'admin' || role() == 'driver' || role() == 'conductor');
+      allow delete: if isAuthed() && isAdmin();
     }
+
     match /locations/{locationId} {
       allow read: if isAuthed();
       allow create, update, delete: if isAuthed() && isAdmin();
     }
+
+    match /vehicles/{vehicleId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && isAdmin();
+    }
+
+    match /personnel/{personnelId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && isAdmin();
+    }
+
+    match /maintenance/{maintenanceId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && isAdmin();
+    }
+
     match /users/{userId} {
       allow read: if isAuthed();
       allow create: if isAuthed() && isAdmin();
       allow update: if isAuthed() && (request.auth.uid == userId || isAdmin());
+      // Admin delete permission
+      allow delete: if isAuthed() && isAdmin();
     }
   }
 }
@@ -229,25 +226,6 @@ npm run lint
 ```
 
 Open the URL shown in the terminal (usually `http://localhost:5173`).
-
----
-
-## Firestore collections
-
-| Collection | Documents | Key fields |
-|------------|-----------|------------|
-| `trips` | One per delivery run | `date`, `lorry`, `tripNumber`, `location`, `revenue`, `expenses`, `totalExpenses`, `profit`, `status` |
-| `locations` | One per route | `name`, `revenue` |
-| `users` | One per team member | `name`, `email`, `role` (`admin` or `viewer`) |
-
----
-
-## Security notes
-
-- Firebase config lives in `.env`, not in source code
-- Restrict your Firebase API key in [Google Cloud Console](https://console.cloud.google.com/apis/credentials) to your app's domains
-- Firestore rules enforce role-based write access — viewers cannot modify trips or locations
-- Rotate API keys if they were ever committed to a public repository
 
 ---
 
