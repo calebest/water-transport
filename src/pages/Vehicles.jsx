@@ -23,14 +23,14 @@ export default function VehiclesPage({ vehicles, trips }) {
             ← Back
           </button>
           <h2 className="text-xl font-black text-slate-800">{selectedVeh.name} ({selectedVeh.plate})</h2>
-          <Badge color={selectedVeh.status === "Active" ? "green" : "rose"}>{selectedVeh.status}</Badge>
+          <Badge color={selectedVeh.status === "Active" ? "green" : "red"}>{selectedVeh.status}</Badge>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard label="Total Trips" value={sum.count} icon="🚛" color="blue" />
-          <StatCard label="Total Revenue" value={fmt(sum.revenue)} icon="💰" color="emerald" />
-          <StatCard label="Total Expenses" value={fmt(sum.expenses)} icon="📉" color="rose" />
-          <StatCard label="Total Profit" value={fmt(sum.profit)} icon="📈" color={sum.profit >= 0 ? "emerald" : "rose"} />
+          <StatCard label="Total Revenue" value={fmt(sum.revenue)} icon="💰" color="green" />
+          <StatCard label="Total Expenses" value={fmt(sum.expenses)} icon="📉" color="red" />
+          <StatCard label="Total Profit" value={fmt(sum.profit)} icon="📈" color={sum.profit >= 0 ? "green" : "red"} />
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden mt-6">
@@ -62,7 +62,7 @@ export default function VehiclesPage({ vehicles, trips }) {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge color={t.status === "Paid" ? "green" : t.status === "Partial" ? "amber" : "rose"}>
+                      <Badge color={t.status === "Paid" ? "green" : t.status === "Partial" ? "amber" : "red"}>
                         {t.status}
                       </Badge>
                     </td>
