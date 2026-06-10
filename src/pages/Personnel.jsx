@@ -134,17 +134,25 @@ export default function PersonnelPage({ personnel, trips }) {
             <div key={p.id}
               className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative"
               onClick={() => setSelected(p)}>
-              <div className="flex items-start gap-3 mb-3">
-                <div className="h-11 w-11 rounded-full bg-emerald-100 flex items-center justify-center text-lg font-black text-emerald-700 flex-shrink-0">
-                  {p.name.charAt(0)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-black text-slate-800 truncate">{p.name}</h3>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Badge color={p.role === "Driver" ? "blue" : p.role === "Conductor" ? "amber" : "emerald"}>{p.role}</Badge>
-                    <Badge color={p.status === "Active" ? "green" : "slate"}>{p.status}</Badge>
+              <div className="flex flex-wrap justify-between items-start mb-3 gap-2">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="h-11 w-11 rounded-full bg-emerald-100 flex items-center justify-center text-lg font-black text-emerald-700 flex-shrink-0">
+                    {p.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-black text-slate-800 truncate w-full">{p.name}</h3>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <Badge color={p.role === "Driver" ? "blue" : p.role === "Conductor" ? "amber" : "emerald"}>{p.role}</Badge>
+                      <Badge color={p.status === "Active" ? "green" : "slate"}>{p.status}</Badge>
+                    </div>
                   </div>
                 </div>
+                {isAdmin && (
+                  <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => setEditPerson(p)} className="text-blue-500 hover:text-blue-700 p-1" title="Edit Person">✏️</button>
+                    <button onClick={() => setDelPerson(p)} className="text-rose-500 hover:text-rose-700 p-1" title="Delete Person">🗑️</button>
+                  </div>
+                )}
               </div>
               <div className="space-y-1 text-sm mt-3">
                 {p.phone && (
@@ -152,13 +160,6 @@ export default function PersonnelPage({ personnel, trips }) {
                 )}
                 <p className="text-slate-500 text-xs">🚛 {pTrips.length} trips logged</p>
               </div>
-
-              {isAdmin && (
-                <div className="absolute top-4 right-4 flex gap-2" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => setEditPerson(p)} className="text-blue-500 hover:text-blue-700 p-1">✏️</button>
-                  <button onClick={() => setDelPerson(p)} className="text-rose-500 hover:text-rose-700 p-1">🗑️</button>
-                </div>
-              )}
             </div>
           );
         })}
