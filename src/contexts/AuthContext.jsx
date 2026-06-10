@@ -32,10 +32,15 @@ export function AuthProvider({ children }) {
 
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
   const logout = () => signOut(auth);
-  const isAdmin = profile?.role === "admin";
+
+  const isAdmin     = profile?.role === "admin";
+  const isDriver    = profile?.role === "driver";
+  const isConductor = profile?.role === "conductor";
+  const canAddTrips = isAdmin || isDriver || isConductor;
+  const userId      = user?.uid || null;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isDriver, isConductor, canAddTrips, userId }}>
       {children}
     </AuthContext.Provider>
   );

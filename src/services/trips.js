@@ -2,15 +2,23 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimest
 import { db } from "../firebase";
 import { calcExpenses, calcProfit } from "../utils/helpers";
 
-export const tripService = {
-  add: async (data) => {
-    const totalExpenses = calcExpenses(data.expenses);
-    const profit = calcProfit(data.revenue, totalExpenses);
-    
-    const revenue = Number(data.revenue || 0);
-    const amountPaid = data.amountPaid !== undefined ? Number(data.amountPaid) : revenue; // Default to fully paid if not specified
-    const status = amountPaid >= revenue ? "Paid" : (amountPaid > 0 ? "Partial" : "Pending");
+const calcFields = (data) => {
+  const totalExpenses = calcExpenses(data.expenses);
+  const profit = calcProfit(data.revenue, totalExpenses);
+  const revenue = Number(data.revenue || 0);
+  const amountPaid = data.amountPaid !== undefined ? Number(data.amountPaid) : revenue;
+  const status = amountPaid >= revenue ? "Paid" : (amountPaid > 0 ? "Partial" : "Pending");
+  return { totalExpenses, profit, revenue, amountPaid, status };
+};
 
+export const tripService = {
+  /**
+   * Add a new trip.
+   * - Admin: instantly approved.
+   * - Driver/Conductor: saved as "pending" — requires admin approval.
+   */
+  add: async (data, { userId = null, isAdmin = false } = {}) => {
+    const { totalExpenses, profit, revenue, amountPaid, status } = calcFields(data);
     return addDoc(collection(db, "trips"), {
       ...data,
       revenue,
@@ -18,37 +26,92 @@ export const tripService = {
       profit,
       amountPaid,
       status,
-      // Optional tracking fields (will be undefined if not provided)
       driverId: data.driverId || null,
       conductorId: data.conductorId || null,
       odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
       odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
-      createdAt: serverTimestamp()
+      approvalStatus: isAdmin ? "approved" : "pending",
+      submittedBy: userId,
+      pendingEdits: null,
+      createdAt: serverTimestamp(),
     });
   },
-  
-  update: async (id, data) => {
-    const totalExpenses = calcExpenses(data.expenses);
-    const profit = calcProfit(data.revenue, totalExpenses);
-    
-    const revenue = Number(data.revenue || 0);
-    const amountPaid = data.amountPaid !== undefined ? Number(data.amountPaid) : revenue;
-    const status = amountPaid >= revenue ? "Paid" : (amountPaid > 0 ? "Partial" : "Pending");
 
-    return updateDoc(doc(db, "trips", id), {
-      ...data,
-      revenue,
-      totalExpenses,
-      profit,
-      amountPaid,
-      status,
-      driverId: data.driverId || null,
-      conductorId: data.conductorId || null,
-      odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
-      odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
-    });
+  /**
+   * Update a trip.
+   * - Admin: applies directly and marks as approved.
+   * - Driver/Conductor: saves changes as pendingEdits — requires admin approval.
+   */
+  update: async (id, data, { isAdmin = false } = {}) => {
+    if (isAdmin) {
+      const { totalExpenses, profit, revenue, amountPaid, status } = calcFields(data);
+      return updateDoc(doc(db, "trips", id), {
+        ...data,
+        revenue,
+        totalExpenses,
+        profit,
+        amountPaid,
+        status,
+        driverId: data.driverId || null,
+        conductorId: data.conductorId || null,
+        odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
+        odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
+        approvalStatus: "approved",
+        pendingEdits: null,
+      });
+    } else {
+      // Store full form data as a pending edit; original is preserved.
+      return updateDoc(doc(db, "trips", id), {
+        pendingEdits: data,
+        approvalStatus: "pending_edit",
+      });
+    }
   },
-  
+
+  /**
+   * Admin approves a trip or a pending edit.
+   */
+  approve: async (id, trip) => {
+    if (trip.pendingEdits) {
+      // Apply the pending edits with fresh calculations.
+      const data = trip.pendingEdits;
+      const { totalExpenses, profit, revenue, amountPaid, status } = calcFields(data);
+      return updateDoc(doc(db, "trips", id), {
+        ...data,
+        revenue,
+        totalExpenses,
+        profit,
+        amountPaid,
+        status,
+        driverId: data.driverId || null,
+        conductorId: data.conductorId || null,
+        odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
+        odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
+        approvalStatus: "approved",
+        pendingEdits: null,
+      });
+    } else {
+      // Approve a new trip submission.
+      return updateDoc(doc(db, "trips", id), { approvalStatus: "approved" });
+    }
+  },
+
+  /**
+   * Admin rejects a trip submission or discards a pending edit.
+   * - New pending trip → marked as "rejected" (stays visible to driver).
+   * - Pending edit → discarded, original trip restored to approved.
+   */
+  reject: async (id, trip) => {
+    if (trip.approvalStatus === "pending_edit") {
+      return updateDoc(doc(db, "trips", id), {
+        approvalStatus: "approved",
+        pendingEdits: null,
+      });
+    } else {
+      return updateDoc(doc(db, "trips", id), { approvalStatus: "rejected" });
+    }
+  },
+
   delete: async (id) => deleteDoc(doc(db, "trips", id)),
 
   markPaid: async (id, amountPaid, status) => {
@@ -57,7 +120,7 @@ export const tripService = {
       status,
     });
   },
-  
+
   subscribe: (callback) => {
     return onSnapshot(collection(db, "trips"), (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));

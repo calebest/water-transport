@@ -80,8 +80,10 @@ export default function UsersPage() {
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1">Role</label>
               <select className={inp} value={newRole} onChange={e => setNewRole(e.target.value)}>
-                <option value="viewer">Viewer</option>
-                <option value="admin">Admin</option>
+                <option value="viewer">Viewer (read-only)</option>
+                <option value="driver">Driver (can submit trips)</option>
+                <option value="conductor">Conductor (can submit trips)</option>
+                <option value="admin">Admin (full access)</option>
               </select>
             </div>
           </div>
@@ -109,7 +111,7 @@ export default function UsersPage() {
                 <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
                 <td className="px-4 py-3 text-slate-500">{u.email}</td>
                 <td className="px-4 py-3">
-                  <Badge color={u.role === "admin" ? "green" : "slate"}>{u.role}</Badge>
+                  <Badge color={u.role === "admin" ? "green" : u.role === "driver" ? "blue" : u.role === "conductor" ? "amber" : "slate"}>{u.role}</Badge>
                 </td>
               </tr>
             ))}
