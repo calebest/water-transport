@@ -50,6 +50,13 @@ export const tripService = {
   },
   
   delete: async (id) => deleteDoc(doc(db, "trips", id)),
+
+  markPaid: async (id, revenue) => {
+    return updateDoc(doc(db, "trips", id), {
+      amountPaid: Number(revenue),
+      status: "Paid",
+    });
+  },
   
   subscribe: (callback) => {
     return onSnapshot(collection(db, "trips"), (snap) => {
