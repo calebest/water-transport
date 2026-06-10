@@ -3,53 +3,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { today, getWeekRange, getMonthRange, filterByRange, summarize, fmt } from "../utils/helpers";
 import { StatCard } from "../components/ui";
 
-const SYSTEM_FLOW_STEPS = [
-  {
-    step: "01",
-    title: "Set routes and prices",
-    text: "Locations store the standard price for each delivery route, so new trip revenue can be filled from the route list."
-  },
-  {
-    step: "02",
-    title: "Record each trip",
-    text: "A trip captures the lorry, date, route, trip number, payment status, and all standard or extra expenses."
-  },
-  {
-    step: "03",
-    title: "Calculate profit",
-    text: "The system totals expenses automatically, subtracts them from revenue, and keeps the dashboard figures current."
-  },
-  {
-    step: "04",
-    title: "Review and export",
-    text: "Reports summarize daily, weekly, and monthly performance by lorry, with CSV and PDF exports ready for records."
-  }
-];
 
-function SystemFlowHighlight() {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
-      <div className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-blue-50 px-5 py-4">
-        <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">How the system works</p>
-        <h2 className="mt-1 text-lg font-black text-slate-800">From route setup to profit reports</h2>
-      </div>
-      <div className="grid gap-0 md:grid-cols-4">
-        {SYSTEM_FLOW_STEPS.map((item, index) => (
-          <div
-            key={item.step}
-            className={`relative p-5 ${index < SYSTEM_FLOW_STEPS.length - 1 ? "border-b border-slate-100 md:border-b-0 md:border-r" : ""}`}
-          >
-            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-xs font-black text-white shadow-md shadow-emerald-600/20">
-              {item.step}
-            </div>
-            <h3 className="text-sm font-black text-slate-800">{item.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{item.text}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 export default function DashboardPage({ trips, vehicles = [] }) {
   const todayStr = today();
@@ -108,7 +62,6 @@ export default function DashboardPage({ trips, vehicles = [] }) {
         </div>
       </div>
 
-      <SystemFlowHighlight />
 
       <div className={`grid grid-cols-2 ${vehicleTodayStats.length > 2 ? 'lg:grid-cols-4' : ''} gap-3`}>
         {vehicleTodayStats.map(v => (
