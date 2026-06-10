@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react";
 import { collection, onSnapshot, doc, setDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { db, auth } from "../firebase";
 import { Badge } from "../components/ui";
+
+// Secondary Firebase app — used ONLY for creating new users.
+// This prevents createUserWithEmailAndPassword from signing out the current admin.
+const secondaryApp = initializeApp(auth.app.options, "secondary-user-creator");
+const secondaryAuth = getAuth(secondaryApp);
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -15,17 +22,27 @@ export default function UsersPage() {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    return onSnapshot(collection(db, "users"), snap => {
-      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    return onSnapshot(
+      collection(db, "users"),
+      snap => {
+        setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      },
+      err => {
+        console.error("Users snapshot error:", err.message);
+        setErr("Could not load users: " + err.message);
+      }
+    );
   }, []);
 
   const handleAddUser = async () => {
     if (!newEmail || !newName || !newPass) { setErr("All fields required."); return; }
     setAdding(true); setErr("");
     try {
-      const cred = await createUserWithEmailAndPassword(auth, newEmail, newPass);
+      // Use secondary auth so the admin is NOT signed out
+      const cred = await createUserWithEmailAndPassword(secondaryAuth, newEmail, newPass);
       await setDoc(doc(db, "users", cred.user.uid), { name: newName, email: newEmail, role: newRole });
+      // Sign out the secondary session immediately
+      await secondaryAuth.signOut();
       setNewEmail(""); setNewName(""); setNewPass(""); setShowForm(false);
     } catch (e) { setErr(e.message); }
     finally { setAdding(false); }
