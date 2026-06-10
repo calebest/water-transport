@@ -6,26 +6,51 @@ export const tripService = {
   add: async (data) => {
     const totalExpenses = calcExpenses(data.expenses);
     const profit = calcProfit(data.revenue, totalExpenses);
+    
+    const revenue = Number(data.revenue || 0);
+    const amountPaid = data.amountPaid !== undefined ? Number(data.amountPaid) : revenue; // Default to fully paid if not specified
+    const status = amountPaid >= revenue ? "Paid" : (amountPaid > 0 ? "Partial" : "Pending");
+
     return addDoc(collection(db, "trips"), {
       ...data,
-      revenue: Number(data.revenue),
+      revenue,
       totalExpenses,
       profit,
-      status: data.status || "Pending",
+      amountPaid,
+      status,
+      // Optional tracking fields (will be undefined if not provided)
+      driverId: data.driverId || null,
+      conductorId: data.conductorId || null,
+      odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
+      odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
       createdAt: serverTimestamp()
     });
   },
+  
   update: async (id, data) => {
     const totalExpenses = calcExpenses(data.expenses);
     const profit = calcProfit(data.revenue, totalExpenses);
+    
+    const revenue = Number(data.revenue || 0);
+    const amountPaid = data.amountPaid !== undefined ? Number(data.amountPaid) : revenue;
+    const status = amountPaid >= revenue ? "Paid" : (amountPaid > 0 ? "Partial" : "Pending");
+
     return updateDoc(doc(db, "trips", id), {
       ...data,
-      revenue: Number(data.revenue),
+      revenue,
       totalExpenses,
-      profit
+      profit,
+      amountPaid,
+      status,
+      driverId: data.driverId || null,
+      conductorId: data.conductorId || null,
+      odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
+      odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
     });
   },
+  
   delete: async (id) => deleteDoc(doc(db, "trips", id)),
+  
   subscribe: (callback) => {
     const q = query(collection(db, "trips"), orderBy("date", "desc"));
     return onSnapshot(q, (snap) => {

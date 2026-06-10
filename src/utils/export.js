@@ -74,3 +74,84 @@ export const exportPDF = (trips, title) => {
 
   doc.save(`${title.replace(/\s+/g, "-")}.pdf`);
 };
+
+export const exportVoucher = (trip) => {
+  const doc = new jsPDF({ format: 'a5' }); // A5 size for receipts
+  
+  doc.setFontSize(18); doc.setTextColor(30, 130, 80);
+  doc.text("WATER TRANSPORT MANAGER", 10, 15);
+  
+  doc.setFontSize(14); doc.setTextColor(60, 60, 60);
+  doc.text("TRIP VOUCHER", 10, 25);
+  
+  doc.setFontSize(10); doc.setTextColor(100, 100, 100);
+  doc.text(`Receipt #: ${trip.id.substring(0, 8).toUpperCase()}`, 10, 32);
+  doc.text(`Printed: ${new Date().toLocaleString()}`, 10, 37);
+
+  doc.setLineWidth(0.5); doc.setDrawColor(200, 200, 200);
+  doc.line(10, 42, 138, 42);
+
+  // Trip Details
+  doc.setFontSize(11); doc.setTextColor(30, 30, 30);
+  doc.text("TRIP DETAILS", 10, 50);
+  doc.setFontSize(10);
+  doc.text(`Date: ${trip.date}`, 10, 58);
+  doc.text(`Lorry: ${trip.lorry}`, 10, 64);
+  doc.text(`Trip #: ${trip.tripNumber}`, 10, 70);
+  doc.text(`Location: ${trip.location || 'N/A'}`, 10, 76);
+
+  // Financials
+  doc.setFontSize(11); doc.setFont("helvetica", "bold");
+  doc.text("FINANCIAL SUMMARY", 80, 50);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  doc.text(`Revenue:`, 80, 58); doc.text(`KES ${fmtN(trip.revenue)}`, 138, 58, { align: "right" });
+  
+  const amountPaid = trip.amountPaid !== undefined ? trip.amountPaid : trip.revenue;
+  doc.text(`Amount Paid:`, 80, 64); doc.text(`KES ${fmtN(amountPaid)}`, 138, 64, { align: "right" });
+  
+  const balance = trip.revenue - amountPaid;
+  if (balance > 0) {
+    doc.setTextColor(200, 50, 50);
+    doc.text(`Balance Due:`, 80, 70); doc.text(`KES ${fmtN(balance)}`, 138, 70, { align: "right" });
+    doc.setTextColor(30, 30, 30);
+  }
+  
+  doc.text(`Status:`, 80, 76); doc.text(`${trip.status}`, 138, 76, { align: "right" });
+
+  doc.line(10, 84, 138, 84);
+
+  // Expenses Breakdown
+  doc.setFontSize(11); doc.setFont("helvetica", "bold");
+  doc.text("EXPENSES BREAKDOWN", 10, 93);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  
+  let y = 101;
+  const fixedKeys = ['water', 'diesel', 'petrol', 'police', 'driver', 'conductor'];
+  fixedKeys.forEach(k => {
+    if (trip.expenses?.[k]) {
+      doc.text(`${k.charAt(0).toUpperCase() + k.slice(1)}:`, 10, y);
+      doc.text(`KES ${fmtN(trip.expenses[k])}`, 70, y, { align: "right" });
+      y += 6;
+    }
+  });
+
+  (trip.expenses?.custom || []).forEach(c => {
+    if (c.amount) {
+      doc.text(`${c.label || 'Custom'}:`, 10, y);
+      doc.text(`KES ${fmtN(c.amount)}`, 70, y, { align: "right" });
+      y += 6;
+    }
+  });
+
+  doc.setLineWidth(0.2); doc.line(10, y, 70, y);
+  y += 6;
+  doc.setFont("helvetica", "bold");
+  doc.text(`Total Expenses:`, 10, y);
+  doc.text(`KES ${fmtN(trip.totalExpenses)}`, 70, y, { align: "right" });
+  
+  // Footer
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(150, 150, 150);
+  doc.text("Thank you for your business.", 74, 190, { align: "center" });
+
+  doc.save(`Voucher-${trip.lorry}-${trip.tripNumber}-${trip.date}.pdf`);
+};

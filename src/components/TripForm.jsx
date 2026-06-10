@@ -6,11 +6,11 @@ const EMPTY_FORM = {
   date: today(), lorry: "KBZ", tripNumber: "",
   location: "",
   revenue: "",
+  amountPaid: "",
   expenses: {
     water: "", diesel: "", petrol: "", police: "", driver: "", conductor: "",
     custom: []   // [{ id, label, amount }]
-  },
-  status: "Pending"
+  }
 };
 
 const normaliseExpenses = (exp = {}) => ({
@@ -172,10 +172,8 @@ export default function TripForm({ initial, locations = [], onSave, onCancel }) 
           <input type="number" className={inp} placeholder="0" value={form.revenue} onChange={e => setField("revenue", e.target.value)} />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1">Status</label>
-          <select className={inp} value={form.status} onChange={e => setField("status", e.target.value)}>
-            <option>Pending</option><option>Paid</option>
-          </select>
+          <label className="block text-xs font-semibold text-slate-500 mb-1">Amount Paid (KES)</label>
+          <input type="number" className={inp} placeholder="Leave blank if fully paid" value={form.amountPaid} onChange={e => setField("amountPaid", e.target.value)} />
         </div>
 
         {showInlineAdd && (
@@ -298,6 +296,10 @@ export default function TripForm({ initial, locations = [], onSave, onCancel }) 
         <div className="flex justify-between text-sm">
           <span className="text-slate-500">Revenue</span>
           <span className="font-bold text-blue-600">{fmt(form.revenue)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-500">Amount Paid</span>
+          <span className="font-bold text-amber-600">{form.amountPaid !== "" ? fmt(form.amountPaid) : (form.revenue ? fmt(form.revenue) : "0")}</span>
         </div>
         <div className="border-t border-slate-200 pt-2 flex justify-between">
           <span className="font-bold text-slate-700">Profit</span>

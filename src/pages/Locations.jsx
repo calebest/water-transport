@@ -27,7 +27,7 @@ export default function LocationsPage({ locations }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
-                {["Location Name", "Revenue / Price", isAdmin ? "Actions" : ""].map(h => (
+                {["Location Name", "Revenue / Price", "Status", isAdmin ? "Actions" : ""].map(h => (
                   h ? <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th> : <th key="empty" className="px-4 py-3" />
                 ))}
               </tr>
@@ -39,6 +39,11 @@ export default function LocationsPage({ locations }) {
                 <tr key={loc.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3 font-semibold text-slate-700">{loc.name}</td>
                   <td className="px-4 py-3 font-bold text-emerald-600">{fmt(loc.revenue)}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${loc.status === 'Inactive' ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-700'}`}>
+                      {loc.status || 'Active'}
+                    </span>
+                  </td>
                   {isAdmin && (
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
@@ -94,6 +99,7 @@ export default function LocationsPage({ locations }) {
 function LocationForm({ initial, onSave, onCancel }) {
   const [name, setName] = useState(initial?.name || "");
   const [revenue, setRevenue] = useState(initial?.revenue || "");
+  const [status, setStatus] = useState(initial?.status || "Active");
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
@@ -103,7 +109,7 @@ function LocationForm({ initial, onSave, onCancel }) {
     }
     setSaving(true);
     try {
-      await onSave({ name: name.trim(), revenue: Number(revenue) });
+      await onSave({ name: name.trim(), revenue: Number(revenue), status });
       onCancel();
     } catch (e) {
       alert(e.message);
@@ -123,6 +129,13 @@ function LocationForm({ initial, onSave, onCancel }) {
       <div>
         <label className="block text-xs font-semibold text-slate-500 mb-1">Price/Revenue (KES) *</label>
         <input type="number" className={inp} placeholder="e.g. 15000" value={revenue} onChange={e => setRevenue(e.target.value)} />
+      </div>
+      <div>
+        <label className="block text-xs font-semibold text-slate-500 mb-1">Status</label>
+        <select className={inp} value={status} onChange={e => setStatus(e.target.value)}>
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+        </select>
       </div>
       <div className="flex gap-3 pt-2">
         <button onClick={onCancel}

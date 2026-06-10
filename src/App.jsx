@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { tripService } from "./services/trips";
 import { locationService } from "./services/locations";
+import { vehicleService } from "./services/vehicles";
 import { Badge } from "./components/ui";
 
 import LoginPage from "./pages/Login";
@@ -10,6 +11,7 @@ import TripsPage from "./pages/Trips";
 import LocationsPage from "./pages/Locations";
 import ReportsPage from "./pages/Reports";
 import UsersPage from "./pages/Users";
+import VehiclesPage from "./pages/Vehicles";
 
 import "./App.css";
 
@@ -17,19 +19,21 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "📊" },
   { id: "trips", label: "Trips", icon: "🚛" },
   { id: "locations", label: "Locations", icon: "📍" },
+  { id: "vehicles", label: "Vehicles", icon: "🚚", adminOnly: true },
   { id: "reports", label: "Reports", icon: "📄" },
   { id: "users", label: "Users", icon: "👥", adminOnly: true },
 ];
 
-function Layout({ trips, locations }) {
+function Layout({ trips, locations, vehicles }) {
   const { profile, logout, isAdmin } = useAuth();
   const [page, setPage] = useState("dashboard");
 
   const navItems = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
   const pages = {
-    dashboard: <DashboardPage trips={trips} />,
-    trips: <TripsPage trips={trips} locations={locations} />,
+    dashboard: <DashboardPage trips={trips} vehicles={vehicles} />,
+    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} />,
     locations: <LocationsPage locations={locations} />,
+    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} />,
     reports: <ReportsPage trips={trips} />,
     users: <UsersPage />
   };
@@ -111,14 +115,18 @@ function AppInner() {
   const { user, loading } = useAuth();
   const [trips, setTrips] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
 
   useEffect(() => {
     if (!user) return;
     const unsubTrips = tripService.subscribe(setTrips);
     const unsubLocs = locationService.subscribe(setLocations);
+    const unsubVehs = vehicleService.subscribe(setVehicles);
+    
     return () => {
       unsubTrips();
       unsubLocs();
+      unsubVehs();
     };
   }, [user]);
 
@@ -132,7 +140,7 @@ function AppInner() {
   );
 
   if (!user) return <LoginPage />;
-  return <Layout trips={trips} locations={locations} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} />;
 }
 
 export default function App() {

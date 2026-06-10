@@ -51,7 +51,7 @@ function SystemFlowHighlight() {
   );
 }
 
-export default function DashboardPage({ trips }) {
+export default function DashboardPage({ trips, vehicles = [] }) {
   const todayStr = today();
   const [weekStart, weekEnd] = getWeekRange();
   const [monthStart, monthEnd] = getMonthRange();
@@ -81,11 +81,19 @@ export default function DashboardPage({ trips }) {
     return Object.values(days);
   }, [trips]);
 
-  const kbzToday = useMemo(() => summarize(todayTrips.filter(t => t.lorry === "KBZ")), [todayTrips]);
-  const kblToday = useMemo(() => summarize(todayTrips.filter(t => t.lorry === "KBL")), [todayTrips]);
+  const vehicleTodayStats = useMemo(() => {
+    return vehicles.map(v => ({
+      ...v,
+      summary: summarize(todayTrips.filter(t => t.lorry === v.plate))
+    }));
+  }, [vehicles, todayTrips]);
 
-  const kbzMonth = useMemo(() => summarize(monthTrips.filter(t => t.lorry === "KBZ")), [monthTrips]);
-  const kblMonth = useMemo(() => summarize(monthTrips.filter(t => t.lorry === "KBL")), [monthTrips]);
+  const vehicleMonthStats = useMemo(() => {
+    return vehicles.map(v => ({
+      name: v.plate,
+      ...summarize(monthTrips.filter(t => t.lorry === v.plate))
+    }));
+  }, [vehicles, monthTrips]);
 
   return (
     <div className="space-y-6">
@@ -102,17 +110,14 @@ export default function DashboardPage({ trips }) {
 
       <SystemFlowHighlight />
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">KBZ Today</p>
-          <p className="text-xl font-black text-slate-800">{fmt(kbzToday.profit)}</p>
-          <p className="text-xs text-slate-500 mt-1">{kbzToday.count} trips · Rev {fmt(kbzToday.revenue)}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">KBL Today</p>
-          <p className="text-xl font-black text-slate-800">{fmt(kblToday.profit)}</p>
-          <p className="text-xs text-slate-500 mt-1">{kblToday.count} trips · Rev {fmt(kblToday.revenue)}</p>
-        </div>
+      <div className={`grid grid-cols-2 ${vehicleTodayStats.length > 2 ? 'lg:grid-cols-4' : ''} gap-3`}>
+        {vehicleTodayStats.map(v => (
+          <div key={v.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{v.plate} Today</p>
+            <p className="text-xl font-black text-slate-800">{fmt(v.summary.profit)}</p>
+            <p className="text-xs text-slate-500 mt-1">{v.summary.count} trips · Rev {fmt(v.summary.revenue)}</p>
+          </div>
+        ))}
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -161,10 +166,7 @@ export default function DashboardPage({ trips }) {
       <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
         <p className="text-sm font-bold text-slate-700 mb-4">Monthly Lorry Comparison</p>
         <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={[
-            { name: "KBZ", revenue: kbzMonth.revenue, profit: kbzMonth.profit },
-            { name: "KBL", revenue: kblMonth.revenue, profit: kblMonth.profit },
-          ]}>
+          <BarChart data={vehicleMonthStats}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
