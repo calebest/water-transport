@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, doc, setDoc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { db, auth } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { Badge } from "../components/ui";
+import { Badge, Modal } from "../components/ui";
 
 // Secondary Firebase app — used ONLY for creating new users.
 // This prevents createUserWithEmailAndPassword from signing out the current admin.
@@ -22,6 +22,9 @@ export default function UsersPage() {
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState("");
   const [showForm, setShowForm] = useState(false);
+
+  const [editUser, setEditUser] = useState(null);
+  const [delUser, setDelUser] = useState(null);
 
   useEffect(() => {
     return onSnapshot(
@@ -56,6 +59,23 @@ export default function UsersPage() {
     } catch (e) {
       alert("Failed to update role: " + e.message);
     }
+  };
+
+  const handleEditUser = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const newName = formData.get("name");
+    try {
+      await updateDoc(doc(db, "users", editUser.id), { name: newName });
+      setEditUser(null);
+    } catch(err) { alert(err.message); }
+  };
+
+  const handleDelUser = async () => {
+    try {
+      await deleteDoc(doc(db, "users", delUser.id));
+      setDelUser(null);
+    } catch(err) { alert(err.message); }
   };
 
   const inp = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none";
@@ -108,7 +128,7 @@ export default function UsersPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
-              {["Name", "Email", "Role"].map(h => (
+              {["Name", "Email", "Role", ""].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
               ))}
             </tr>
@@ -136,11 +156,49 @@ export default function UsersPage() {
                     </select>
                   )}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  {u.id !== currentUser?.uid && (
+                    <div className="flex justify-end gap-1">
+                      <button onClick={() => setEditUser(u)} className="rounded-lg bg-blue-50 p-2 text-blue-500 hover:bg-blue-100 hover:text-blue-700 transition-colors" title="Edit Name">✏️</button>
+                      <button onClick={() => setDelUser(u)} className="rounded-lg bg-rose-50 p-2 text-rose-500 hover:bg-rose-100 hover:text-rose-700 transition-colors" title="Delete User">🗑️</button>
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <Modal open={!!editUser} onClose={() => setEditUser(null)} title="Edit User">
+        {editUser && (
+          <form onSubmit={handleEditUser} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Name</label>
+              <input name="name" defaultValue={editUser.name} className={inp} autoFocus required />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setEditUser(null)} className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button type="submit" className="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Save Changes</button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      <Modal open={!!delUser} onClose={() => setDelUser(null)} title="Delete User">
+        {delUser && (
+          <div className="space-y-4">
+            <p className="text-slate-600">
+              Are you sure you want to remove <strong>{delUser.name}</strong> ({delUser.email})?
+              <br /><span className="text-rose-500 font-semibold text-xs">Note: They will no longer be able to log in or access any data.</span>
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDelUser(null)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleDelUser} className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700">Delete</button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
