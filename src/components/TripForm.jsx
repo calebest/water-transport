@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { today, calcExpenses, calcProfit, fmt, FIXED_EXPENSE_KEYS } from "../utils/helpers";
 import { locationService } from "../services/locations";
 import { useAuth } from "../contexts/AuthContext";
+import { tripService } from "../services/trips";
 
 const EMPTY_FORM = {
   date: today(), lorry: "KBZ", tripNumber: "",
@@ -59,6 +60,13 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       if (isConductor && personnelId) setField("conductorId", personnelId);
     }
   }, [isDriver, isConductor, personnelId, initial]);
+
+  // Auto-generate the next trip number for new trips
+  useEffect(() => {
+    if (!initial) {
+      tripService.getNextTripNumber().then(n => setField("tripNumber", n));
+    }
+  }, [initial]);
 
   // New location inline state
   const [showInlineAdd, setShowInlineAdd] = useState(false);

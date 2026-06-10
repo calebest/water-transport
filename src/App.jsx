@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { tripService } from "./services/trips";
 import { locationService } from "./services/locations";
@@ -34,6 +34,29 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
   const { profile, logout, isAdmin } = useAuth();
   const [page, setPage] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Count trips pending admin approval
+  const pendingCount = isAdmin
+    ? trips.filter(t => t.approvalStatus === "pending" || t.approvalStatus === "pending_edit").length
+    : 0;
+
+  // Browser notification when new pending trips arrive
+  const prevPendingRef = useRef(pendingCount);
+  useEffect(() => {
+    if (!isAdmin) return;
+    // Request permission once
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    // Fire notification if count increased
+    if (pendingCount > prevPendingRef.current && Notification.permission === "granted") {
+      new Notification("Water Transport Manager", {
+        body: `${pendingCount} trip${pendingCount > 1 ? "s" : ""} awaiting your approval.`,
+        icon: "/favicon.svg",
+      });
+    }
+    prevPendingRef.current = pendingCount;
+  }, [pendingCount, isAdmin]);
 
   const navItems = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
   const pages = {
@@ -73,7 +96,13 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
             <button key={n.id} onClick={() => { setPage(n.id); setMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${page === n.id ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" : "text-slate-600 hover:bg-slate-50"
                 }`}>
-              <span>{n.icon}</span>{n.label}
+              <span>{n.icon}</span>
+              <span className="flex-1 text-left">{n.label}</span>
+              {n.id === "trips" && pendingCount > 0 && (
+                <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-rose-500 text-white text-xs font-black">
+                  {pendingCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -109,6 +138,11 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
           </div>
           <div className="flex items-center gap-2">
             <Badge color={isAdmin ? "green" : "slate"}>{profile?.role}</Badge>
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-rose-500 text-white text-xs font-black">
+                {pendingCount}
+              </span>
+            )}
           </div>
         </header>
 

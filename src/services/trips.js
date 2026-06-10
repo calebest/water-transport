@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { calcExpenses, calcProfit } from "../utils/helpers";
 
@@ -129,5 +129,20 @@ export const tripService = {
     }, (err) => {
       console.error("trips subscribe error:", err.code, err.message);
     });
-  }
+  },
+
+  /**
+   * Scans all existing trips and returns the next sequential trip number
+   * formatted as a zero-padded 3-digit string (e.g. "001", "042", "123").
+   */
+  getNextTripNumber: async () => {
+    const snap = await getDocs(collection(db, "trips"));
+    let max = 0;
+    snap.forEach(d => {
+      const raw = d.data().tripNumber || "";
+      const num = parseInt(raw.replace(/\D/g, ""), 10);
+      if (!isNaN(num) && num > max) max = num;
+    });
+    return String(max + 1).padStart(3, "0");
+  },
 };
