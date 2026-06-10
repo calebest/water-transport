@@ -61,12 +61,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     }
   }, [isDriver, isConductor, personnelId, initial]);
 
-  // Auto-generate the next trip number for new trips
-  useEffect(() => {
-    if (!initial) {
-      tripService.getNextTripNumber().then(n => setField("tripNumber", n));
-    }
-  }, [initial]);
+
 
   // New location inline state
   const [showInlineAdd, setShowInlineAdd] = useState(false);
@@ -189,7 +184,18 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Trip # *</label>
-          <input className={inp} placeholder="e.g. 001" value={form.tripNumber} onChange={e => setField("tripNumber", e.target.value)} />
+          <input 
+            className={inp} 
+            placeholder="e.g. 001" 
+            value={form.tripNumber} 
+            onChange={e => setField("tripNumber", e.target.value)} 
+            onBlur={() => {
+              const val = form.tripNumber;
+              if (val && !isNaN(val)) {
+                setField("tripNumber", String(val).padStart(3, "0"));
+              }
+            }}
+          />
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Location *</label>
