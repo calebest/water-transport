@@ -44,7 +44,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} />,
-    users: <UsersPage />
+    users: <UsersPage personnel={personnel} />
   };
 
   return (

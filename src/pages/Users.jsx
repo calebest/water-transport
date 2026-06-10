@@ -12,13 +12,14 @@ import { Badge, Modal } from "../components/ui";
 const secondaryApp = initializeApp(auth.app.options, "secondary-user-creator");
 const secondaryAuth = getAuth(secondaryApp);
 
-export default function UsersPage() {
+export default function UsersPage({ personnel = [] }) {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
   const [newPass, setNewPass] = useState("");
   const [newRole, setNewRole] = useState("viewer");
+  const [newPersonnelId, setNewPersonnelId] = useState("");
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -45,10 +46,12 @@ export default function UsersPage() {
     try {
       // Use secondary auth so the admin is NOT signed out
       const cred = await createUserWithEmailAndPassword(secondaryAuth, newEmail, newPass);
-      await setDoc(doc(db, "users", cred.user.uid), { name: newName, email: newEmail, role: newRole });
+      const userData = { name: newName, email: newEmail, role: newRole };
+      if (newPersonnelId) userData.personnelId = newPersonnelId;
+      await setDoc(doc(db, "users", cred.user.uid), userData);
       // Sign out the secondary session immediately
       await secondaryAuth.signOut();
-      setNewEmail(""); setNewName(""); setNewPass(""); setShowForm(false);
+      setNewEmail(""); setNewName(""); setNewPass(""); setNewPersonnelId(""); setShowForm(false);
     } catch (e) { setErr(e.message); }
     finally { setAdding(false); }
   };
@@ -58,6 +61,14 @@ export default function UsersPage() {
       await updateDoc(doc(db, "users", userId), { role: newRole });
     } catch (e) {
       alert("Failed to update role: " + e.message);
+    }
+  };
+
+  const handlePersonnelLink = async (userId, personnelId) => {
+    try {
+      await updateDoc(doc(db, "users", userId), { personnelId: personnelId || null });
+    } catch (e) {
+      alert("Failed to link personnel: " + e.message);
     }
   };
 
@@ -116,6 +127,17 @@ export default function UsersPage() {
                 <option value="admin">Admin</option>
               </select>
             </div>
+            {(newRole === "driver" || newRole === "conductor") && (
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Link to Personnel Record <span className="text-slate-300 font-normal">(optional)</span></label>
+                <select className={inp} value={newPersonnelId} onChange={e => setNewPersonnelId(e.target.value)}>
+                  <option value="">— Don't link yet —</option>
+                  {personnel.filter(p => p.role === "Driver" || p.role === "Conductor" || p.role === "Both").map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <button onClick={handleAddUser} disabled={adding}
             className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
@@ -128,7 +150,7 @@ export default function UsersPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
-              {["Name", "Email", "Role", ""].map(h => (
+              {["Name", "Email", "Role", "Linked Profile", ""].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
               ))}
             </tr>
@@ -154,6 +176,23 @@ export default function UsersPage() {
                       <option value="conductor">Conductor</option>
                       <option value="admin">Admin</option>
                     </select>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {(u.role === "driver" || u.role === "conductor") && u.id !== currentUser?.uid ? (
+                    <select
+                      value={u.personnelId || ""}
+                      onChange={e => handlePersonnelLink(u.id, e.target.value)}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:border-emerald-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer max-w-[140px] truncate"
+                      title={u.personnelId ? (personnel.find(p => p.id === u.personnelId)?.name || "Linked") : "Not linked"}
+                    >
+                      <option value="">— Not linked —</option>
+                      {personnel.filter(p => p.role === "Driver" || p.role === "Conductor" || p.role === "Both").map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-xs text-slate-300">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">

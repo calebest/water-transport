@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { today, calcExpenses, calcProfit, fmt, FIXED_EXPENSE_KEYS } from "../utils/helpers";
 import { locationService } from "../services/locations";
+import { useAuth } from "../contexts/AuthContext";
 
 const EMPTY_FORM = {
   date: today(), lorry: "KBZ", tripNumber: "",
@@ -28,11 +29,18 @@ const normaliseExpenses = (exp = {}) => ({
 });
 
 export default function TripForm({ initial, locations = [], personnel = [], vehicles = [], onSave, onCancel }) {
+  const { isDriver, isConductor, personnelId } = useAuth();
   const [form, setForm] = useState(() => {
-    if (!initial) return {
-      ...EMPTY_FORM,
-      lorry: vehicles.length > 0 ? vehicles[0].plate : "KBZ",
-    };
+    if (!initial) {
+      const base = {
+        ...EMPTY_FORM,
+        lorry: vehicles.length > 0 ? vehicles[0].plate : "KBZ",
+      };
+      // Auto-assign logged-in driver/conductor to the correct field
+      if (isDriver && personnelId) base.driverId = personnelId;
+      if (isConductor && personnelId) base.conductorId = personnelId;
+      return base;
+    }
     return {
       ...initial,
       driverId: initial.driverId || "",
@@ -43,6 +51,14 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     };
   });
   const [saving, setSaving] = useState(false);
+
+  // Keep driver/conductor locked if user has a linked profile
+  useEffect(() => {
+    if (!initial) {
+      if (isDriver && personnelId) setField("driverId", personnelId);
+      if (isConductor && personnelId) setField("conductorId", personnelId);
+    }
+  }, [isDriver, isConductor, personnelId, initial]);
 
   // New location inline state
   const [showInlineAdd, setShowInlineAdd] = useState(false);
@@ -195,8 +211,16 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
         {personnel.length > 0 && (
           <>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Driver</label>
-              <select className={inp} value={form.driverId} onChange={e => setField("driverId", e.target.value)}>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Driver
+                {isDriver && personnelId && <span className="ml-1 text-emerald-600 font-normal">(auto-filled)</span>}
+              </label>
+              <select
+                className={`${inp} ${isDriver && personnelId ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
+                value={form.driverId}
+                onChange={e => setField("driverId", e.target.value)}
+                disabled={!!(isDriver && personnelId)}
+              >
                 <option value="">— None —</option>
                 {personnel.filter(p => p.role === "Driver" || p.role === "Both").map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -204,8 +228,16 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Conductor</label>
-              <select className={inp} value={form.conductorId} onChange={e => setField("conductorId", e.target.value)}>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Conductor
+                {isConductor && personnelId && <span className="ml-1 text-emerald-600 font-normal">(auto-filled)</span>}
+              </label>
+              <select
+                className={`${inp} ${isConductor && personnelId ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`}
+                value={form.conductorId}
+                onChange={e => setField("conductorId", e.target.value)}
+                disabled={!!(isConductor && personnelId)}
+              >
                 <option value="">— None —</option>
                 {personnel.filter(p => p.role === "Conductor" || p.role === "Both").map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
