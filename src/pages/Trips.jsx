@@ -49,9 +49,14 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [] }
 
   const handleAdd = (form) => tripService.add(form);
   const handleEdit = (form) => tripService.update(editTrip.id, form);
-  const handleMarkPaid = async (trip) => {
+  const handleStatusChange = async (trip, newStatus) => {
     setMarkingPaid(trip.id);
-    try { await tripService.markPaid(trip.id, trip.revenue); }
+    try {
+      const amountPaid = newStatus === "Paid" ? Number(trip.revenue)
+        : newStatus === "Pending" ? 0
+        : Number(trip.amountPaid || 0);
+      await tripService.markPaid(trip.id, amountPaid, newStatus);
+    }
     catch (e) { alert(e.message); }
     finally { setMarkingPaid(null); }
   };
@@ -99,7 +104,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [] }
             No trips found
           </div>
         ) : groupedTrips.map(group => (
-          <TripGroup key={group.date} group={group} isAdmin={isAdmin} onEdit={setEditTrip} onDel={setDelTrip} onMarkPaid={handleMarkPaid} markingPaid={markingPaid} />
+          <TripGroup key={group.date} group={group} isAdmin={isAdmin} onEdit={setEditTrip} onDel={setDelTrip} onStatusChange={handleStatusChange} markingPaid={markingPaid} />
         ))}
       </div>
 
@@ -131,7 +136,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [] }
   );
 }
 
-function TripGroup({ group, isAdmin, onEdit, onDel, onMarkPaid, markingPaid }) {
+function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, markingPaid }) {
   const [expanded, setExpanded] = useState(true);
 
   return (
@@ -180,23 +185,30 @@ function TripGroup({ group, isAdmin, onEdit, onDel, onMarkPaid, markingPaid }) {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge color={t.status === "Paid" ? "green" : t.status === "Partial" ? "amber" : "rose"}>
-                      {t.status}
-                    </Badge>
+                    {isAdmin ? (
+                      <select
+                        value={t.status}
+                        disabled={markingPaid === t.id}
+                        onChange={e => onStatusChange(t, e.target.value)}
+                        className={`rounded-lg border px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60
+                          ${ t.status === "Paid" ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : t.status === "Partial" ? "border-amber-200 bg-amber-50 text-amber-700"
+                            : "border-rose-200 bg-rose-50 text-rose-600" }`}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Partial">Partial</option>
+                        <option value="Paid">Paid</option>
+                      </select>
+                    ) : (
+                      <Badge color={t.status === "Paid" ? "green" : t.status === "Partial" ? "amber" : "rose"}>
+                        {t.status}
+                      </Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2">
                       <button onClick={() => exportVoucher(t)}
                         className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-100" title="Print Receipt">🖨️</button>
-                      {isAdmin && t.status !== "Paid" && (
-                        <button
-                          onClick={() => onMarkPaid(t)}
-                          disabled={markingPaid === t.id}
-                          className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
-                        >
-                          {markingPaid === t.id ? "…" : "✓ Mark Paid"}
-                        </button>
-                      )}
                       {isAdmin && (
                         <>
                           <button onClick={() => onEdit(t)}

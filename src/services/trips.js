@@ -51,10 +51,10 @@ export const tripService = {
   
   delete: async (id) => deleteDoc(doc(db, "trips", id)),
 
-  markPaid: async (id, revenue) => {
+  markPaid: async (id, amountPaid, status) => {
     return updateDoc(doc(db, "trips", id), {
-      amountPaid: Number(revenue),
-      status: "Paid",
+      amountPaid: Number(amountPaid),
+      status,
     });
   },
   
