@@ -5,17 +5,7 @@ import { locationService } from "./services/locations";
 import { vehicleService } from "./services/vehicles";
 import { personnelService } from "./services/personnel";
 import { maintenanceService } from "./services/maintenance";
-import { targetsService } from "./services/targets";
 import { Badge } from "./components/ui";
-
-import OwnerLayout from "./components/OwnerLayout";
-import OwnerDashboardPage from "./pages/owner/OwnerDashboard";
-import OwnerFinancialsPage from "./pages/owner/OwnerFinancials";
-import OwnerFleetPage from "./pages/owner/OwnerFleet";
-import OwnerDriversPage from "./pages/owner/OwnerDrivers";
-import OwnerRoutesPage from "./pages/owner/OwnerRoutes";
-import OwnerApprovalsPage from "./pages/owner/OwnerApprovals";
-import OwnerAlertsPage from "./pages/owner/OwnerAlerts";
 
 import LoginPage from "./pages/Login";
 import DashboardPage from "./pages/Dashboard";
@@ -167,14 +157,12 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
 }
 
 function AppInner() {
-  const { user, loading, isOwner } = useAuth();
+  const { user, loading } = useAuth();
   const [trips, setTrips] = useState([]);
   const [locations, setLocations] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [personnel, setPersonnel] = useState([]);
   const [maintenance, setMaintenance] = useState([]);
-  const [targets, setTargets] = useState([]);
-  const [ownerPage, setOwnerPage] = useState("dashboard");
 
   useEffect(() => {
     if (!user) return;
@@ -183,7 +171,6 @@ function AppInner() {
     const unsubVehs = vehicleService.subscribe(setVehicles);
     const unsubPersonnel = personnelService.subscribe(setPersonnel);
     const unsubMaintenance = maintenanceService.subscribe(setMaintenance);
-    const unsubTargets = targetsService.subscribe(setTargets);
     
     return () => {
       unsubTrips();
@@ -191,7 +178,6 @@ function AppInner() {
       unsubVehs();
       unsubPersonnel();
       unsubMaintenance();
-      unsubTargets();
     };
   }, [user]);
 
@@ -205,26 +191,6 @@ function AppInner() {
   );
 
   if (!user) return <LoginPage />;
-
-
-  if (isOwner) {
-    const ownerPages = {
-      dashboard: <OwnerDashboardPage trips={trips} vehicles={vehicles} targets={targets} />,
-      financials: <OwnerFinancialsPage trips={trips} />,
-      fleet: <OwnerFleetPage trips={trips} vehicles={vehicles} targets={targets} />,
-      drivers: <OwnerDriversPage trips={trips} personnel={personnel} />,
-      routes: <OwnerRoutesPage trips={trips} locations={locations} />,
-      approvals: <OwnerApprovalsPage trips={trips} />,
-      alerts: <OwnerAlertsPage trips={trips} vehicles={vehicles} targets={targets} />,
-    };
-
-    return (
-      <OwnerLayout page={ownerPage} setPage={setOwnerPage}>
-        {ownerPages[ownerPage] || ownerPages.dashboard}
-      </OwnerLayout>
-    );
-  }
-
   return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} />;
 }
 

@@ -26,8 +26,7 @@ export function Badge({ children, color = "green" }) {
     red: "bg-rose-100 text-rose-700",
     blue: "bg-blue-100 text-blue-700",
     amber: "bg-amber-100 text-amber-700",
-    slate: "bg-slate-100 text-slate-600",
-    gold: "bg-amber-100 text-amber-800 ring-1 ring-amber-300"
+    slate: "bg-slate-100 text-slate-600"
   };
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${c[color]}`}>

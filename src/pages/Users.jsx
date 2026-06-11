@@ -125,7 +125,6 @@ export default function UsersPage({ personnel = [] }) {
                 <option value="driver">Driver</option>
                 <option value="conductor">Conductor</option>
                 <option value="admin">Admin</option>
-                <option value="owner">Owner</option>
               </select>
             </div>
             {(newRole === "driver" || newRole === "conductor") && (
@@ -176,7 +175,6 @@ export default function UsersPage({ personnel = [] }) {
                       <option value="driver">Driver</option>
                       <option value="conductor">Conductor</option>
                       <option value="admin">Admin</option>
-                      <option value="owner">Owner</option>
                     </select>
                   )}
                 </td>

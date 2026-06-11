@@ -50,15 +50,14 @@ export function AuthProvider({ children }) {
 
   const userRole    = profile?.role?.toLowerCase();
   const isAdmin     = userRole === "admin";
-  const isOwner     = userRole === "owner";
-  const isDriver    = userRole === "driver" || userRole === "both";
-  const isConductor = userRole === "conductor" || userRole === "both";
+  const isDriver    = userRole === "driver";
+  const isConductor = userRole === "conductor";
   const canAddTrips = isAdmin || isDriver || isConductor;
   const userId      = user?.uid || null;
   const personnelId = profile?.personnelId || null;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isOwner, isDriver, isConductor, canAddTrips, userId, personnelId }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isDriver, isConductor, canAddTrips, userId, personnelId }}>
       {children}
     </AuthContext.Provider>
   );
