@@ -82,7 +82,10 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [] }
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handleAdd  = (form) => tripService.add(form, { userId, isAdmin });
-  const handleEdit = (form) => tripService.update(editTrip.id, form, { isAdmin });
+  const handleEdit = (form) => tripService.update(editTrip.id, form, { 
+    isAdmin, 
+    isPending: editTrip?.approvalStatus === "pending" 
+  });
 
   const handleApprove = async (trip) => {
     try { await tripService.approve(trip.id, trip); }
@@ -344,7 +347,7 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
   // Who can edit/delete each trip row
   const canEditTrip = (t) =>
     isAdmin ||
-    (canAddTrips && t.submittedBy === userId && t.approvalStatus === "approved");
+    (canAddTrips && t.submittedBy === userId && (t.approvalStatus === "approved" || t.approvalStatus === "pending"));
   const canDelTrip = (t) =>
     isAdmin && (!t.approvalStatus || t.approvalStatus === "approved");
 

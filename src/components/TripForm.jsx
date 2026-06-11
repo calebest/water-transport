@@ -8,6 +8,7 @@ const EMPTY_FORM = {
   date: today(), lorry: "KBZ", tripNumber: "",
   location: "",
   revenue: "",
+  status: "Pending",
   amountPaid: "",
   driverId: "",
   conductorId: "",
@@ -44,6 +45,8 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     }
     return {
       ...initial,
+      status: initial.status || "Pending",
+      amountPaid: initial.amountPaid || "",
       driverId: initial.driverId || "",
       conductorId: initial.conductorId || "",
       odometerStart: initial.odometerStart || "",
@@ -218,9 +221,19 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
           <input type="number" className={inp} placeholder="0" value={form.revenue} onChange={e => setField("revenue", e.target.value)} />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1">Amount Paid (KES)</label>
-          <input type="number" className={inp} placeholder="Leave blank if fully paid" value={form.amountPaid} onChange={e => setField("amountPaid", e.target.value)} />
+          <label className="block text-xs font-semibold text-slate-500 mb-1">Payment Status *</label>
+          <select className={inp} value={form.status} onChange={e => setField("status", e.target.value)}>
+            <option value="Paid">Paid</option>
+            <option value="Pending">Pending</option>
+            <option value="Partial">Partial</option>
+          </select>
         </div>
+        {form.status === "Partial" && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Amount Paid (KES) *</label>
+            <input type="number" className={inp} placeholder="0" value={form.amountPaid} onChange={e => setField("amountPaid", e.target.value)} />
+          </div>
+        )}
 
         {personnel.length > 0 && (
           <>
