@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return isAuthed() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        : null;
+    }
+
+    function role() {
+      return userDoc() != null && userDoc().role != null ? userDoc().role : null;
+    }
+
+    function isAdmin() {
+      return role() == "admin";
+    }
+
+    function isDriver() {
+      return role() == "driver";
+    }
+
+    function isConductor() {
+      return role() == "conductor";
+    }
+
+    function isStaff() {
+      return isAdmin() || isDriver() || isConductor();
+    }
+
+    match /trips/{tripId} {
+      allow read: if isAuthed();
+
+      // Admins can do anything.
+      // Drivers and conductors can create their own trips and edit their own submissions.
+      allow create: if isAuthed() && (
+        isAdmin() ||
+        (
+          isStaff() &&
+          request.resource.data.submittedBy == request.auth.uid &&
+          request.resource.data.approvalStatus == "pending"
+        )
+      );
+
+      allow update: if isAuthed() && (
+        isAdmin() ||
+        (
+          isStaff() &&
+          resource.data.submittedBy == request.auth.uid &&
+          request.resource.data.submittedBy == resource.data.submittedBy &&
+          (
+            // Keep editing a pending trip before approval.
+            (
+              resource.data.approvalStatus == "pending" &&
+              request.resource.data.approvalStatus == "pending"
+            ) ||
+            // Turn an approved trip into a pending edit request.
+            (
+              resource.data.approvalStatus == "approved" &&
+              request.resource.data.approvalStatus == "pending_edit" &&
+              request.resource.data.pendingEdits is map
+            )
+          )
+        )
+      );
+
+      allow delete: if isAuthed() && isAdmin();
+    }
+
+    match /locations/{locationId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && isAdmin();
+    }
+
+    match /vehicles/{vehicleId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && isAdmin();
+    }
+
+    match /personnel/{personnelId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && isAdmin();
+    }
+
+    match /maintenance/{maintenanceId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && isAdmin();
+    }
+
+    match /complaints/{complaintId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      allow update, delete: if isAuthed() && isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthed() && (isAdmin() || request.auth.uid == userId);
+      allow create: if isAuthed() && isAdmin();
+      allow update: if isAuthed() && isAdmin();
+      allow delete: if isAuthed() && isAdmin();
+    }
+  }
+}
