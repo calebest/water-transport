@@ -246,20 +246,6 @@ export const generateReportText = (trips, filterVehicle, dateTitle) => {
   });
 
   lines.push("━━━━━━━━━━━━━━━━━━━");
-  lines.push("💰 FINANCIAL OVERVIEW");
-  lines.push("━━━━━━━━━━━━━━━━━━━");
-  lines.push("");
-  lines.push(`Total Revenue: KES ${fmtN(sum.revenue)}`);
-  lines.push(`Less Total Expenses: KES ${fmtN(sum.expenses)}`);
-  lines.push("");
-  lines.push(`Net Profit: KES ${fmtN(sum.profit)}`);
-  lines.push("");
-  const profitMargin = sum.revenue > 0 ? ((sum.profit / sum.revenue) * 100).toFixed(1) : 0;
-  lines.push(`Profit Margin: ${profitMargin}%`);
-  const avgProfit = sum.count > 0 ? Math.round(sum.profit / sum.count) : 0;
-  lines.push(`Average Profit per Trip: KES ${fmtN(avgProfit)}`);
-  lines.push("");
-  
   const genDate = new Date();
   const dateStr = genDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
   lines.push(`Report Generated: ${dateStr}`);
