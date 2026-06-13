@@ -149,6 +149,11 @@ export const exportVoucher = (trip) => {
   doc.text(`Total Expenses:`, 10, y);
   doc.text(`KES ${fmtN(trip.totalExpenses)}`, 70, y, { align: "right" });
   
+  y += 6;
+  doc.setTextColor(30, 130, 80);
+  doc.text(`Profit:`, 10, y);
+  doc.text(`KES ${fmtN(trip.profit)}`, 70, y, { align: "right" });
+  
   // Footer
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(150, 150, 150);
   doc.text("Thank you for your business.", 74, 190, { align: "center" });
