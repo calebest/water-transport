@@ -6,6 +6,7 @@ import { vehicleService } from "./services/vehicles";
 import { personnelService } from "./services/personnel";
 import { maintenanceService } from "./services/maintenance";
 import { settingsService } from "./services/settings";
+import { complaintService } from "./services/complaints";
 import { Badge } from "./components/ui";
 
 import LoginPage from "./pages/Login";
@@ -45,7 +46,7 @@ const getPageFromPath = () => {
 
 const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
 
-function Layout({ trips, locations, vehicles, personnel, maintenance, settings }) {
+function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints }) {
   const { profile, logout, isAdmin } = useAuth();
   const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -103,7 +104,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings }
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
-    reports: <ReportsPage trips={trips} vehicles={vehicles} />,
+    reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} />,
     settings: <SettingsPage settings={settings} />,
     users: <UsersPage personnel={personnel} />
   };
@@ -202,6 +203,7 @@ function AppInner() {
   const [personnel, setPersonnel] = useState([]);
   const [maintenance, setMaintenance] = useState([]);
   const [settings, setSettings] = useState({ directApproval: false });
+  const [complaints, setComplaints] = useState([]);
 
   useEffect(() => {
     if (!user) return;
@@ -211,6 +213,7 @@ function AppInner() {
     const unsubPersonnel = personnelService.subscribe(setPersonnel);
     const unsubMaintenance = maintenanceService.subscribe(setMaintenance);
     const unsubSettings = settingsService.subscribe(setSettings);
+    const unsubComplaints = complaintService.subscribe(setComplaints);
     
     return () => {
       unsubTrips();
@@ -219,6 +222,7 @@ function AppInner() {
       unsubPersonnel();
       unsubMaintenance();
       if (unsubSettings) unsubSettings();
+      if (unsubComplaints) unsubComplaints();
     };
   }, [user]);
 
@@ -245,7 +249,7 @@ function AppInner() {
   );
 
   if (!user) return <LoginPage />;
-  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} />;
 }
 
 export default function App() {
