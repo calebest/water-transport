@@ -146,9 +146,9 @@ export default function UsersPage({ personnel = [] }) {
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
+      <div className="table-scroll-container rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead className="bg-white">
             <tr className="border-b border-slate-100 bg-slate-50">
               {["Name", "Email", "Role", "Linked Profile", ""].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
@@ -159,7 +159,7 @@ export default function UsersPage({ personnel = [] }) {
             {users.length === 0 ? (
               <tr><td colSpan={3} className="py-12 text-center text-slate-400">No users yet</td></tr>
             ) : users.map(u => (
-              <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+              <tr key={u.id} className="border-b border-slate-50 bg-white hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
                 <td className="px-4 py-3 text-slate-500">{u.email}</td>
                 <td className="px-4 py-3">

@@ -23,9 +23,9 @@ export default function LocationsPage({ locations }) {
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
+        <div className="table-scroll-container">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="bg-white">
               <tr className="border-b border-slate-100 bg-slate-50">
                 {["Location Name", "Revenue / Price", "Status", isAdmin ? "Actions" : ""].map(h => (
                   h ? <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th> : <th key="empty" className="px-4 py-3" />
@@ -36,7 +36,7 @@ export default function LocationsPage({ locations }) {
               {locations.length === 0 ? (
                 <tr><td colSpan={3} className="py-16 text-center text-slate-400">No locations found</td></tr>
               ) : locations.map(loc => (
-                <tr key={loc.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                <tr key={loc.id} className="border-b border-slate-50 bg-white hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 font-semibold text-slate-700">{loc.name}</td>
                   <td className="px-4 py-3 font-bold text-emerald-600">{fmt(loc.revenue)}</td>
                   <td className="px-4 py-3">

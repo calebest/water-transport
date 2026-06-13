@@ -81,11 +81,10 @@ export default function MaintenancePage({ maintenance, vehicles }) {
       </div>
 
       {/* Records table */}
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50">
+      <div className="table-scroll-container rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <table className="w-full min-w-[780px] text-sm">
+          <thead className="bg-white">
+            <tr className="border-b border-slate-100 bg-slate-50">
                 {["Date", "Lorry", "Type", "Description", "Cost", "Vendor", "Odometer", isAdmin ? "Actions" : ""].map(h => (
                   h ? <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
                     : <th key="empty" className="px-4 py-3" />
@@ -96,7 +95,7 @@ export default function MaintenancePage({ maintenance, vehicles }) {
               {filtered.length === 0 ? (
                 <tr><td colSpan={8} className="py-16 text-center text-slate-400">No maintenance records found</td></tr>
               ) : filtered.map(m => (
-                <tr key={m.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                <tr key={m.id} className="border-b border-slate-50 bg-white hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-slate-700">{m.date}</td>
                   <td className="px-4 py-3"><Badge color={m.lorry === "KBZ" ? "blue" : "amber"}>{m.lorry}</Badge></td>
                   <td className="px-4 py-3">
@@ -120,7 +119,6 @@ export default function MaintenancePage({ maintenance, vehicles }) {
               ))}
             </tbody>
           </table>
-        </div>
         <div className="border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-400">
           {filtered.length} of {maintenance.length} records · Total: {fmt(totalCost)}
         </div>

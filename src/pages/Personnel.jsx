@@ -73,9 +73,9 @@ export default function PersonnelPage({ personnel, trips }) {
           <div className="p-4 bg-slate-50 border-b border-slate-100">
             <h3 className="font-bold text-slate-800">Trip History</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+          <div className="table-scroll-container">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-white">
                 <tr className="border-b border-slate-100 bg-white">
                   {["Date", "Lorry", "Trip #", "Location", "Revenue", "Role on Trip"].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
@@ -86,7 +86,7 @@ export default function PersonnelPage({ personnel, trips }) {
                 {personTrips.length === 0 ? (
                   <tr><td colSpan={6} className="py-12 text-center text-slate-400">No trips logged yet for this person</td></tr>
                 ) : personTrips.map(t => (
-                  <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                  <tr key={t.id} className="border-b border-slate-50 bg-white hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-slate-700">{t.date}</td>
                     <td className="px-4 py-3"><Badge color={t.lorry === "KBZ" ? "blue" : "amber"}>{t.lorry}</Badge></td>
                     <td className="px-4 py-3 text-slate-600">{t.tripNumber}</td>

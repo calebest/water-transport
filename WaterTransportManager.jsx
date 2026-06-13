@@ -782,11 +782,10 @@ function TripsPage({ trips }) {
         )}
       </div>
 
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50">
+      <div className="table-scroll-container rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <table className="w-full min-w-[780px] text-sm">
+          <thead className="bg-white">
+            <tr className="border-b border-slate-100 bg-slate-50">
                 {["Date","Lorry","Trip #","Revenue","Expenses","Profit","Status", isAdmin ? "Actions" : ""].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
                 ))}
@@ -796,7 +795,7 @@ function TripsPage({ trips }) {
               {filtered.length === 0 ? (
                 <tr><td colSpan={8} className="py-16 text-center text-slate-400">No trips found</td></tr>
               ) : filtered.map(t => (
-                <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                <tr key={t.id} className="border-b border-slate-50 bg-white hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-slate-700">{t.date}</td>
                   <td className="px-4 py-3">
                     <Badge color={t.lorry === "KBZ" ? "blue" : "amber"}>{t.lorry}</Badge>
@@ -826,7 +825,6 @@ function TripsPage({ trips }) {
               ))}
             </tbody>
           </table>
-        </div>
         <div className="border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-400">
           {filtered.length} of {trips.length} trips
         </div>

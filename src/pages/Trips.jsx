@@ -372,9 +372,9 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
       </div>
 
       {expanded && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
+        <div className="table-scroll-container">
+          <table className="w-full min-w-[780px] text-sm">
+            <thead className="bg-white">
               <tr className="border-b border-slate-100 bg-white">
                 {["Lorry", "Trip #", "Location", "Revenue", "Expenses", "Profit", "Status", "Actions"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
@@ -393,7 +393,7 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                     className={`border-b border-slate-50 transition-colors ${
                       isRejected ? "opacity-50 bg-rose-50/30" :
                       isPending  ? "bg-amber-50/40" :
-                      "hover:bg-slate-50/50"
+                      "bg-white hover:bg-slate-50"
                     }`}
                   >
                     <td className="px-4 py-3">
