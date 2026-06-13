@@ -17,6 +17,7 @@ import UsersPage from "./pages/Users";
 import VehiclesPage from "./pages/Vehicles";
 import PersonnelPage from "./pages/Personnel";
 import MaintenancePage from "./pages/Maintenance";
+import SettingsPage from "./pages/Settings";
 
 import "./App.css";
 
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true },
   { id: "reports", label: "Reports", icon: "📄" },
+  { id: "settings", label: "Settings", icon: "⚙️", adminOnly: true },
   { id: "users", label: "Users", icon: "👥", adminOnly: true },
 ];
 
@@ -102,6 +104,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings }
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} />,
+    settings: <SettingsPage settings={settings} />,
     users: <UsersPage personnel={personnel} />
   };
 
