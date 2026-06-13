@@ -26,8 +26,7 @@ export const exportCSV = (trips, filename) => {
 export const exportPDF = (trips, title) => {
   const doc = new jsPDF();
   const sum = summarize(trips);
-  const kbzSum = summarize(trips.filter(t => t.lorry === "KBZ"));
-  const kblSum = summarize(trips.filter(t => t.lorry === "KBL"));
+  const activeLorryPlates = [...new Set(trips.map(t => t.lorry))].sort();
 
   doc.setFontSize(20); doc.setTextColor(30, 130, 80);
   doc.text("Water Transport Manager", 14, 18);
@@ -41,15 +40,20 @@ export const exportPDF = (trips, title) => {
   doc.text(`Total Expenses: KES ${fmtN(sum.expenses)}`, 14, 51);
   doc.text(`Total Profit: KES ${fmtN(sum.profit)}`, 14, 58);
   doc.text(`Total Trips: ${sum.count}`, 14, 65);
-  doc.text(`KBZ — Revenue: KES ${fmtN(kbzSum.revenue)} | Profit: KES ${fmtN(kbzSum.profit)}`, 14, 74);
-  doc.text(`KBL — Revenue: KES ${fmtN(kblSum.revenue)} | Profit: KES ${fmtN(kblSum.profit)}`, 14, 81);
+  
+  let yPos = 74;
+  activeLorryPlates.forEach(plate => {
+    const vehSum = summarize(trips.filter(t => t.lorry === plate));
+    doc.text(`${plate} — Revenue: KES ${fmtN(vehSum.revenue)} | Profit: KES ${fmtN(vehSum.profit)}`, 14, yPos);
+    yPos += 7;
+  });
 
   // Build dynamic columns for PDF table
   const { fixed, custom } = collectExpenseKeys(trips);
   const expCols = [...fixed, ...custom].map(k => k.charAt(0).toUpperCase() + k.slice(1));
 
   autoTable(doc, {
-    startY: 90,
+    startY: Math.max(90, yPos + 10),
     head: [["Date", "Lorry", "Trip#", "Location", "Revenue", ...expCols, "Total Exp", "Profit", "Status"]],
     body: trips.map(t => {
       const fixedVals = fixed.map(k => `KES ${fmtN(t.expenses?.[k] || 0)}`);
@@ -159,4 +163,121 @@ export const exportVoucher = (trip) => {
   doc.text("Thank you for your business.", 74, 190, { align: "center" });
 
   doc.save(`Voucher-${trip.lorry}-${trip.tripNumber}-${trip.date}.pdf`);
+};
+
+export const generateReportText = (trips, filterVehicle, dateTitle) => {
+  const sum = summarize(trips);
+  const activeLorryPlates = [...new Set(trips.map(t => t.lorry))].sort();
+  
+  const getNumberEmoji = (num) => {
+    if (num === 10) return "🔟";
+    return num.toString().split('').map(d => ["0️⃣","1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"][parseInt(d, 10)]).join('');
+  };
+
+  const lines = [];
+  lines.push(`📊 WATER TRANSPORT REPORT ${filterVehicle !== "All Vehicles" ? `(${filterVehicle})` : ""}`.trim());
+  lines.push("");
+  lines.push("📅 Reporting Period:");
+  lines.push(dateTitle);
+  lines.push("");
+  lines.push("━━━━━━━━━━━━━━━━━━━");
+  lines.push("📈 SUMMARY");
+  lines.push("━━━━━━━━━━━━━━━━━━━");
+  lines.push("");
+  lines.push(`• Total Revenue: KES ${fmtN(sum.revenue)}`);
+  lines.push(`• Total Expenses: KES ${fmtN(sum.expenses)}`);
+  lines.push(`• Total Profit: KES ${fmtN(sum.profit)}`);
+  lines.push(`• Total Trips Completed: ${sum.count}`);
+  lines.push("");
+  
+  if (activeLorryPlates.length > 0) {
+    lines.push("Vehicle Performance:");
+    activeLorryPlates.forEach(plate => {
+      const vehSum = summarize(trips.filter(t => t.lorry === plate));
+      lines.push(`• ${plate}: Revenue KES ${fmtN(vehSum.revenue)} | Profit KES ${fmtN(vehSum.profit)}`);
+    });
+    lines.push("");
+  }
+
+  lines.push("━━━━━━━━━━━━━━━━━━━");
+  lines.push("🚚 TRIP DETAILS");
+  lines.push("━━━━━━━━━━━━━━━━━━━");
+  lines.push("");
+
+  const { fixed, custom } = collectExpenseKeys(trips);
+
+  trips.forEach((t, i) => {
+    lines.push(`${getNumberEmoji(i + 1)} ${t.date}`);
+    lines.push(`Vehicle: ${t.lorry}`);
+    lines.push(`Route: ${t.location || "N/A"}`);
+    lines.push("");
+    lines.push(`Revenue: KES ${fmtN(t.revenue)}`);
+    lines.push("");
+    lines.push("Expenses:");
+    lines.push("");
+    
+    fixed.forEach(k => {
+      if (t.expenses?.[k] !== undefined) {
+        lines.push(`- ${k.charAt(0).toUpperCase() + k.slice(1)}: KES ${fmtN(t.expenses[k])}`);
+      }
+    });
+    
+    (t.expenses?.custom || []).forEach(c => {
+      if (c.amount) {
+        lines.push(`- ${c.label || 'Custom'}: KES ${fmtN(c.amount)}`);
+      }
+    });
+
+    lines.push("");
+    lines.push(`Total Expenses: KES ${fmtN(t.totalExpenses)}`);
+    lines.push(`Profit: KES ${fmtN(t.profit)}`);
+    lines.push(`Status: ${t.status}`);
+    lines.push("");
+    
+    if (i < trips.length - 1) {
+      lines.push("───────────────────");
+      lines.push("");
+    }
+  });
+
+  lines.push("━━━━━━━━━━━━━━━━━━━");
+  lines.push("💰 FINANCIAL OVERVIEW");
+  lines.push("━━━━━━━━━━━━━━━━━━━");
+  lines.push("");
+  lines.push(`Total Revenue: KES ${fmtN(sum.revenue)}`);
+  lines.push(`Less Total Expenses: KES ${fmtN(sum.expenses)}`);
+  lines.push("");
+  lines.push(`Net Profit: KES ${fmtN(sum.profit)}`);
+  lines.push("");
+  const profitMargin = sum.revenue > 0 ? ((sum.profit / sum.revenue) * 100).toFixed(1) : 0;
+  lines.push(`Profit Margin: ${profitMargin}%`);
+  const avgProfit = sum.count > 0 ? Math.round(sum.profit / sum.count) : 0;
+  lines.push(`Average Profit per Trip: KES ${fmtN(avgProfit)}`);
+  lines.push("");
+  
+  const genDate = new Date();
+  const dateStr = genDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  lines.push(`Report Generated: ${dateStr}`);
+
+  return lines.join("\n");
+};
+
+export const handleShareText = async (trips, filterVehicle, dateTitle) => {
+  const text = generateReportText(trips, filterVehicle, dateTitle);
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Water Transport Report',
+        text: text
+      });
+    } catch (err) {
+      console.log('Error sharing', err);
+      // fallback to clipboard
+      await navigator.clipboard.writeText(text);
+      alert('Report copied to clipboard!');
+    }
+  } else {
+    await navigator.clipboard.writeText(text);
+    alert('Report copied to clipboard!');
+  }
 };

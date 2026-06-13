@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { today, getWeekRange, getMonthRange, filterByRange, summarize, collectExpenseKeys, sumExpenseKey, fmt } from "../utils/helpers";
-import { exportCSV, exportPDF } from "../utils/export";
+import { exportCSV, exportPDF, handleShareText } from "../utils/export";
 import { StatCard } from "../components/ui";
 
 export default function ReportsPage({ trips, vehicles }) {
@@ -131,7 +131,7 @@ export default function ReportsPage({ trips, vehicles }) {
       </div>
 
       {rangeTrips.length > 0 ? (
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <button onClick={() => exportCSV(rangeTrips, title.replace(/\s+/g, "-"))}
             className="flex-1 rounded-xl border-2 border-emerald-600 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition-colors">
             ⬇ Export CSV
@@ -139,6 +139,10 @@ export default function ReportsPage({ trips, vehicles }) {
           <button onClick={() => exportPDF(rangeTrips, title)}
             className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-colors">
             📄 Export PDF
+          </button>
+          <button onClick={() => handleShareText(rangeTrips, filterVehicle, dateTitle)}
+            className="flex-1 rounded-xl bg-slate-800 py-3 text-sm font-bold text-white shadow-lg shadow-slate-800/20 hover:bg-slate-900 transition-colors">
+            💬 Share Text
           </button>
         </div>
       ) : (
