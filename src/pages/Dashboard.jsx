@@ -3,6 +3,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { today, getWeekRange, getMonthRange, filterByRange, summarize, fmt } from "../utils/helpers";
 import { StatCard, Badge } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
+import { settingsService } from "../services/settings";
 
 export default function DashboardPage({ trips, vehicles = [], settings }) {
   const { profile, isAdmin } = useAuth();
@@ -69,14 +70,14 @@ export default function DashboardPage({ trips, vehicles = [], settings }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-2xl font-black text-slate-800">{greeting}, {profile?.name?.split(' ')[0]}!</h2>
           <p className="text-slate-500 text-sm mt-1">Here is what's happening with your trips today.</p>
         </div>
         
         {isAdmin && (
-          <div className="flex items-center gap-3 bg-slate-50 py-2 px-4 rounded-xl border border-slate-200">
-            <div>
+          <div className="flex min-w-0 items-center gap-3 bg-slate-50 py-2 px-4 rounded-xl border border-slate-200">
+            <div className="min-w-0">
               <p className="text-xs font-bold text-slate-700">Direct Approval</p>
               <p className="text-[10px] text-slate-500">Auto-approve driver submissions</p>
             </div>
@@ -93,18 +94,18 @@ export default function DashboardPage({ trips, vehicles = [], settings }) {
       {(isAdmin && (pendingTrips.length > 0 || outstandingBalance > 0)) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {pendingTrips.length > 0 && (
-            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-center gap-4">
+            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex min-w-0 items-center gap-4">
               <div className="h-10 w-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center text-xl">⏳</div>
-              <div>
+              <div className="min-w-0">
                 <p className="font-bold text-amber-900">{pendingTrips.length} Trips Pending Approval</p>
                 <p className="text-xs text-amber-700">Review driver submissions</p>
               </div>
             </div>
           )}
           {outstandingBalance > 0 && (
-            <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex items-center gap-4">
+            <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex min-w-0 items-center gap-4">
               <div className="h-10 w-10 bg-rose-200 text-rose-700 rounded-full flex items-center justify-center text-xl">💸</div>
-              <div>
+              <div className="min-w-0">
                 <p className="font-bold text-rose-900">KES {fmt(outstandingBalance)} Outstanding</p>
                 <p className="text-xs text-rose-700">From {unpaidTrips.length} unpaid trips</p>
               </div>
@@ -118,7 +119,7 @@ export default function DashboardPage({ trips, vehicles = [], settings }) {
         <>
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Today — {todayStr}</p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
               <StatCard label="Revenue" value={fmt(todaySummary.revenue)} icon="💰" color="blue" />
               <StatCard label="Expenses" value={fmt(todaySummary.expenses)} icon="📉" color="red" />
               <StatCard label="Profit" value={fmt(todaySummary.profit)} icon="📈" color="green"
@@ -127,9 +128,9 @@ export default function DashboardPage({ trips, vehicles = [], settings }) {
             </div>
           </div>
 
-          <div className={`grid grid-cols-2 ${vehicleTodayStats.length > 2 ? 'lg:grid-cols-4' : ''} gap-3`}>
+          <div className={`grid grid-cols-2 ${vehicleTodayStats.length > 2 ? 'lg:grid-cols-4' : ''} gap-3 mobile-card-rail mobile-card-rail--wide`}>
             {vehicleTodayStats.map(v => (
-              <div key={v.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div key={v.id} className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{v.plate} Today</p>
                 <p className="text-xl font-black text-slate-800">{fmt(v.summary.profit)}</p>
                 <p className="text-xs text-slate-500 mt-1">{v.summary.count} trips · Rev {fmt(v.summary.revenue)}</p>
@@ -153,8 +154,8 @@ export default function DashboardPage({ trips, vehicles = [], settings }) {
             </ResponsiveContainer>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="grid grid-cols-2 gap-3 mobile-card-rail mobile-card-rail--wide">
+            <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">This Week</p>
               <p className="text-xl font-black text-slate-800">{fmt(weekSummary.profit)}</p>
               <div className="mt-2 space-y-1">
@@ -166,7 +167,7 @@ export default function DashboardPage({ trips, vehicles = [], settings }) {
                 </div>
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">This Month</p>
               <p className="text-xl font-black text-slate-800">{fmt(monthSummary.profit)}</p>
               <div className="mt-2 space-y-1">
@@ -198,15 +199,15 @@ export default function DashboardPage({ trips, vehicles = [], settings }) {
       ) : (
         /* DRIVER VIEW */
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-card-rail mobile-card-rail--compact">
             <StatCard label="Trips Today" value={todaySummary.count} icon="🚛" color="blue" />
             <StatCard label="Trips This Week" value={weekSummary.count} icon="📅" color="amber" />
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-4">Your Recent Trips</h3>
             {trips.slice(0, 5).map(t => (
-              <div key={t.id} className="flex justify-between items-center py-3 border-b border-slate-50 last:border-0">
-                <div>
+              <div key={t.id} className="flex min-w-0 justify-between gap-3 items-center py-3 border-b border-slate-50 last:border-0">
+                <div className="min-w-0">
                   <p className="font-semibold text-slate-700">{t.date} · {t.lorry}</p>
                   <p className="text-xs text-slate-500">{t.location || 'N/A'}</p>
                 </div>

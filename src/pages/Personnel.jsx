@@ -27,15 +27,15 @@ export default function PersonnelPage({ personnel, trips }) {
     const sum = summarize(personTrips);
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-800 transition-colors">
             ← Back
           </button>
           <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-lg font-black text-emerald-700">
             {selected.name.charAt(0)}
           </div>
-          <div>
-            <h2 className="text-xl font-black text-slate-800">{selected.name}</h2>
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-black text-slate-800">{selected.name}</h2>
             <div className="flex items-center gap-2 mt-0.5">
               <Badge color={selected.role === "Driver" ? "blue" : selected.role === "Conductor" ? "amber" : "emerald"}>{selected.role}</Badge>
               <Badge color={selected.status === "Active" ? "green" : "slate"}>{selected.status}</Badge>
@@ -43,20 +43,20 @@ export default function PersonnelPage({ personnel, trips }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
+          <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Total Trips</p>
             <p className="text-2xl font-black text-slate-800">{sum.count}</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Phone</p>
             <p className="text-sm font-bold text-slate-800">{selected.phone || "N/A"}</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">ID Number</p>
             <p className="text-sm font-bold text-slate-800">{selected.idNumber || "N/A"}</p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Revenue Generated</p>
             <p className="text-sm font-bold text-emerald-600">{fmt(sum.revenue)}</p>
           </div>
@@ -108,7 +108,7 @@ export default function PersonnelPage({ personnel, trips }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-800">Personnel</h2>
         {isAdmin && (
           <button onClick={() => setAddOpen(true)}
@@ -118,7 +118,7 @@ export default function PersonnelPage({ personnel, trips }) {
         )}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 mobile-control-rail">
         {["All", ...ROLES].map(r => (
           <button key={r} onClick={() => setFilterRole(r)}
             className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${filterRole === r ? "bg-emerald-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
@@ -217,7 +217,7 @@ function PersonnelForm({ initial, onSave, onCancel }) {
         <label className="block text-xs font-semibold text-slate-500 mb-1">Full Name *</label>
         <input className={inp} placeholder="e.g. John Doe" value={name} onChange={e => setName(e.target.value)} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 mobile-form-grid">
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Role</label>
           <select className={inp} value={role} onChange={e => setRole(e.target.value)}>
@@ -243,7 +243,7 @@ function PersonnelForm({ initial, onSave, onCancel }) {
         <label className="block text-xs font-semibold text-slate-500 mb-1">Notes</label>
         <textarea className={inp} rows="2" value={notes} onChange={e => setNotes(e.target.value)} />
       </div>
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-3 pt-2 mobile-action-stack sm:flex-row">
         <button onClick={onCancel} className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
         <button onClick={handleSubmit} disabled={saving} className="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
           {saving ? "Saving…" : "Save"}

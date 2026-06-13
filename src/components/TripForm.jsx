@@ -172,7 +172,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 mobile-form-grid">
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Date *</label>
           <input type="date" className={inp} value={form.date} onChange={e => setField("date", e.target.value)} />
@@ -286,7 +286,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
         {showInlineAdd && (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-3 col-span-2">
             <p className="text-xs font-bold text-emerald-800 uppercase tracking-widest">Create New Location</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mobile-form-grid">
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Location Name *</label>
                 <input 
@@ -330,7 +330,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
 
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Standard Expenses</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 mobile-form-grid">
           {FIXED_EXPENSE_KEYS.map(k => (
             <div key={k}>
               <label className="block text-xs font-semibold text-slate-500 mb-1 capitalize">{k}</label>
@@ -343,7 +343,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between gap-3 mb-3">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Additional Expenses</p>
           <button
             type="button"
@@ -361,7 +361,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
         ) : (
           <div className="space-y-2">
             {form.expenses.custom.map((c) => (
-              <div key={c.id} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+              <div key={c.id} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 mobile-custom-expense">
                 <input
                   className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-300"
                   placeholder="e.g. Repair, Toll, Tyres…"
@@ -416,7 +416,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
         </div>
       </div>
 
-      <div className="flex gap-3 pt-1">
+      <div className="flex gap-3 pt-1 mobile-action-stack sm:flex-row">
         <button onClick={onCancel}
           className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
           Cancel

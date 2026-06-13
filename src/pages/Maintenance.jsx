@@ -34,7 +34,7 @@ export default function MaintenancePage({ maintenance, vehicles }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-800">Maintenance</h2>
         {isAdmin && (
           <button onClick={() => setAddOpen(true)}
@@ -45,18 +45,18 @@ export default function MaintenancePage({ maintenance, vehicles }) {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="grid grid-cols-3 gap-3 mobile-card-rail mobile-card-rail--wide">
+        <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Total Cost</p>
           <p className="text-xl font-black text-slate-800">{fmt(totalCost)}</p>
           <p className="text-xs text-slate-400 mt-1">{filtered.length} records</p>
         </div>
-        <div className="rounded-2xl border border-blue-50 bg-blue-50 p-4 shadow-sm">
+        <div className="responsive-card rounded-2xl border border-blue-50 bg-blue-50 p-4 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-widest text-blue-400 mb-1">Routine</p>
           <p className="text-xl font-black text-blue-700">{fmt(routineCost)}</p>
           <p className="text-xs text-blue-400 mt-1">{maintenance.filter(m => m.type === "Routine").length} records</p>
         </div>
-        <div className="rounded-2xl border border-rose-50 bg-rose-50 p-4 shadow-sm">
+        <div className="responsive-card rounded-2xl border border-rose-50 bg-rose-50 p-4 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-widest text-rose-400 mb-1">Repairs</p>
           <p className="text-xl font-black text-rose-600">{fmt(repairCost)}</p>
           <p className="text-xs text-rose-400 mt-1">{maintenance.filter(m => m.type === "Repair").length} records</p>
@@ -64,8 +64,8 @@ export default function MaintenancePage({ maintenance, vehicles }) {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <div className="flex gap-1">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="flex gap-1 mobile-control-rail">
           {["All", ...TYPES].map(t => (
             <button key={t} onClick={() => setFilterType(t)}
               className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${filterType === t ? "bg-emerald-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
@@ -73,7 +73,7 @@ export default function MaintenancePage({ maintenance, vehicles }) {
             </button>
           ))}
         </div>
-        <select className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-emerald-500 focus:outline-none"
+        <select className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-emerald-500 focus:outline-none sm:w-auto"
           value={filterLorry} onChange={e => setFilterLorry(e.target.value)}>
           <option value="All">All Vehicles</option>
           {lorryList.map(l => <option key={l}>{l}</option>)}
@@ -169,7 +169,7 @@ function MaintenanceForm({ initial, vehicles, onSave, onCancel }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 mobile-form-grid">
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Date *</label>
           <input type="date" className={inp} value={date} onChange={e => setDate(e.target.value)} />
@@ -197,7 +197,7 @@ function MaintenanceForm({ initial, vehicles, onSave, onCancel }) {
         <label className="block text-xs font-semibold text-slate-500 mb-1">Description *</label>
         <input className={inp} placeholder="e.g. Oil change, Tyre replacement, Engine repair…" value={description} onChange={e => setDescription(e.target.value)} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 mobile-form-grid">
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Vendor / Garage</label>
           <input className={inp} placeholder="e.g. ABC Garage" value={vendor} onChange={e => setVendor(e.target.value)} />
@@ -211,7 +211,7 @@ function MaintenanceForm({ initial, vehicles, onSave, onCancel }) {
         <label className="block text-xs font-semibold text-slate-500 mb-1">Notes</label>
         <textarea className={inp} rows="2" value={notes} onChange={e => setNotes(e.target.value)} />
       </div>
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-3 pt-2 mobile-action-stack sm:flex-row">
         <button onClick={onCancel} className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
         <button onClick={handleSubmit} disabled={saving} className="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
           {saving ? "Saving…" : "Save Record"}

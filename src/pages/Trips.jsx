@@ -121,7 +121,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-800">Trips</h2>
         {canAddTrips && (
           <button onClick={() => setAddOpen(true)}
@@ -151,7 +151,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 mobile-filter-grid">
         <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none w-40"
           placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
         <select className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
@@ -266,16 +266,16 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-slate-50 rounded-lg p-2 text-center">
+                  <div className="grid grid-cols-3 gap-3 mobile-card-rail mobile-card-rail--compact">
+                    <div className="responsive-card bg-slate-50 rounded-lg p-2 text-center">
                       <p className="text-xs text-slate-400">Revenue</p>
                       <p className="font-bold text-blue-600">{fmt(t.revenue)}</p>
                     </div>
-                    <div className="bg-slate-50 rounded-lg p-2 text-center">
+                    <div className="responsive-card bg-slate-50 rounded-lg p-2 text-center">
                       <p className="text-xs text-slate-400">Expenses</p>
                       <p className="font-bold text-rose-500">{fmt(t.totalExpenses)}</p>
                     </div>
-                    <div className="bg-slate-50 rounded-lg p-2 text-center">
+                    <div className="responsive-card bg-slate-50 rounded-lg p-2 text-center">
                       <p className="text-xs text-slate-400">Profit</p>
                       <p className={`font-bold ${Number(t.profit) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmt(t.profit)}</p>
                     </div>
@@ -355,15 +355,15 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
   return (
     <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
       <div
-        className="flex flex-wrap items-center justify-between p-4 bg-slate-50 border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
+        className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <span className="text-slate-400 text-lg">{expanded ? "▼" : "▶"}</span>
           <h3 className="font-bold text-slate-800 text-lg">{group.date}</h3>
           <Badge color="slate">{group.trips.length} trips</Badge>
         </div>
-        <div className="flex items-center gap-4 text-sm font-medium mt-2 sm:mt-0">
+        <div className="flex max-w-full items-center gap-4 overflow-x-auto scrollbar-none text-sm font-medium sm:mt-0">
           <span className="text-blue-600">Rev: {fmt(group.summary.revenue)}</span>
           <span className="text-rose-500">Exp: {fmt(group.summary.expenses)}</span>
           <span className={`font-bold ${group.summary.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>

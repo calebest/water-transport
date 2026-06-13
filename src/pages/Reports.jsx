@@ -45,8 +45,8 @@ export default function ReportsPage({ trips, vehicles }) {
     <div className="space-y-5">
       <h2 className="text-xl font-black text-slate-800">Reports</h2>
 
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2 mobile-control-rail">
           {["daily", "weekly", "monthly", "custom"].map(v => (
             <button key={v} className={btnCls(v)} onClick={() => setRange(v)}>
               {v.charAt(0).toUpperCase() + v.slice(1)}
@@ -56,7 +56,7 @@ export default function ReportsPage({ trips, vehicles }) {
         <select 
           value={filterVehicle} 
           onChange={e => setFilterVehicle(e.target.value)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none sm:w-auto"
         >
           <option value="All Vehicles">All Vehicles</option>
           {vehicles.map(v => (
@@ -80,7 +80,7 @@ export default function ReportsPage({ trips, vehicles }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
         <StatCard label="Revenue" value={fmt(sum.revenue)} icon="💰" color="blue" />
         <StatCard label="Expenses" value={fmt(sum.expenses)} icon="📉" color="red" />
         <StatCard label="Profit" value={fmt(sum.profit)} icon="📈" color="green" />
@@ -88,11 +88,11 @@ export default function ReportsPage({ trips, vehicles }) {
       </div>
 
       {filterVehicle === "All Vehicles" && activeLorryPlates.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mobile-card-rail mobile-card-rail--wide">
           {activeLorryPlates.map(plate => {
             const vehSum = summarize(rangeTrips.filter(t => t.lorry === plate));
             return (
-              <div key={plate} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div key={plate} className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{plate}</p>
                 <p className="text-lg font-black text-slate-800">{fmt(vehSum.profit)}</p>
                 <p className="text-xs text-slate-500 mt-1">{vehSum.count} trips · Rev {fmt(vehSum.revenue)} · Exp {fmt(vehSum.expenses)}</p>
@@ -110,18 +110,18 @@ export default function ReportsPage({ trips, vehicles }) {
             const total = sumExpenseKey(rangeTrips, key, isCustom);
             const pct = sum.expenses > 0 ? (total / sum.expenses * 100).toFixed(1) : 0;
             return (
-              <div key={key} className="flex items-center gap-3 mb-2">
-                <span className="w-24 text-xs font-semibold capitalize text-slate-500 flex items-center gap-1">
+              <div key={key} className="mobile-expense-row flex items-center gap-3 mb-2">
+                <span className="mobile-expense-label w-24 text-xs font-semibold capitalize text-slate-500 flex items-center gap-1">
                   {key}
                   {isCustom && (
                     <span className="rounded bg-emerald-100 px-1 text-emerald-600 text-[9px] font-bold">custom</span>
                   )}
                 </span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="mobile-expense-bar flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
                 </div>
-                <span className="w-28 text-right text-xs font-bold text-slate-700">{fmt(total)}</span>
-                <span className="w-10 text-right text-xs text-slate-400">{pct}%</span>
+                <span className="mobile-expense-total w-28 text-right text-xs font-bold text-slate-700">{fmt(total)}</span>
+                <span className="mobile-expense-pct w-10 text-right text-xs text-slate-400">{pct}%</span>
               </div>
             );
           })}

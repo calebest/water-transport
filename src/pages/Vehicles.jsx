@@ -59,15 +59,15 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel }) 
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <button onClick={() => setSelectedVeh(null)} className="text-slate-400 hover:text-slate-800 transition-colors">
             ← Back
           </button>
-          <h2 className="text-xl font-black text-slate-800">{selectedVeh.name} ({selectedVeh.plate})</h2>
+          <h2 className="min-w-0 text-xl font-black text-slate-800">{selectedVeh.name} ({selectedVeh.plate})</h2>
           <Badge color={selectedVeh.status === "Active" ? "green" : "red"}>{selectedVeh.status}</Badge>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
           <StatCard label="Total Trips" value={sum.count} icon="🚛" color="blue" />
           <StatCard label="Total Revenue" value={fmt(sum.revenue)} icon="💰" color="green" />
           <StatCard label="Total Expenses" value={fmt(sum.expenses)} icon="📉" color="red" />
@@ -118,7 +118,7 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel }) 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-800">Vehicles</h2>
         {isAdmin && (
           <button onClick={() => setAddOpen(true)}
@@ -140,11 +140,11 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel }) 
               <div className="flex items-start justify-between gap-3 mb-4">
                 {/* Left: plate name + badge + vehicle name */}
                 <div className="flex flex-col gap-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <h3 className="font-black text-slate-800 text-lg leading-tight">{v.plate}</h3>
                     <Badge color={v.status === "Active" ? "green" : "slate"}>{v.status}</Badge>
                   </div>
-                  <p className="text-xs text-slate-500 font-semibold">{v.name}</p>
+                  <p className="truncate text-xs text-slate-500 font-semibold">{v.name}</p>
                 </div>
                 {/* Right: action buttons — always on top right, never touching badge */}
                 {isAdmin && (

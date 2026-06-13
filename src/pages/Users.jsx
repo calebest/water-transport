@@ -93,7 +93,7 @@ export default function UsersPage({ personnel = [] }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-800">Users</h2>
         <button onClick={() => setShowForm(v => !v)}
           className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow hover:bg-emerald-700">
@@ -105,7 +105,7 @@ export default function UsersPage({ personnel = [] }) {
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm space-y-3">
           <p className="text-sm font-bold text-slate-700">Create New User</p>
           {err && <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-600">{err}</div>}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mobile-form-grid">
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1">Name</label>
               <input className={inp} value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" />
@@ -216,7 +216,7 @@ export default function UsersPage({ personnel = [] }) {
               <label className="block text-xs font-semibold text-slate-500 mb-1">Name</label>
               <input name="name" defaultValue={editUser.name} className={inp} autoFocus required />
             </div>
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-3 pt-2 mobile-action-stack sm:flex-row">
               <button type="button" onClick={() => setEditUser(null)} className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
               <button type="submit" className="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Save Changes</button>
             </div>
@@ -231,7 +231,7 @@ export default function UsersPage({ personnel = [] }) {
               Are you sure you want to remove <strong>{delUser.name}</strong> ({delUser.email})?
               <br /><span className="text-rose-500 font-semibold text-xs">Note: They will no longer be able to log in or access any data.</span>
             </p>
-            <div className="flex gap-3">
+            <div className="flex gap-3 mobile-action-stack sm:flex-row">
               <button onClick={() => setDelUser(null)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
               <button onClick={handleDelUser} className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700">Delete</button>
             </div>

@@ -1,17 +1,41 @@
 @import "tailwindcss";
 
 @layer base {
+  html,
+  body,
+  #root {
+    min-width: 0;
+    min-height: 100%;
+  }
+
   html, body {
     max-width: 100vw;
     overflow-x: hidden;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
   }
 }
 
 .table-scroll-container {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable both-edges;
+  touch-action: pan-x pan-y;
+}
+
+.table-scroll-container > table {
+  width: max-content;
+  min-width: 100%;
 }
 
 .table-scroll-container table th:first-child,
@@ -26,6 +50,144 @@
   z-index: 3; /* above sticky body cells */
 }
 
+.mobile-card-rail,
+.mobile-control-rail,
+.mobile-filter-grid,
+.mobile-form-grid {
+  min-width: 0;
+}
+
+.responsive-card {
+  min-width: 0;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .mobile-card-rail {
+    display: flex !important;
+    gap: 0.75rem;
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    padding-bottom: 0.25rem;
+    overflow-x: auto;
+    overflow-y: visible;
+    scroll-padding-inline: 1rem;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-inline: contain;
+    touch-action: pan-x pan-y;
+    scrollbar-width: none;
+  }
+
+  .mobile-card-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-card-rail > * {
+    flex: 0 0 clamp(14rem, 78vw, 19rem);
+    scroll-snap-align: start;
+  }
+
+  .mobile-card-rail--compact > * {
+    flex-basis: clamp(10.75rem, 48vw, 14rem);
+  }
+
+  .mobile-card-rail--wide > * {
+    flex-basis: clamp(15rem, 84vw, 22rem);
+  }
+
+  .mobile-control-rail {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    padding-bottom: 0.125rem;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .mobile-control-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-control-rail > * {
+    flex: 0 0 auto;
+  }
+
+  .mobile-filter-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .mobile-filter-grid > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .mobile-filter-grid > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-form-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .mobile-form-grid > .col-span-2 {
+    grid-column: auto / auto;
+  }
+
+  .mobile-header-stack {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .mobile-header-stack > * {
+    min-width: 0;
+  }
+
+  .mobile-action-stack {
+    flex-direction: column;
+  }
+
+  .mobile-expense-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem 0.75rem;
+    align-items: center;
+  }
+
+  .mobile-expense-label,
+  .mobile-expense-total,
+  .mobile-expense-pct {
+    width: auto !important;
+  }
+
+  .mobile-expense-bar {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+
+  .mobile-custom-expense {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .mobile-custom-expense input {
+    width: 100% !important;
+  }
+
+  .mobile-custom-expense button {
+    align-self: flex-end;
+  }
+}
+
 @theme {
   --font-sans: "DM Sans", sans-serif;
-}
+}

@@ -12,7 +12,7 @@ export default function LocationsPage({ locations }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-800">Locations</h2>
         {isAdmin && (
           <button onClick={() => setAddOpen(true)}
@@ -137,7 +137,7 @@ function LocationForm({ initial, onSave, onCancel }) {
           <option value="Inactive">Inactive</option>
         </select>
       </div>
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-3 pt-2 mobile-action-stack sm:flex-row">
         <button onClick={onCancel}
           className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
           Cancel
