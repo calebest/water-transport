@@ -90,6 +90,10 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 
   const navItems = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
   const activePage = navItems.some(n => n.id === page) ? page : "dashboard";
+  const activeNavItem = navItems.find(n => n.id === activePage) || navItems[0];
+  const primaryMobileIds = new Set(["dashboard", "trips", "reports"]);
+  const mobileNavItems = navItems.filter(n => primaryMobileIds.has(n.id));
+  const hasHiddenActivePage = !primaryMobileIds.has(activePage);
 
   useEffect(() => {
     if (page !== activePage) {
@@ -170,9 +174,12 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="min-w-0">
               <span className="text-xl">🚛</span>
-              <span className="truncate font-black text-slate-800 text-sm">Water Transport</span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black leading-tight text-slate-800">Water Transport</p>
+                <p className="truncate text-[11px] text-slate-500">{activeNavItem?.label || "Dashboard"}</p>
+              </div>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -185,11 +192,39 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           </div>
         </header>
 
-        <main className="flex-1 min-w-0 w-full p-4 lg:p-8 pb-8">
+        <main className="flex-1 min-w-0 w-full p-3 lg:p-8 pb-24 lg:pb-8">
           <div className="w-full min-w-0 max-w-5xl mx-auto">
             {pages[activePage] || pages.dashboard}
           </div>
         </main>
+
+        <nav className="mobile-bottom-nav lg:hidden">
+          <div className="grid grid-cols-4 gap-1">
+            {mobileNavItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => navigateToPage(item.id)}
+                className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-bold transition-colors ${activePage === item.id ? "text-emerald-700" : "text-slate-500"}`}
+                aria-current={activePage === item.id ? "page" : undefined}
+              >
+                <span className={`flex h-9 w-9 items-center justify-center rounded-full text-base transition-colors ${activePage === item.id ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                  {item.icon}
+                </span>
+                <span className="truncate leading-none">{item.label}</span>
+              </button>
+            ))}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-bold transition-colors ${hasHiddenActivePage ? "text-emerald-700" : "text-slate-500"}`}
+              aria-label="Open more navigation"
+            >
+              <span className={`flex h-9 w-9 items-center justify-center rounded-full text-base transition-colors ${hasHiddenActivePage ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                ☰
+              </span>
+              <span className="truncate leading-none">More</span>
+            </button>
+          </div>
+        </nav>
       </div>
     </div>
   );

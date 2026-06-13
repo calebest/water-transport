@@ -71,36 +71,26 @@
 
 @media (max-width: 640px) {
   .mobile-card-rail {
-    display: flex !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 0.75rem;
-    margin-inline: -1rem;
-    padding-inline: 1rem;
-    padding-bottom: 0.25rem;
-    overflow-x: auto;
-    overflow-y: visible;
-    scroll-padding-inline: 1rem;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-inline: contain;
-    touch-action: pan-x pan-y;
-    scrollbar-width: none;
-  }
-
-  .mobile-card-rail::-webkit-scrollbar {
-    display: none;
-  }
-
-  .mobile-card-rail > * {
-    flex: 0 0 clamp(14rem, 78vw, 19rem);
-    scroll-snap-align: start;
+    overflow: visible;
   }
 
   .mobile-card-rail--compact > * {
-    flex-basis: clamp(10.75rem, 48vw, 14rem);
+    min-width: 0;
   }
 
   .mobile-card-rail--wide > * {
-    flex-basis: clamp(15rem, 84vw, 22rem);
+    min-width: 0;
+  }
+
+  .mobile-card-rail--wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mobile-card-rail > * {
+    min-width: 0;
   }
 
   .mobile-control-rail {
@@ -185,6 +175,19 @@
 
   .mobile-custom-expense button {
     align-self: flex-end;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    border-top: 1px solid rgb(226 232 240);
+    background: rgba(255, 255, 255, 0.94);
+    padding: 0.5rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+    backdrop-filter: blur(18px);
+    box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.08);
   }
 }
 
