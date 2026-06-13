@@ -5,6 +5,7 @@ import { locationService } from "./services/locations";
 import { vehicleService } from "./services/vehicles";
 import { personnelService } from "./services/personnel";
 import { maintenanceService } from "./services/maintenance";
+import { settingsService } from "./services/settings";
 import { Badge } from "./components/ui";
 
 import LoginPage from "./pages/Login";
@@ -30,7 +31,7 @@ const NAV_ITEMS = [
   { id: "users", label: "Users", icon: "👥", adminOnly: true },
 ];
 
-function Layout({ trips, locations, vehicles, personnel, maintenance }) {
+function Layout({ trips, locations, vehicles, personnel, maintenance, settings }) {
   const { profile, logout, isAdmin } = useAuth();
   const [page, setPage] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -60,8 +61,8 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
 
   const navItems = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
   const pages = {
-    dashboard: <DashboardPage trips={trips} vehicles={vehicles} />,
-    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} />,
+    dashboard: <DashboardPage trips={trips} vehicles={vehicles} settings={settings} />,
+    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} />,
     locations: <LocationsPage locations={locations} />,
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
@@ -157,20 +158,22 @@ function Layout({ trips, locations, vehicles, personnel, maintenance }) {
 }
 
 function AppInner() {
-  const { user, loading } = useAuth();
-  const [trips, setTrips] = useState([]);
+  const { user, loading, isAdmin, personnelId } = useAuth();
+  const [rawTrips, setRawTrips] = useState([]);
   const [locations, setLocations] = useState([]);
-  const [vehicles, setVehicles] = useState([]);
+  const [rawVehicles, setRawVehicles] = useState([]);
   const [personnel, setPersonnel] = useState([]);
   const [maintenance, setMaintenance] = useState([]);
+  const [settings, setSettings] = useState({ directApproval: false });
 
   useEffect(() => {
     if (!user) return;
-    const unsubTrips = tripService.subscribe(setTrips);
+    const unsubTrips = tripService.subscribe(setRawTrips);
     const unsubLocs = locationService.subscribe(setLocations);
-    const unsubVehs = vehicleService.subscribe(setVehicles);
+    const unsubVehs = vehicleService.subscribe(setRawVehicles);
     const unsubPersonnel = personnelService.subscribe(setPersonnel);
     const unsubMaintenance = maintenanceService.subscribe(setMaintenance);
+    const unsubSettings = settingsService.subscribe(setSettings);
     
     return () => {
       unsubTrips();
@@ -178,8 +181,22 @@ function AppInner() {
       unsubVehs();
       unsubPersonnel();
       unsubMaintenance();
+      if (unsubSettings) unsubSettings();
     };
   }, [user]);
+
+  // Data Isolation for non-admins
+  const trips = useMemo(() => {
+    if (isAdmin) return rawTrips;
+    return rawTrips.filter(t => t.driverId === personnelId || t.conductorId === personnelId || t.submittedBy === user.uid);
+  }, [rawTrips, isAdmin, personnelId, user?.uid]);
+
+  const vehicles = useMemo(() => {
+    if (isAdmin) return rawVehicles;
+    // Driver can see all vehicles in dropdown for TripForm, so we shouldn't filter vehicles too aggressively, 
+    // but the VehiclesPage is adminOnly anyway. We will pass all rawVehicles to allow them to select lorries.
+    return rawVehicles; 
+  }, [rawVehicles, isAdmin]);
 
   if (loading) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -191,7 +208,7 @@ function AppInner() {
   );
 
   if (!user) return <LoginPage />;
-  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} />;
 }
 
 export default function App() {

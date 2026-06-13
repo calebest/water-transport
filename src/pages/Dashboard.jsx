@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { today, getWeekRange, getMonthRange, filterByRange, summarize, fmt } from "../utils/helpers";
-import { StatCard } from "../components/ui";
+import { today, getWeekRange, getMonthRange, filterByRange, summarize, fmt, collectExpenseKeys, sumExpenseKey } from "../utils/helpers";
+import { StatCard, Badge } from "../components/ui";
+import { useAuth } from "../contexts/AuthContext";
+import { settingsService } from "../services/settings";
 
-
-
-export default function DashboardPage({ trips, vehicles = [] }) {
+export default function DashboardPage({ trips, vehicles = [], settings }) {
+  const { profile, isAdmin } = useAuth();
   const todayStr = today();
   const [weekStart, weekEnd] = getWeekRange();
   const [monthStart, monthEnd] = getMonthRange();
@@ -49,10 +50,75 @@ export default function DashboardPage({ trips, vehicles = [] }) {
     }));
   }, [vehicles, monthTrips]);
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  const pendingTrips = trips.filter(t => t.approvalStatus === "pending" || t.approvalStatus === "pending_edit");
+  const unpaidTrips = trips.filter(t => t.status !== "Paid" && t.approvalStatus === "approved" && t.revenue > 0);
+  const outstandingBalance = unpaidTrips.reduce((acc, t) => acc + ((t.revenue || 0) - (t.amountPaid || 0)), 0);
+
+  const toggleDirectApproval = async () => {
+    if (!isAdmin) return;
+    try {
+      await settingsService.update({ directApproval: !settings?.directApproval });
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update settings");
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Today — {todayStr}</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800">{greeting}, {profile?.name?.split(' ')[0]}!</h2>
+          <p className="text-slate-500 text-sm mt-1">Here is what's happening with your trips today.</p>
+        </div>
+        
+        {isAdmin && (
+          <div className="flex items-center gap-3 bg-slate-50 py-2 px-4 rounded-xl border border-slate-200">
+            <div>
+              <p className="text-xs font-bold text-slate-700">Direct Approval</p>
+              <p className="text-[10px] text-slate-500">Auto-approve driver submissions</p>
+            </div>
+            <button 
+              onClick={toggleDirectApproval}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${settings?.directApproval ? 'bg-emerald-500' : 'bg-slate-300'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings?.directApproval ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {(isAdmin && (pendingTrips.length > 0 || outstandingBalance > 0)) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {pendingTrips.length > 0 && (
+            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-center gap-4">
+              <div className="h-10 w-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center text-xl">⏳</div>
+              <div>
+                <p className="font-bold text-amber-900">{pendingTrips.length} Trips Pending Approval</p>
+                <p className="text-xs text-amber-700">Review driver submissions</p>
+              </div>
+            </div>
+          )}
+          {outstandingBalance > 0 && (
+            <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex items-center gap-4">
+              <div className="h-10 w-10 bg-rose-200 text-rose-700 rounded-full flex items-center justify-center text-xl">💸</div>
+              <div>
+                <p className="font-bold text-rose-900">KES {fmt(outstandingBalance)} Outstanding</p>
+                <p className="text-xs text-rose-700">From {unpaidTrips.length} unpaid trips</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Driver vs Admin View Separation */}
+      {isAdmin ? (
+        <>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Today — {todayStr}</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard label="Revenue" value={fmt(todaySummary.revenue)} icon="💰" color="blue" />
           <StatCard label="Expenses" value={fmt(todaySummary.expenses)} icon="📉" color="red" />

@@ -16,7 +16,7 @@ const APPROVAL_BADGE = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function TripsPage({ trips, locations, vehicles, personnel = [] }) {
+export default function TripsPage({ trips, locations, vehicles, personnel = [], settings }) {
   const { isAdmin, canAddTrips, userId } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editTrip, setEditTrip] = useState(null);
@@ -81,9 +81,10 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [] }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const handleAdd  = (form) => tripService.add(form, { userId, isAdmin });
+  const handleAdd  = (form) => tripService.add(form, { userId, isAdmin, directApproval: settings?.directApproval });
   const handleEdit = (form) => tripService.update(editTrip.id, form, { 
     isAdmin, 
+    directApproval: settings?.directApproval,
     isPending: editTrip?.approvalStatus === "pending" 
   });
 

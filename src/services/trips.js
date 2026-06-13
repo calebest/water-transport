@@ -30,10 +30,10 @@ const calcFields = (data) => {
 export const tripService = {
   /**
    * Add a new trip.
-   * - Admin: instantly approved.
+   * - Admin or DirectApproval: instantly approved.
    * - Driver/Conductor: saved as "pending" — requires admin approval.
    */
-  add: async (data, { userId = null, isAdmin = false } = {}) => {
+  add: async (data, { userId = null, isAdmin = false, directApproval = false } = {}) => {
     const { totalExpenses, profit, revenue, amountPaid, status } = calcFields(data);
     return addDoc(collection(db, "trips"), {
       ...data,
@@ -46,7 +46,7 @@ export const tripService = {
       conductorId: data.conductorId || null,
       odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
       odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
-      approvalStatus: isAdmin ? "approved" : "pending",
+      approvalStatus: (isAdmin || directApproval) ? "approved" : "pending",
       submittedBy: userId,
       pendingEdits: null,
       createdAt: serverTimestamp(),
@@ -55,11 +55,11 @@ export const tripService = {
 
   /**
    * Update a trip.
-   * - Admin: applies directly and marks as approved.
+   * - Admin or DirectApproval: applies directly and marks as approved.
    * - Driver/Conductor: saves changes as pendingEdits — requires admin approval.
    */
-  update: async (id, data, { isAdmin = false, isPending = false } = {}) => {
-    if (isAdmin) {
+  update: async (id, data, { isAdmin = false, directApproval = false, isPending = false } = {}) => {
+    if (isAdmin || directApproval) {
       const { totalExpenses, profit, revenue, amountPaid, status } = calcFields(data);
       return updateDoc(doc(db, "trips", id), {
         ...data,
