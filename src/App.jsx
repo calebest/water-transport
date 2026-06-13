@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { tripService } from "./services/trips";
 import { locationService } from "./services/locations";
