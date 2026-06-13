@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { tripService } from "./services/trips";
 import { locationService } from "./services/locations";
@@ -31,10 +31,36 @@ const NAV_ITEMS = [
   { id: "users", label: "Users", icon: "👥", adminOnly: true },
 ];
 
+const ROUTE_BY_PATH = NAV_ITEMS.reduce((routes, item) => {
+  routes[`/${item.id}`] = item.id;
+  return routes;
+}, { "/": "dashboard", "/dashboard": "dashboard" });
+
+const getPageFromPath = () => {
+  const normalized = window.location.pathname.replace(/\/+$/, "") || "/";
+  return ROUTE_BY_PATH[normalized.toLowerCase()] || "dashboard";
+};
+
+const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
+
 function Layout({ trips, locations, vehicles, personnel, maintenance, settings }) {
   const { profile, logout, isAdmin } = useAuth();
-  const [page, setPage] = useState("dashboard");
+  const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navigateToPage = useCallback((nextPage, { replace = false } = {}) => {
+    const path = getPathForPage(nextPage);
+    setPage(nextPage);
+    if (window.location.pathname !== path) {
+      window.history[replace ? "replaceState" : "pushState"](null, "", path);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => setPage(getPageFromPath());
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   // Count trips pending admin approval
   const pendingCount = isAdmin
@@ -60,6 +86,14 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings }
   }, [pendingCount, isAdmin]);
 
   const navItems = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
+  const activePage = navItems.some(n => n.id === page) ? page : "dashboard";
+
+  useEffect(() => {
+    if (page !== activePage) {
+      navigateToPage(activePage, { replace: true });
+    }
+  }, [activePage, navigateToPage, page]);
+
   const pages = {
     dashboard: <DashboardPage trips={trips} vehicles={vehicles} settings={settings} />,
     trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} />,
@@ -94,8 +128,8 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings }
         </div>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {navItems.map(n => (
-            <button key={n.id} onClick={() => { setPage(n.id); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${page === n.id ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" : "text-slate-600 hover:bg-slate-50"
+            <button key={n.id} onClick={() => { navigateToPage(n.id); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${activePage === n.id ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" : "text-slate-600 hover:bg-slate-50"
                 }`}>
               <span>{n.icon}</span>
               <span className="flex-1 text-left">{n.label}</span>
@@ -149,7 +183,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings }
 
         <main className="flex-1 min-w-0 w-full p-4 lg:p-8 pb-8">
           <div className="w-full min-w-0 max-w-5xl mx-auto">
-            {pages[page] || pages.dashboard}
+            {pages[activePage] || pages.dashboard}
           </div>
         </main>
       </div>
