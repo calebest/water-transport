@@ -13,7 +13,7 @@ const dayDiff = (dateValue) => {
 };
 
 export default function DashboardPage({ trips, vehicles = [], earningsConfig = { ratePerTrip: 200 }, onOpenTripReview, onMarkTripPaid, onGoToTrips }) {
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, isOwner, isPrivileged } = useAuth();
   const [pendingOpen, setPendingOpen] = useState(true);
   const todayStr = today();
   const [weekStart, weekEnd] = getWeekRange();
@@ -77,16 +77,16 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
         </div>
       </div>
 
-      {(isAdmin && (approvalPendingTrips.length > 0 || outstandingBalance > 0)) && (
+      {((isAdmin || isOwner) && (approvalPendingTrips.length > 0 || outstandingBalance > 0)) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {approvalPendingTrips.length > 0 && (
             <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex min-w-0 items-center gap-4">
               <div className="h-10 w-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center text-xl">⏳</div>
-              <div className="min-w-0">
-                <p className="font-bold text-amber-900">{approvalPendingTrips.length} Trips Pending Approval</p>
-                <p className="text-xs text-amber-700">Review driver submissions</p>
+                <div className="min-w-0">
+                  <p className="font-bold text-amber-900">{approvalPendingTrips.length} Trips Pending Approval</p>
+                  <p className="text-xs text-amber-700">New trip entries waiting in the log</p>
+                </div>
               </div>
-            </div>
           )}
           {outstandingBalance > 0 && (
             <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex min-w-0 items-center gap-4">
@@ -101,7 +101,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
       )}
 
       {/* Driver vs Admin View Separation */}
-      {isAdmin ? (
+      {(isAdmin || isOwner) ? (
         <>
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Today — {todayStr}</p>
@@ -181,7 +181,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
                   </div>
                   <div className="rounded-xl bg-amber-100 px-4 py-3">
                     <p className="text-sm font-bold text-amber-900">Outstanding total: {fmt(pendingOutstanding)}</p>
-                    <p className="mt-1 text-xs text-amber-700">Owner earnings pending: {fmt(paymentPendingTrips.length * ratePerTrip)}</p>
+                    <p className="mt-1 text-xs text-amber-700">Pending balance: {fmt(paymentPendingTrips.length * ratePerTrip)}</p>
                   </div>
                   <button
                     type="button"

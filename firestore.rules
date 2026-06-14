@@ -16,6 +16,14 @@ service cloud.firestore {
       return role() == "admin";
     }
 
+    function isOwner() {
+      return role() == "owner";
+    }
+
+    function isPrivileged() {
+      return isAdmin() || isOwner();
+    }
+
     function isDriver() {
       return role() == "driver";
     }
@@ -71,7 +79,7 @@ service cloud.firestore {
 
     match /complaints/{complaintId} {
       allow read: if isAuthed();
-      allow create: if isAuthed();
+      allow create: if isAuthed() && !isOwner();
       allow update, delete: if isAuthed() && isAdmin();
     }
 

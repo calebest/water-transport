@@ -16,8 +16,8 @@ const APPROVAL_BADGE = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function TripsPage({ trips, locations, vehicles, personnel = [], settings, onOpenTripReview }) {
-  const { isAdmin, canAddTrips, userId } = useAuth();
+export default function TripsPage({ trips, locations, vehicles, personnel = [], settings, earningsConfig, onOpenTripReview }) {
+  const { isAdmin, isOwner, isPrivileged, canAddTrips, userId } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editTrip, setEditTrip] = useState(null);
   const [delTrip, setDelTrip] = useState(null);
@@ -44,12 +44,15 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       // Admin: approved trips + pending_edit trips (shown inline with indicator)
       return trips.filter(t => !t.approvalStatus || t.approvalStatus === "approved" || t.approvalStatus === "pending_edit");
     }
+    if (isOwner) {
+      return trips;
+    }
     // Driver/Conductor/Viewer: approved trips + their own pending/rejected submissions
     return trips.filter(t =>
       (!t.approvalStatus || t.approvalStatus === "approved" || t.approvalStatus === "pending_edit") ||
       (t.submittedBy === userId && (t.approvalStatus === "pending" || t.approvalStatus === "rejected"))
     );
-  }, [trips, isAdmin, userId]);
+  }, [trips, isAdmin, isOwner, userId]);
 
   const groupedTrips = useMemo(() => {
     const filtered = visibleTrips.filter(t => {
@@ -74,22 +77,27 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
     return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(date => ({
       date,
       trips: groups[date],
-      // Summary only counts approved trips (not pending/rejected)
-      summary: summarize(groups[date].filter(t => !t.approvalStatus || t.approvalStatus === "approved" || t.approvalStatus === "pending_edit")),
+      // Admin summary excludes unapproved submissions; owner sees the full log breakdown.
+      summary: summarize(
+        isAdmin
+          ? groups[date].filter(t => !t.approvalStatus || t.approvalStatus === "approved" || t.approvalStatus === "pending_edit")
+          : groups[date]
+      ),
     }));
-  }, [visibleTrips, filterLorry, filterDate, search]);
+  }, [visibleTrips, filterLorry, filterDate, search, isAdmin]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const handleAdd  = (form) => tripService.add(form, { userId, isAdmin, directApproval: settings?.directApproval });
+  const handleAdd  = (form) => tripService.add(form, { userId, isAdmin, directApproval: settings?.directApproval, earningsRate: earningsConfig?.ratePerTrip });
   const handleEdit = (form) => tripService.update(editTrip.id, form, { 
     isAdmin, 
     directApproval: settings?.directApproval,
-    isPending: editTrip?.approvalStatus === "pending" 
+    isPending: editTrip?.approvalStatus === "pending",
+    earningsRate: editTrip?.earningsRate ?? editTrip?.earningsAmount ?? earningsConfig?.ratePerTrip,
   });
 
   const handleApprove = async (trip) => {
-    try { await tripService.approve(trip.id, trip); }
+    try { await tripService.approve(trip.id, trip, { earningsRate: earningsConfig?.ratePerTrip }); }
     catch (e) { alert(e.message); }
   };
 
@@ -104,7 +112,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       const amountPaid = newStatus === "Paid" ? Number(trip.revenue)
         : newStatus === "Pending" ? 0
         : Number(trip.amountPaid || 0);
-      await tripService.markPaid(trip.id, amountPaid, newStatus);
+      await tripService.markPaid(trip.id, amountPaid, newStatus, earningsConfig?.ratePerTrip);
     }
     catch (e) { alert(e.message); }
     finally { setMarkingPaid(null); }
@@ -126,7 +134,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
         {canAddTrips && (
           <button onClick={() => setAddOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700">
-            {isAdmin ? "+ Add Trip" : "＋ Submit Trip"}
+            {isPrivileged ? "+ Add Trip" : "＋ Submit Trip"}
           </button>
         )}
       </div>

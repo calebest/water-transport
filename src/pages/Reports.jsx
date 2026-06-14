@@ -28,7 +28,7 @@ const formatComplaintDate = (value) => {
 };
 
 export default function ReportsPage({ trips, vehicles, complaints = [] }) {
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, isOwner } = useAuth();
   const [activeTab, setActiveTab] = useState("reports");
   const [range, setRange] = useState("daily");
   const [customStart, setCustomStart] = useState(today());
@@ -41,6 +41,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
   const [complaintDetails, setComplaintDetails] = useState("");
   const [complaintAnonymous, setComplaintAnonymous] = useState(false);
   const [complaintSaving, setComplaintSaving] = useState(false);
+  const [moderatingId, setModeratingId] = useState("");
   const [complaintNote, setComplaintNote] = useState("");
 
   const rangeTrips = useMemo(() => {
@@ -64,8 +65,11 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
 
   const visibleComplaints = useMemo(() => {
     if (isAdmin) return complaints;
+    if (isOwner) return complaints.filter(c => c.status === "approved");
     return complaints.filter(c => c.reporterId === user?.uid);
-  }, [complaints, isAdmin, user?.uid]);
+  }, [complaints, isAdmin, isOwner, user?.uid]);
+
+  const pendingComplaints = useMemo(() => complaints.filter(c => !c.status || c.status === "open"), [complaints]);
 
   const dateTitle = range === "custom"
     ? `${customStart} to ${customEnd}`
@@ -86,6 +90,10 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
     }`;
 
   const submitComplaint = async () => {
+    if (isOwner) {
+      setComplaintNote("Owner accounts can view approved complaints but cannot submit new ones.");
+      return;
+    }
     if (!complaintSubject.trim() || !complaintDetails.trim()) {
       setComplaintNote("Subject and details are required.");
       return;
@@ -117,6 +125,24 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
       setComplaintNote("Failed to submit complaint.");
     } finally {
       setComplaintSaving(false);
+    }
+  };
+
+  const moderateComplaint = async (complaint, status) => {
+    if (!isAdmin || !complaint?.id) return;
+    setModeratingId(complaint.id);
+    try {
+      await complaintService.update(complaint.id, {
+        status,
+        reviewedBy: profile?.name || user?.email || "Admin",
+        reviewedById: user?.uid || null,
+      });
+      setComplaintNote(status === "approved" ? "Complaint approved." : "Complaint rejected.");
+    } catch (e) {
+      console.error(e);
+      setComplaintNote("Failed to update complaint.");
+    } finally {
+      setModeratingId("");
     }
   };
 
@@ -258,7 +284,8 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
             )}
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 mobile-form-grid">
+              {!isOwner && (
+                <div className="grid grid-cols-2 gap-3 mobile-form-grid">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-500">Category</label>
                   <select
@@ -282,73 +309,135 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
                     ))}
                   </select>
                 </div>
-              </div>
+                </div>
+              )}
 
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">Subject</label>
-                <input
-                  value={complaintSubject}
-                  onChange={e => setComplaintSubject(e.target.value)}
-                  placeholder="Short summary of the issue"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
+              {!isOwner && (
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Subject</label>
+                  <input
+                    value={complaintSubject}
+                    onChange={e => setComplaintSubject(e.target.value)}
+                    placeholder="Short summary of the issue"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+              )}
 
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">Details</label>
-                <textarea
-                  rows="5"
-                  value={complaintDetails}
-                  onChange={e => setComplaintDetails(e.target.value)}
-                  placeholder="Explain what happened, where, and anything that would help us understand it."
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
+              {!isOwner && (
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Details</label>
+                  <textarea
+                    rows="5"
+                    value={complaintDetails}
+                    onChange={e => setComplaintDetails(e.target.value)}
+                    placeholder="Explain what happened, where, and anything that would help us understand it."
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+              )}
 
-              <label className="flex items-center gap-3 text-sm text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={complaintAnonymous}
-                  onChange={e => setComplaintAnonymous(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                Submit anonymously in the complaint feed
-              </label>
+              {!isOwner && (
+                <label className="flex items-center gap-3 text-sm text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={complaintAnonymous}
+                    onChange={e => setComplaintAnonymous(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  Submit anonymously in the complaint feed
+                </label>
+              )}
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={submitComplaint}
-                  disabled={complaintSaving}
-                  className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
-                >
-                  {complaintSaving ? "Submitting..." : "Submit Complaint"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setComplaintCategory("General");
-                    setComplaintVehicle("");
-                    setComplaintSubject("");
-                    setComplaintDetails("");
-                    setComplaintAnonymous(false);
-                    setComplaintNote("");
-                  }}
-                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
-                >
-                  Clear
-                </button>
-              </div>
+              {!isOwner && (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={submitComplaint}
+                    disabled={complaintSaving}
+                    className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {complaintSaving ? "Submitting..." : "Submit Complaint"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComplaintCategory("General");
+                      setComplaintVehicle("");
+                      setComplaintSubject("");
+                      setComplaintDetails("");
+                      setComplaintAnonymous(false);
+                      setComplaintNote("");
+                    }}
+                    className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
               <p className="text-xs text-slate-400">
                 Logged in as {profile?.name || user?.email || "Unknown"}.
               </p>
             </div>
           </div>
 
+          {isAdmin && (
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-amber-700">Moderation Queue</p>
+                  <h4 className="mt-1 text-base font-black text-amber-900">Pending complaints</h4>
+                </div>
+                <Badge color="amber">{pendingComplaints.length}</Badge>
+              </div>
+              {pendingComplaints.length === 0 ? (
+                <p className="text-sm text-amber-800">No complaints waiting for review.</p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingComplaints.map((item) => (
+                    <div key={item.id} className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-bold text-slate-800">{item.subject}</h4>
+                            <Badge color="amber">{item.category || "General"}</Badge>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {item.anonymous ? "Anonymous" : (item.reporterName || item.reporterEmail || "Unknown")} · {formatComplaintDate(item.createdAt)}
+                          </p>
+                        </div>
+                        {item.relatedVehicle ? <Badge color="blue">{item.relatedVehicle}</Badge> : null}
+                      </div>
+                      <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{item.details}</p>
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => moderateComplaint(item, "approved")}
+                          disabled={moderatingId === item.id}
+                          className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                          {moderatingId === item.id ? "Working..." : "Approve"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moderateComplaint(item, "rejected")}
+                          disabled={moderatingId === item.id}
+                          className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-60"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
             <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
               <h3 className="text-sm font-bold text-slate-700">
-                {isAdmin ? "All Complaints" : "Your Complaints"}
+                {isAdmin ? "All Complaints" : isOwner ? "Approved Complaints" : "Your Complaints"}
               </h3>
             </div>
 

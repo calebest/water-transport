@@ -60,7 +60,7 @@ export default function SettingsPage({ settings }) {
           </p>
           {!isAdmin && (
             <p className="mt-2 text-xs text-slate-400">
-              Only admins can change this setting.
+              Only owner or admin accounts can change this setting.
             </p>
           )}
         </div>

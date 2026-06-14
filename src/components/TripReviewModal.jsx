@@ -77,7 +77,7 @@ export default function TripReviewModal({
     setSaving(true);
     try {
       await onMarkPaid(currentTrip);
-      setCurrentTrip((prev) => prev ? { ...prev, status: "Paid", amountPaid: prev.revenue } : prev);
+      setCurrentTrip((prev) => prev ? { ...prev, status: "Paid", amountPaid: prev.revenue, earningsRate: ratePerTrip, earningsAmount: ratePerTrip } : prev);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -275,7 +275,7 @@ export default function TripReviewModal({
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Owner Earnings</p>
                   <p className="mt-2 text-lg font-black text-slate-800">
                     {currentTrip.status === "Paid"
-                      ? `Your earnings for this trip: ${fmt(ratePerTrip)}`
+                      ? `Your earnings for this trip: ${fmt(currentTrip.earningsAmount ?? currentTrip.earningsRate ?? ratePerTrip)}`
                       : "Earnings pending - trip not yet paid"}
                   </p>
                 </div>

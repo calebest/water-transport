@@ -33,11 +33,11 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "📊" },
   { id: "trips", label: "Trips", icon: "🚛" },
   { id: "locations", label: "Locations", icon: "📍" },
-  { id: "vehicles", label: "Vehicles", icon: "🚚", adminOnly: true },
+  { id: "vehicles", label: "Vehicles", icon: "🚚" },
   { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true },
   { id: "loans", label: "Loans", icon: "💸" },
-  { id: "earnings", label: "Earnings", icon: "💵", adminOrOwner: true },
+  { id: "earnings", label: "Earnings", icon: "💵", adminOnly: true },
   { id: "reports", label: "Reports", icon: "📄" },
   { id: "backup", label: "Backup", icon: "💾", adminOnly: true },
   { id: "settings", label: "Settings", icon: "⚙️", adminOnly: true },
@@ -57,7 +57,7 @@ const getPageFromPath = () => {
 const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
 
 function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, loans, earningsConfig }) {
-  const { profile, logout, isAdmin, isOwner } = useAuth();
+  const { profile, logout, isAdmin, isOwner, isPrivileged } = useAuth();
   const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [reviewTrip, setReviewTrip] = useState(null);
@@ -78,31 +78,31 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   }, []);
 
   // Count trips pending admin approval
-  const pendingCount = isAdmin
+  const pendingCount = isPrivileged
     ? trips.filter(t => t.approvalStatus === "pending" || t.approvalStatus === "pending_edit").length
     : 0;
 
   // Browser notification when new pending trips arrive
   const prevPendingRef = useRef(pendingCount);
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isPrivileged) return;
     // Request permission once
     if (Notification.permission === "default") {
       Notification.requestPermission();
     }
     // Fire notification if count increased
     if (pendingCount > prevPendingRef.current && Notification.permission === "granted") {
+      const pendingLabel = isAdmin ? "awaiting your approval" : "available to review";
       new Notification("Water Transport Manager", {
-        body: `${pendingCount} trip${pendingCount > 1 ? "s" : ""} awaiting your approval.`,
+        body: `${pendingCount} trip${pendingCount > 1 ? "s" : ""} ${pendingLabel}.`,
         icon: "/favicon.svg",
       });
     }
     prevPendingRef.current = pendingCount;
-  }, [pendingCount, isAdmin]);
+  }, [pendingCount, isPrivileged]);
 
   const navItems = NAV_ITEMS.filter(n => {
     if (n.adminOnly) return isAdmin;
-    if (n.adminOrOwner) return isAdmin || isOwner;
     return true;
   });
   const activePage = navItems.some(n => n.id === page) ? page : "dashboard";
@@ -122,8 +122,8 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 
   const handleMarkTripPaid = useCallback(async (trip) => {
     if (!trip) return;
-    await tripService.markPaid(trip.id, Number(trip.revenue || 0), "Paid");
-  }, []);
+    await tripService.markPaid(trip.id, Number(trip.revenue || 0), "Paid", Number(earningsConfig?.ratePerTrip || 200));
+  }, [earningsConfig?.ratePerTrip]);
 
   const handleSaveTripEdit = useCallback(async (form) => {
     if (!tripEditTrip) return;
@@ -131,8 +131,9 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
       isAdmin,
       directApproval: settings?.directApproval,
       isPending: tripEditTrip?.approvalStatus === "pending",
+      earningsRate: tripEditTrip?.earningsRate ?? tripEditTrip?.earningsAmount ?? earningsConfig?.ratePerTrip,
     });
-  }, [isAdmin, settings?.directApproval, tripEditTrip]);
+  }, [earningsConfig?.ratePerTrip, isAdmin, settings?.directApproval, tripEditTrip]);
 
   useEffect(() => {
     if (page !== activePage) {
@@ -142,19 +143,19 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 
   const pages = {
     dashboard: (
-      <DashboardPage
-        trips={trips}
-        vehicles={vehicles}
-        settings={settings}
-        earningsConfig={earningsConfig}
-        onOpenTripReview={openTripReview}
-        onMarkTripPaid={handleMarkTripPaid}
-        onGoToTrips={() => navigateToPage("trips")}
-      />
-    ),
-    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} onOpenTripReview={openTripReview} />,
+        <DashboardPage
+          trips={trips}
+          vehicles={vehicles}
+          settings={settings}
+          earningsConfig={earningsConfig}
+          onOpenTripReview={openTripReview}
+          onMarkTripPaid={handleMarkTripPaid}
+          onGoToTrips={() => navigateToPage("trips")}
+        />
+      ),
+    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} />,
     locations: <LocationsPage locations={locations} />,
-    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} onOpenTripReview={openTripReview} />,
+    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} />,
@@ -208,7 +209,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-700 truncate">{profile?.name}</p>
-              <Badge color={isAdmin ? "green" : "slate"}>{profile?.role}</Badge>
+              <Badge color={isAdmin ? "green" : isOwner ? "blue" : "slate"}>{profile?.role}</Badge>
             </div>
           </div>
           <button onClick={logout}
@@ -235,7 +236,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Badge color={isAdmin ? "green" : "slate"}>{profile?.role}</Badge>
+            <Badge color={isAdmin ? "green" : isOwner ? "blue" : "slate"}>{profile?.role}</Badge>
             {pendingCount > 0 && (
               <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-rose-500 text-white text-xs font-black">
                 {pendingCount}
@@ -305,7 +306,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 }
 
 function AppInner() {
-  const { user, loading, isAdmin, isOwner, personnelId } = useAuth();
+  const { user, loading, isAdmin, isOwner, isPrivileged, personnelId } = useAuth();
   const [rawTrips, setRawTrips] = useState([]);
   const [locations, setLocations] = useState([]);
   const [rawVehicles, setRawVehicles] = useState([]);
@@ -356,17 +357,17 @@ function AppInner() {
   // Data Isolation for non-admins
   const trips = useMemo(() => {
     if (!user) return [];
-    if (isAdmin || isOwner) return rawTrips;
+    if (isPrivileged) return rawTrips;
     return rawTrips.filter(t => t.driverId === personnelId || t.conductorId === personnelId || t.submittedBy === user.uid);
-  }, [rawTrips, isAdmin, isOwner, personnelId, user?.uid]);
+  }, [rawTrips, isPrivileged, personnelId, user?.uid]);
 
   const vehicles = useMemo(() => {
     if (!user) return [];
-    if (isAdmin) return rawVehicles;
+    if (isPrivileged) return rawVehicles;
     // Driver can see all vehicles in dropdown for TripForm, so we shouldn't filter vehicles too aggressively, 
     // but the VehiclesPage is adminOnly anyway. We will pass all rawVehicles to allow them to select lorries.
     return rawVehicles; 
-  }, [rawVehicles, isAdmin]);
+  }, [rawVehicles, isPrivileged]);
 
   if (loading) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">

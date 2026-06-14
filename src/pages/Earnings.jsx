@@ -25,6 +25,12 @@ const LORRY_PLATES = ["KBZ", "KBL"];
 
 const toNumber = (value) => Number(value || 0);
 
+const tripEarnings = (trip, fallbackRate) => {
+  if (!trip || trip.status !== "Paid") return 0;
+  const stored = trip.earningsAmount ?? trip.earningsRate;
+  return Number(stored ?? fallbackRate ?? 0);
+};
+
 const buildRangeTrips = (trips, range, customStart, customEnd) => {
   if (range === "today") return filterByRange(trips, today(), today());
   if (range === "week") {
@@ -54,7 +60,7 @@ const buildSeries = (trips, mode, ratePerTrip) => {
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       const bucket = periods.find((item) => item.key === key);
       if (!bucket) return;
-      const value = trip.status === "Paid" ? ratePerTrip : 0;
+      const value = tripEarnings(trip, ratePerTrip);
       bucket.earned += value;
       bucket.pending += trip.status === "Paid" ? 0 : ratePerTrip;
     });
@@ -78,7 +84,7 @@ const buildSeries = (trips, mode, ratePerTrip) => {
   trips.forEach((trip) => {
     const entry = periods.find((item) => trip.date >= item.start && trip.date <= item.end);
     if (!entry) return;
-    const value = trip.status === "Paid" ? ratePerTrip : 0;
+    const value = tripEarnings(trip, ratePerTrip);
     entry.earned += value;
     entry.pending += trip.status === "Paid" ? 0 : ratePerTrip;
   });
@@ -138,7 +144,7 @@ export default function EarningsPage({
     const paidTrips = periodTrips.filter((trip) => trip.status === "Paid");
     const pendingTrips = periodTrips.filter((trip) => trip.status !== "Paid");
     return {
-      totalEarned: paidTrips.length * ratePerTrip,
+      totalEarned: paidTrips.reduce((sum, trip) => sum + tripEarnings(trip, ratePerTrip), 0),
       pendingEarnings: pendingTrips.length * ratePerTrip,
       tripsThisPeriod: periodTrips.length,
       paidTripsThisPeriod: paidTrips.length,
@@ -149,10 +155,11 @@ export default function EarningsPage({
     const tripsForPlate = periodTrips.filter((trip) => trip.lorry === plate);
     const paid = tripsForPlate.filter((trip) => trip.status === "Paid");
     const pending = tripsForPlate.filter((trip) => trip.status !== "Paid");
+    const earned = paid.reduce((sum, trip) => sum + tripEarnings(trip, ratePerTrip), 0);
     return {
       plate,
       paidCount: paid.length,
-      earned: paid.length * ratePerTrip,
+      earned,
       pendingCount: pending.length,
       pendingEarnings: pending.length * ratePerTrip,
     };
@@ -304,7 +311,7 @@ export default function EarningsPage({
                   </td>
                   <td className="px-4 py-3">
                     {trip.status === "Paid" ? (
-                      <span className="font-bold text-emerald-700">{fmt(ratePerTrip)}</span>
+                      <span className="font-bold text-emerald-700">{fmt(tripEarnings(trip, ratePerTrip))}</span>
                     ) : (
                       <Badge color="amber">Pending</Badge>
                     )}

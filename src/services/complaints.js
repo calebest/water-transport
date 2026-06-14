@@ -1,4 +1,4 @@
-import { addDoc, collection, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
 const toMillis = (value) => {
@@ -15,6 +15,17 @@ export const complaintService = {
       status: data.status || "open",
       createdAt: serverTimestamp(),
     });
+  },
+
+  update: async (id, data) => {
+    return updateDoc(doc(db, "complaints", id), {
+      ...data,
+      reviewedAt: serverTimestamp(),
+    });
+  },
+
+  delete: async (id) => {
+    return deleteDoc(doc(db, "complaints", id));
   },
 
   subscribe: (callback) => {

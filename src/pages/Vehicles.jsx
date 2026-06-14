@@ -7,7 +7,7 @@ import { fmt, summarize } from "../utils/helpers";
 import { TripGroup } from "./Trips";
 import TripForm from "../components/TripForm";
 
-export default function VehiclesPage({ vehicles, trips, locations, personnel, onOpenTripReview }) {
+export default function VehiclesPage({ vehicles, trips, locations, personnel, earningsConfig, onOpenTripReview }) {
   const { isAdmin } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editVeh, setEditVeh] = useState(null);
@@ -38,14 +38,17 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel, on
       }));
     })();
 
-    const handleEditTrip = (form) => tripService.update(editTrip.id, form);
+    const handleEditTrip = (form) => tripService.update(editTrip.id, form, {
+      isAdmin,
+      earningsRate: editTrip?.earningsRate ?? editTrip?.earningsAmount ?? earningsConfig?.ratePerTrip,
+    });
     const handleStatusChange = async (trip, newStatus) => {
       setMarkingPaid(trip.id);
       try {
         const amountPaid = newStatus === "Paid" ? Number(trip.revenue)
           : newStatus === "Pending" ? 0
           : Number(trip.amountPaid || 0);
-        await tripService.markPaid(trip.id, amountPaid, newStatus);
+        await tripService.markPaid(trip.id, amountPaid, newStatus, earningsConfig?.ratePerTrip);
       }
       catch (e) { alert(e.message); }
       finally { setMarkingPaid(null); }
