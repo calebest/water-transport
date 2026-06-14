@@ -421,19 +421,28 @@ export default function LoansPage({ loans = [] }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-xl font-black text-slate-800">Loans</h2>
           <p className="mt-1 text-sm text-slate-500">Track borrowing, repayment progress, and who still needs to be settled.</p>
         </div>
-        {isAdmin && (
-          <button
-            onClick={() => setShowAddForm((value) => !value)}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700"
-          >
-            {showAddForm ? "Hide Form" : "+ Add Loan"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <Badge color={isAdmin ? "green" : "slate"}>{isAdmin ? "Editable" : "Read only"}</Badge>
+          {isAdmin && (
+            <button
+              onClick={() => setShowAddForm((value) => !value)}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700"
+            >
+              {showAddForm ? "Hide Form" : "+ Add Loan"}
+            </button>
+          )}
+        </div>
       </div>
+
+      {!isAdmin && (
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          This view is read-only for your account. You can see unpaid balances, lender summaries, and repayment calculations.
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 mobile-card-rail mobile-card-rail--compact">
         <StatCard label="Total Borrowed" value={fmt(totals.borrowed)} icon="💸" color="blue" />

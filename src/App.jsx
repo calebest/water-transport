@@ -36,7 +36,7 @@ const NAV_ITEMS = [
   { id: "vehicles", label: "Vehicles", icon: "🚚", adminOnly: true },
   { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true },
-  { id: "loans", label: "Loans", icon: "💸", adminOrOwner: true },
+  { id: "loans", label: "Loans", icon: "💸" },
   { id: "earnings", label: "Earnings", icon: "💵", adminOrOwner: true },
   { id: "reports", label: "Reports", icon: "📄" },
   { id: "backup", label: "Backup", icon: "💾", adminOnly: true },
