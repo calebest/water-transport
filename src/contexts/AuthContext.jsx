@@ -15,7 +15,14 @@ export function AuthProvider({ children }) {
     let unsubscribeProfile = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
+      setLoading(true);
       setUser(u);
+
       if (u) {
         unsubscribeProfile = onSnapshot(
           doc(db, "users", u.uid),
@@ -32,10 +39,6 @@ export function AuthProvider({ children }) {
       } else {
         setProfile(null);
         setLoading(false);
-        if (unsubscribeProfile) {
-          unsubscribeProfile();
-          unsubscribeProfile = null;
-        }
       }
     });
 

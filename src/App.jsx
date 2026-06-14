@@ -241,7 +241,17 @@ function AppInner() {
   const [complaints, setComplaints] = useState([]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setRawTrips([]);
+      setLocations([]);
+      setRawVehicles([]);
+      setPersonnel([]);
+      setMaintenance([]);
+      setSettings({ directApproval: false });
+      setComplaints([]);
+      return;
+    }
+
     const unsubTrips = tripService.subscribe(setRawTrips);
     const unsubLocs = locationService.subscribe(setLocations);
     const unsubVehs = vehicleService.subscribe(setRawVehicles);
@@ -263,11 +273,13 @@ function AppInner() {
 
   // Data Isolation for non-admins
   const trips = useMemo(() => {
+    if (!user) return [];
     if (isAdmin) return rawTrips;
     return rawTrips.filter(t => t.driverId === personnelId || t.conductorId === personnelId || t.submittedBy === user.uid);
   }, [rawTrips, isAdmin, personnelId, user?.uid]);
 
   const vehicles = useMemo(() => {
+    if (!user) return [];
     if (isAdmin) return rawVehicles;
     // Driver can see all vehicles in dropdown for TripForm, so we shouldn't filter vehicles too aggressively, 
     // but the VehiclesPage is adminOnly anyway. We will pass all rawVehicles to allow them to select lorries.
