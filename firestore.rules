@@ -54,6 +54,16 @@ service cloud.firestore {
       allow create, update, delete: if isAuthed() && isAdmin();
     }
 
+    match /loans/{loanId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && isAdmin();
+
+      match /repayments/{repaymentId} {
+        allow read: if isAuthed();
+        allow create, update, delete: if isAuthed() && isAdmin();
+      }
+    }
+
     match /settings/{settingId} {
       allow read: if isAuthed();
       allow create, update, delete: if isAuthed() && isAdmin();

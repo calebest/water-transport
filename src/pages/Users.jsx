@@ -124,6 +124,7 @@ export default function UsersPage({ personnel = [] }) {
                 <option value="viewer">Viewer</option>
                 <option value="driver">Driver</option>
                 <option value="conductor">Conductor</option>
+                <option value="owner">Owner</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
@@ -147,7 +148,7 @@ export default function UsersPage({ personnel = [] }) {
       )}
 
       <div className="table-scroll-container rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[480px] text-sm">
           <thead className="bg-white">
             <tr className="border-b border-slate-100 bg-slate-50">
               {["Name", "Email", "Role", "Linked Profile", ""].map(h => (
@@ -157,11 +158,13 @@ export default function UsersPage({ personnel = [] }) {
           </thead>
           <tbody>
             {users.length === 0 ? (
-              <tr><td colSpan={3} className="py-12 text-center text-slate-400">No users yet</td></tr>
+              <tr><td colSpan={5} className="py-12 text-center text-slate-400">No users yet</td></tr>
             ) : users.map(u => (
               <tr key={u.id} className="border-b border-slate-50 bg-white hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
-                <td className="px-4 py-3 text-slate-500">{u.email}</td>
+                <td className="px-4 py-3 text-slate-500">
+                  <div className="max-w-[160px] truncate">{u.email}</div>
+                </td>
                 <td className="px-4 py-3">
                   {u.id === currentUser?.uid ? (
                     <Badge color="green">{u.role}</Badge>
@@ -174,6 +177,7 @@ export default function UsersPage({ personnel = [] }) {
                       <option value="viewer">Viewer</option>
                       <option value="driver">Driver</option>
                       <option value="conductor">Conductor</option>
+                      <option value="owner">Owner</option>
                       <option value="admin">Admin</option>
                     </select>
                   )}

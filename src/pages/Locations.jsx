@@ -24,7 +24,7 @@ export default function LocationsPage({ locations }) {
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
         <div className="table-scroll-container">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[420px] text-sm">
             <thead className="bg-white">
               <tr className="border-b border-slate-100 bg-slate-50">
                 {["Location Name", "Revenue / Price", "Status", isAdmin ? "Actions" : ""].map(h => (

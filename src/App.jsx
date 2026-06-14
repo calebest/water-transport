@@ -7,13 +7,20 @@ import { personnelService } from "./services/personnel";
 import { maintenanceService } from "./services/maintenance";
 import { settingsService } from "./services/settings";
 import { complaintService } from "./services/complaints";
-import { Badge } from "./components/ui";
+import { loanService } from "./services/loans";
+import { earningsService } from "./services/earnings";
+import { Badge, Modal } from "./components/ui";
+import TripReviewModal from "./components/TripReviewModal";
+import TripForm from "./components/TripForm";
 
 import LoginPage from "./pages/Login";
 import DashboardPage from "./pages/Dashboard";
 import TripsPage from "./pages/Trips";
 import LocationsPage from "./pages/Locations";
 import ReportsPage from "./pages/Reports";
+import LoansPage from "./pages/Loans";
+import EarningsPage from "./pages/Earnings";
+import BackupPage from "./pages/Backup";
 import UsersPage from "./pages/Users";
 import VehiclesPage from "./pages/Vehicles";
 import PersonnelPage from "./pages/Personnel";
@@ -29,7 +36,10 @@ const NAV_ITEMS = [
   { id: "vehicles", label: "Vehicles", icon: "🚚", adminOnly: true },
   { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true },
+  { id: "loans", label: "Loans", icon: "💸", adminOrOwner: true },
+  { id: "earnings", label: "Earnings", icon: "💵", adminOrOwner: true },
   { id: "reports", label: "Reports", icon: "📄" },
+  { id: "backup", label: "Backup", icon: "💾", adminOnly: true },
   { id: "settings", label: "Settings", icon: "⚙️", adminOnly: true },
   { id: "users", label: "Users", icon: "👥", adminOnly: true },
 ];
@@ -46,10 +56,12 @@ const getPageFromPath = () => {
 
 const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
 
-function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints }) {
-  const { profile, logout, isAdmin } = useAuth();
+function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, loans, earningsConfig }) {
+  const { profile, logout, isAdmin, isOwner } = useAuth();
   const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [reviewTrip, setReviewTrip] = useState(null);
+  const [tripEditTrip, setTripEditTrip] = useState(null);
 
   const navigateToPage = useCallback((nextPage, { replace = false } = {}) => {
     const path = getPathForPage(nextPage);
@@ -88,12 +100,39 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     prevPendingRef.current = pendingCount;
   }, [pendingCount, isAdmin]);
 
-  const navItems = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
+  const navItems = NAV_ITEMS.filter(n => {
+    if (n.adminOnly) return isAdmin;
+    if (n.adminOrOwner) return isAdmin || isOwner;
+    return true;
+  });
   const activePage = navItems.some(n => n.id === page) ? page : "dashboard";
   const activeNavItem = navItems.find(n => n.id === activePage) || navItems[0];
   const primaryMobileIds = new Set(["dashboard", "trips", "reports"]);
   const mobileNavItems = navItems.filter(n => primaryMobileIds.has(n.id));
   const hasHiddenActivePage = !primaryMobileIds.has(activePage);
+
+  const openTripReview = useCallback((trip, editMode = false) => {
+    if (editMode) {
+      setTripEditTrip(trip);
+      setReviewTrip(null);
+      return;
+    }
+    setReviewTrip(trip);
+  }, []);
+
+  const handleMarkTripPaid = useCallback(async (trip) => {
+    if (!trip) return;
+    await tripService.markPaid(trip.id, Number(trip.revenue || 0), "Paid");
+  }, []);
+
+  const handleSaveTripEdit = useCallback(async (form) => {
+    if (!tripEditTrip) return;
+    await tripService.update(tripEditTrip.id, form, {
+      isAdmin,
+      directApproval: settings?.directApproval,
+      isPending: tripEditTrip?.approvalStatus === "pending",
+    });
+  }, [isAdmin, settings?.directApproval, tripEditTrip]);
 
   useEffect(() => {
     if (page !== activePage) {
@@ -102,13 +141,26 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   }, [activePage, navigateToPage, page]);
 
   const pages = {
-    dashboard: <DashboardPage trips={trips} vehicles={vehicles} settings={settings} />,
-    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} />,
+    dashboard: (
+      <DashboardPage
+        trips={trips}
+        vehicles={vehicles}
+        settings={settings}
+        earningsConfig={earningsConfig}
+        onOpenTripReview={openTripReview}
+        onMarkTripPaid={handleMarkTripPaid}
+        onGoToTrips={() => navigateToPage("trips")}
+      />
+    ),
+    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} onOpenTripReview={openTripReview} />,
     locations: <LocationsPage locations={locations} />,
-    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} />,
+    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} />,
+    loans: <LoansPage loans={loans} onOpenTripReview={openTripReview} />,
+    earnings: <EarningsPage trips={trips} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} onMarkTripPaid={handleMarkTripPaid} />,
+    backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} loans={loans} complaints={complaints} settings={settings} earningsConfig={earningsConfig} />,
     settings: <SettingsPage settings={settings} />,
     users: <UsersPage personnel={personnel} />
   };
@@ -198,6 +250,28 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           </div>
         </main>
 
+        <TripReviewModal
+          open={!!reviewTrip}
+          trip={reviewTrip}
+          ratePerTrip={earningsConfig?.ratePerTrip || 200}
+          onClose={() => setReviewTrip(null)}
+          onMarkPaid={isAdmin ? handleMarkTripPaid : undefined}
+          onEditTrip={isAdmin ? (trip) => openTripReview(trip, true) : undefined}
+        />
+
+        <Modal open={!!tripEditTrip} onClose={() => setTripEditTrip(null)} title="Edit Trip" wide>
+          {tripEditTrip && (
+            <TripForm
+              initial={tripEditTrip}
+              locations={locations}
+              personnel={personnel}
+              vehicles={vehicles}
+              onSave={handleSaveTripEdit}
+              onCancel={() => setTripEditTrip(null)}
+            />
+          )}
+        </Modal>
+
         <nav className="mobile-bottom-nav lg:hidden">
           <div className="grid grid-cols-4 gap-1">
             {mobileNavItems.map(item => (
@@ -231,7 +305,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 }
 
 function AppInner() {
-  const { user, loading, isAdmin, personnelId } = useAuth();
+  const { user, loading, isAdmin, isOwner, personnelId } = useAuth();
   const [rawTrips, setRawTrips] = useState([]);
   const [locations, setLocations] = useState([]);
   const [rawVehicles, setRawVehicles] = useState([]);
@@ -239,6 +313,8 @@ function AppInner() {
   const [maintenance, setMaintenance] = useState([]);
   const [settings, setSettings] = useState({ directApproval: false });
   const [complaints, setComplaints] = useState([]);
+  const [loans, setLoans] = useState([]);
+  const [earningsConfig, setEarningsConfig] = useState({ ratePerTrip: 200 });
 
   useEffect(() => {
     if (!user) {
@@ -249,6 +325,8 @@ function AppInner() {
       setMaintenance([]);
       setSettings({ directApproval: false });
       setComplaints([]);
+      setLoans([]);
+      setEarningsConfig({ ratePerTrip: 200 });
       return;
     }
 
@@ -259,6 +337,8 @@ function AppInner() {
     const unsubMaintenance = maintenanceService.subscribe(setMaintenance);
     const unsubSettings = settingsService.subscribe(setSettings);
     const unsubComplaints = complaintService.subscribe(setComplaints);
+    const unsubLoans = loanService.subscribe(setLoans);
+    const unsubEarnings = earningsService.subscribeConfig(setEarningsConfig);
     
     return () => {
       unsubTrips();
@@ -268,15 +348,17 @@ function AppInner() {
       unsubMaintenance();
       if (unsubSettings) unsubSettings();
       if (unsubComplaints) unsubComplaints();
+      if (unsubLoans) unsubLoans();
+      if (unsubEarnings) unsubEarnings();
     };
   }, [user]);
 
   // Data Isolation for non-admins
   const trips = useMemo(() => {
     if (!user) return [];
-    if (isAdmin) return rawTrips;
+    if (isAdmin || isOwner) return rawTrips;
     return rawTrips.filter(t => t.driverId === personnelId || t.conductorId === personnelId || t.submittedBy === user.uid);
-  }, [rawTrips, isAdmin, personnelId, user?.uid]);
+  }, [rawTrips, isAdmin, isOwner, personnelId, user?.uid]);
 
   const vehicles = useMemo(() => {
     if (!user) return [];
@@ -296,7 +378,7 @@ function AppInner() {
   );
 
   if (!user) return <LoginPage />;
-  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} loans={loans} earningsConfig={earningsConfig} />;
 }
 
 export default function App() {

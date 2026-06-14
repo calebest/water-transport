@@ -16,7 +16,7 @@ const APPROVAL_BADGE = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function TripsPage({ trips, locations, vehicles, personnel = [], settings }) {
+export default function TripsPage({ trips, locations, vehicles, personnel = [], settings, onOpenTripReview }) {
   const { isAdmin, canAddTrips, userId } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editTrip, setEditTrip] = useState(null);
@@ -189,6 +189,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
             onReject={handleReject}
             userId={userId}
             canAddTrips={canAddTrips}
+            onOpenTripReview={onOpenTripReview}
           />
         ))}
       </div>
@@ -342,7 +343,7 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
 
 // ─── Trip Group (date-grouped list) ──────────────────────────────────────────
 
-export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, markingPaid, onApprove, onReject, userId, canAddTrips }) {
+export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, markingPaid, onApprove, onReject, userId, canAddTrips, onOpenTripReview }) {
   const [expanded, setExpanded] = useState(true);
 
   // Who can edit/delete each trip row
@@ -449,6 +450,16 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                           <button onClick={() => exportVoucher(t)}
                             className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-100"
                             title="Print Receipt">🖨️</button>
+                        )}
+
+                        {onOpenTripReview && (
+                          <button
+                            onClick={() => onOpenTripReview(t)}
+                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+                            title="View Trip"
+                          >
+                            View
+                          </button>
                         )}
 
                         {/* Admin: inline approve/reject for pending_edit trips */}

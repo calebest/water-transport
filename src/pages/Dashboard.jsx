@@ -1,11 +1,20 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { today, getWeekRange, getMonthRange, filterByRange, summarize, fmt } from "../utils/helpers";
 import { StatCard, Badge } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
 
-export default function DashboardPage({ trips, vehicles = [] }) {
+const dayDiff = (dateValue) => {
+  if (!dateValue) return 0;
+  const start = new Date(`${dateValue}T00:00:00`);
+  const now = new Date();
+  const diff = now.getTime() - start.getTime();
+  return Math.max(Math.floor(diff / (1000 * 60 * 60 * 24)), 0);
+};
+
+export default function DashboardPage({ trips, vehicles = [], earningsConfig = { ratePerTrip: 200 }, onOpenTripReview, onMarkTripPaid, onGoToTrips }) {
   const { profile, isAdmin } = useAuth();
+  const [pendingOpen, setPendingOpen] = useState(true);
   const todayStr = today();
   const [weekStart, weekEnd] = getWeekRange();
   const [monthStart, monthEnd] = getMonthRange();
@@ -52,9 +61,12 @@ export default function DashboardPage({ trips, vehicles = [] }) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
-  const pendingTrips = trips.filter(t => t.approvalStatus === "pending" || t.approvalStatus === "pending_edit");
+  const approvalPendingTrips = trips.filter(t => t.approvalStatus === "pending" || t.approvalStatus === "pending_edit");
+  const paymentPendingTrips = trips.filter(t => t.status === "Pending" && t.approvalStatus !== "rejected");
   const unpaidTrips = trips.filter(t => t.status !== "Paid" && t.approvalStatus === "approved" && t.revenue > 0);
   const outstandingBalance = unpaidTrips.reduce((acc, t) => acc + ((t.revenue || 0) - (t.amountPaid || 0)), 0);
+  const pendingOutstanding = paymentPendingTrips.reduce((acc, t) => acc + ((t.revenue || 0) - (t.amountPaid || 0)), 0);
+  const ratePerTrip = Number(earningsConfig?.ratePerTrip || 200);
 
   return (
     <div className="space-y-6">
@@ -65,13 +77,13 @@ export default function DashboardPage({ trips, vehicles = [] }) {
         </div>
       </div>
 
-      {(isAdmin && (pendingTrips.length > 0 || outstandingBalance > 0)) && (
+      {(isAdmin && (approvalPendingTrips.length > 0 || outstandingBalance > 0)) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {pendingTrips.length > 0 && (
+          {approvalPendingTrips.length > 0 && (
             <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex min-w-0 items-center gap-4">
               <div className="h-10 w-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center text-xl">⏳</div>
               <div className="min-w-0">
-                <p className="font-bold text-amber-900">{pendingTrips.length} Trips Pending Approval</p>
+                <p className="font-bold text-amber-900">{approvalPendingTrips.length} Trips Pending Approval</p>
                 <p className="text-xs text-amber-700">Review driver submissions</p>
               </div>
             </div>
@@ -111,6 +123,77 @@ export default function DashboardPage({ trips, vehicles = [] }) {
               </div>
             ))}
           </div>
+
+          {paymentPendingTrips.length > 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 overflow-hidden shadow-sm">
+              <button
+                type="button"
+                onClick={() => setPendingOpen(v => !v)}
+                className="flex w-full items-center justify-between gap-3 border-b border-amber-100 px-4 py-4 text-left hover:bg-amber-100/60 transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xl">⏳</span>
+                    <h3 className="font-black text-amber-900">Pending Trips</h3>
+                    <Badge color="amber">{paymentPendingTrips.length}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-amber-700">KES {fmt(pendingOutstanding)} outstanding and waiting to be settled.</p>
+                </div>
+                <span className="text-amber-500 text-sm font-bold">{pendingOpen ? "Hide" : "Show"}</span>
+              </button>
+
+              {pendingOpen && (
+                <div className="p-4 space-y-3">
+                  <div className="space-y-2">
+                    {paymentPendingTrips.slice(0, 5).map((trip) => {
+                      const days = dayDiff(trip.date);
+                      return (
+                        <div
+                          key={trip.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => onOpenTripReview?.(trip)}
+                          className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 text-left shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-800">{trip.date} · {trip.lorry} · {trip.location || "N/A"}</p>
+                            <p className="text-xs text-slate-400">Trip #{trip.tripNumber}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge color={days > 3 ? "amber" : "slate"}>{days} days pending</Badge>
+                            <span className="text-sm font-bold text-amber-700">{fmt((trip.revenue || 0) - (trip.amountPaid || 0))}</span>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onMarkTripPaid?.(trip);
+                                }}
+                                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                              >
+                                Mark Paid
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="rounded-xl bg-amber-100 px-4 py-3">
+                    <p className="text-sm font-bold text-amber-900">Outstanding total: {fmt(pendingOutstanding)}</p>
+                    <p className="mt-1 text-xs text-amber-700">Owner earnings pending: {fmt(paymentPendingTrips.length * ratePerTrip)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onGoToTrips}
+                    className="rounded-xl border border-amber-200 bg-white px-4 py-2 text-sm font-bold text-amber-800 hover:bg-amber-50"
+                  >
+                    View all trips
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <p className="text-sm font-bold text-slate-700 mb-4">14-Day Profit Trend</p>
@@ -180,7 +263,7 @@ export default function DashboardPage({ trips, vehicles = [] }) {
           <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-4">Your Recent Trips</h3>
             {trips.slice(0, 5).map(t => (
-              <div key={t.id} className="flex min-w-0 justify-between gap-3 items-center py-3 border-b border-slate-50 last:border-0">
+              <button key={t.id} type="button" onClick={() => onOpenTripReview?.(t)} className="flex min-w-0 w-full justify-between gap-3 items-center py-3 border-b border-slate-50 last:border-0 text-left">
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-700">{t.date} · {t.lorry}</p>
                   <p className="text-xs text-slate-500">{t.location || 'N/A'}</p>
@@ -188,7 +271,7 @@ export default function DashboardPage({ trips, vehicles = [] }) {
                 <Badge color={t.approvalStatus === 'approved' ? 'green' : t.approvalStatus === 'rejected' ? 'red' : 'amber'}>
                   {t.approvalStatus === 'approved' ? 'Approved' : t.approvalStatus === 'rejected' ? 'Rejected' : 'Pending'}
                 </Badge>
-              </div>
+              </button>
             ))}
             {trips.length === 0 && <p className="text-sm text-slate-400">No trips recorded yet.</p>}
           </div>

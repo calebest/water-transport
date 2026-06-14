@@ -7,7 +7,7 @@ import { fmt, summarize } from "../utils/helpers";
 import { TripGroup } from "./Trips";
 import TripForm from "../components/TripForm";
 
-export default function VehiclesPage({ vehicles, trips, locations, personnel }) {
+export default function VehiclesPage({ vehicles, trips, locations, personnel, onOpenTripReview }) {
   const { isAdmin } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editVeh, setEditVeh] = useState(null);
@@ -83,7 +83,7 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel }) 
               No trips logged yet
             </div>
           ) : groupedTrips.map(group => (
-            <TripGroup 
+          <TripGroup 
               key={group.date} 
               group={group} 
               isAdmin={isAdmin} 
@@ -91,6 +91,7 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel }) 
               onDel={setDelTrip} 
               onStatusChange={handleStatusChange} 
               markingPaid={markingPaid} 
+              onOpenTripReview={onOpenTripReview}
             />
           ))}
         </div>
