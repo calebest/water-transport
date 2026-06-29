@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { tripService } from "../services/trips";
 import { useAuth } from "../contexts/AuthContext";
 import { Badge, Modal } from "../components/ui";
-import { fmt, summarize } from "../utils/helpers";
+import { fmt, getSettlementStatus, getTripFinancials, summarize } from "../utils/helpers";
 import { exportVoucher } from "../utils/export";
 import TripForm from "../components/TripForm";
 
@@ -22,6 +22,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
   const [editTrip, setEditTrip] = useState(null);
   const [delTrip, setDelTrip] = useState(null);
   const [markingPaid, setMarkingPaid] = useState(null);
+  const [settlingTrip, setSettlingTrip] = useState(null);
   const [search, setSearch] = useState("");
   const [filterLorry, setFilterLorry] = useState("All");
   const [filterDate, setFilterDate] = useState("");
@@ -118,6 +119,15 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
     finally { setMarkingPaid(null); }
   };
 
+  const handleSettlementChange = async (trip, settlementStatus) => {
+    setSettlingTrip(trip.id);
+    try {
+      await tripService.updateSettlement(trip.id, settlementStatus, trip, earningsConfig?.ratePerTrip);
+    }
+    catch (e) { alert(e.message); }
+    finally { setSettlingTrip(null); }
+  };
+
   const handleDel = async () => {
     setDeleting(true);
     try { await tripService.delete(delTrip.id); setDelTrip(null); }
@@ -192,7 +202,9 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
             onEdit={setEditTrip}
             onDel={setDelTrip}
             onStatusChange={handleStatusChange}
+            onSettlementChange={handleSettlementChange}
             markingPaid={markingPaid}
+            settlingTrip={settlingTrip}
             onApprove={handleApprove}
             onReject={handleReject}
             userId={userId}
@@ -281,12 +293,12 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
                       <p className="font-bold text-blue-600">{fmt(t.revenue)}</p>
                     </div>
                     <div className="responsive-card bg-slate-50 rounded-lg p-2 text-center">
-                      <p className="text-xs text-slate-400">Expenses</p>
-                      <p className="font-bold text-rose-500">{fmt(t.totalExpenses)}</p>
+                      <p className="text-xs text-slate-400">Operating Expenses</p>
+                      <p className="font-bold text-rose-500">{fmt(getTripFinancials(t).operatingExpenses)}</p>
                     </div>
                     <div className="responsive-card bg-slate-50 rounded-lg p-2 text-center">
-                      <p className="text-xs text-slate-400">Profit</p>
-                      <p className={`font-bold ${Number(t.profit) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmt(t.profit)}</p>
+                      <p className="text-xs text-slate-400">Net Payable</p>
+                      <p className={`font-bold ${getTripFinancials(t).netPayable >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmt(getTripFinancials(t).netPayable)}</p>
                     </div>
                   </div>
                 </div>
@@ -351,7 +363,7 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
 
 // ─── Trip Group (date-grouped list) ──────────────────────────────────────────
 
-export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, markingPaid, onApprove, onReject, userId, canAddTrips, onOpenTripReview }) {
+export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, onSettlementChange, markingPaid, settlingTrip, onApprove, onReject, userId, canAddTrips, onOpenTripReview }) {
   const [expanded, setExpanded] = useState(true);
 
   // Who can edit/delete each trip row
@@ -374,19 +386,20 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
         </div>
         <div className="flex max-w-full items-center gap-4 overflow-x-auto scrollbar-none text-sm font-medium sm:mt-0">
           <span className="text-blue-600">Rev: {fmt(group.summary.revenue)}</span>
-          <span className="text-rose-500">Exp: {fmt(group.summary.expenses)}</span>
-          <span className={`font-bold ${group.summary.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-            Net: {fmt(group.summary.profit)}
+          <span className="text-rose-500">Op Exp: {fmt(group.summary.operatingExpenses)}</span>
+          <span className="text-amber-600">Ded: {fmt(group.summary.deductions)}</span>
+          <span className={`font-bold ${group.summary.netProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+            Net: {fmt(group.summary.netProfit)}
           </span>
         </div>
       </div>
 
       {expanded && (
         <div className="table-scroll-container">
-          <table className="w-full min-w-[780px] text-sm">
+          <table className="w-full min-w-[1100px] text-sm">
             <thead className="bg-white">
               <tr className="border-b border-slate-100 bg-white">
-                {["Lorry", "Trip #", "Location", "Revenue", "Expenses", "Profit", "Status", "Actions"].map(h => (
+                {["Lorry", "Trip #", "Location", "Revenue", "Op Expenses", "Op Profit", "Deductions", "Net Payable", "Payment", "Settlement", "Actions"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
                 ))}
               </tr>
@@ -397,6 +410,8 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                 const isRejected = t.approvalStatus === "rejected";
                 const isPendingEdit = t.approvalStatus === "pending_edit";
                 const isPending = t.approvalStatus === "pending";
+                const financials = getTripFinancials(t);
+                const settlementStatus = getSettlementStatus(t);
 
                 return (
                   <tr key={t.id}
@@ -411,15 +426,21 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                     </td>
                     <td className="px-4 py-3 text-slate-600 font-semibold">{t.tripNumber}</td>
                     <td className="px-4 py-3 text-slate-600">{t.location || "N/A"}</td>
-                    <td className="px-4 py-3 font-semibold text-blue-600">{fmt(t.revenue)}</td>
-                    <td className="px-4 py-3 font-semibold text-rose-500">{fmt(t.totalExpenses)}</td>
+                    <td className="px-4 py-3 font-semibold text-blue-600">{fmt(financials.revenue)}</td>
+                    <td className="px-4 py-3 font-semibold text-rose-500">{fmt(financials.operatingExpenses)}</td>
                     <td className="px-4 py-3">
-                      <span className={`font-bold ${Number(t.profit) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                        {fmt(t.profit)}
+                      <span className={`font-bold ${financials.operatingProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                        {fmt(financials.operatingProfit)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-amber-600">{fmt(financials.totalDeductions)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`font-bold ${financials.netPayable >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                        {fmt(financials.netPayable)}
                       </span>
                     </td>
 
-                    {/* Status column: payment status + approval badge */}
+                    {/* Payment status + approval badge */}
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         {isAdmin && !isRejected && !isPending ? (
@@ -448,6 +469,28 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                           </Badge>
                         )}
                       </div>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {isAdmin && !isRejected && !isPending ? (
+                        <select
+                          value={settlementStatus}
+                          disabled={settlingTrip === t.id}
+                          onChange={e => onSettlementChange(t, e.target.value)}
+                          className={`rounded-lg border px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60
+                            ${settlementStatus === "Paid" ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : settlementStatus === "Approved" ? "border-blue-200 bg-blue-50 text-blue-700"
+                            : "border-amber-200 bg-amber-50 text-amber-700"}`}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Approved">Approved</option>
+                          <option value="Paid">Paid</option>
+                        </select>
+                      ) : (
+                        <Badge color={settlementStatus === "Paid" ? "green" : settlementStatus === "Approved" ? "blue" : "amber"}>
+                          {settlementStatus}
+                        </Badge>
+                      )}
                     </td>
 
                     {/* Actions column */}

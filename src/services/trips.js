@@ -1,14 +1,16 @@
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
-import { calcExpenses, calcProfit } from "../utils/helpers";
+import { calcDeductions, calcOperatingExpenses, calcProfit } from "../utils/helpers";
 
 const calcFields = (data) => {
-  const totalExpenses = calcExpenses(data.expenses);
-  const profit = calcProfit(data.revenue, totalExpenses);
   const revenue = Number(data.revenue || 0);
+  const operatingExpenses = calcOperatingExpenses(data.expenses);
+  const operatingProfit = calcProfit(revenue, operatingExpenses);
+  const totalDeductions = calcDeductions(data.deductions, data.expenses);
+  const netPayable = operatingProfit - totalDeductions;
 
   let status = data.status || "Pending";
-  let amountPaid = 0;
+  let amountPaid;
 
   if (status === "Paid") {
     amountPaid = revenue;
@@ -24,7 +26,22 @@ const calcFields = (data) => {
     status = amountPaid >= revenue ? "Paid" : (amountPaid > 0 ? "Partial" : "Pending");
   }
 
-  return { totalExpenses, profit, revenue, amountPaid, status };
+  let settlementStatus = data.settlementStatus || (status === "Paid" ? "Paid" : "Pending");
+  if (settlementStatus === "Paid") status = "Paid";
+  if (!["Pending", "Approved", "Paid"].includes(settlementStatus)) settlementStatus = "Pending";
+
+  return {
+    totalExpenses: operatingExpenses,
+    profit: operatingProfit,
+    revenue,
+    amountPaid,
+    status,
+    operatingExpenses,
+    operatingProfit,
+    totalDeductions,
+    netPayable,
+    settlementStatus,
+  };
 };
 
 const applyEarningsSnapshot = (data, earningsRate) => {
@@ -45,14 +62,10 @@ export const tripService = {
    * - Driver/Conductor: saved as "pending" — requires admin approval.
    */
   add: async (data, { userId = null, isAdmin = false, directApproval = false, earningsRate = null } = {}) => {
-    const { totalExpenses, profit, revenue, amountPaid, status } = calcFields(data);
+    const fields = calcFields(data);
     return addDoc(collection(db, "trips"), applyEarningsSnapshot({
       ...data,
-      revenue,
-      totalExpenses,
-      profit,
-      amountPaid,
-      status,
+      ...fields,
       driverId: data.driverId || null,
       conductorId: data.conductorId || null,
       odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
@@ -71,14 +84,10 @@ export const tripService = {
    */
   update: async (id, data, { isAdmin = false, directApproval = false, isPending = false, earningsRate = null } = {}) => {
     if (isAdmin || directApproval) {
-      const { totalExpenses, profit, revenue, amountPaid, status } = calcFields(data);
+      const fields = calcFields(data);
       return updateDoc(doc(db, "trips", id), applyEarningsSnapshot({
         ...data,
-        revenue,
-        totalExpenses,
-        profit,
-        amountPaid,
-        status,
+        ...fields,
         driverId: data.driverId || null,
         conductorId: data.conductorId || null,
         odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
@@ -88,14 +97,10 @@ export const tripService = {
       }, earningsRate));
     } else if (isPending) {
       // Direct update for drivers/conductors editing their own pending (unapproved) trips
-      const { totalExpenses, profit, revenue, amountPaid, status } = calcFields(data);
+      const fields = calcFields(data);
       return updateDoc(doc(db, "trips", id), applyEarningsSnapshot({
         ...data,
-        revenue,
-        totalExpenses,
-        profit,
-        amountPaid,
-        status,
+        ...fields,
         driverId: data.driverId || null,
         conductorId: data.conductorId || null,
         odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
@@ -117,14 +122,10 @@ export const tripService = {
     if (trip.pendingEdits) {
       // Apply the pending edits with fresh calculations.
       const data = trip.pendingEdits;
-      const { totalExpenses, profit, revenue, amountPaid, status } = calcFields(data);
+      const fields = calcFields(data);
       return updateDoc(doc(db, "trips", id), applyEarningsSnapshot({
         ...data,
-        revenue,
-        totalExpenses,
-        profit,
-        amountPaid,
-        status,
+        ...fields,
         driverId: data.driverId || null,
         conductorId: data.conductorId || null,
         odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
@@ -163,9 +164,22 @@ export const tripService = {
     return updateDoc(doc(db, "trips", id), {
       amountPaid: Number(amountPaid),
       status,
+      settlementStatus: isPaid ? "Paid" : "Pending",
       earningsRate: isPaid ? Number(earningsRate || 0) : null,
       earningsAmount: isPaid ? Number(earningsRate || 0) : 0,
       paidAt: isPaid ? serverTimestamp() : null,
+    });
+  },
+
+  updateSettlement: async (id, settlementStatus, trip = {}, earningsRate = null) => {
+    const isPaid = settlementStatus === "Paid";
+    return updateDoc(doc(db, "trips", id), {
+      settlementStatus,
+      status: isPaid ? "Paid" : (trip.status === "Paid" ? "Pending" : (trip.status || "Pending")),
+      amountPaid: isPaid ? Number(trip.revenue || 0) : Number(trip.amountPaid || 0),
+      earningsRate: isPaid ? Number(earningsRate || trip.earningsRate || trip.earningsAmount || 0) : (trip.earningsRate ?? null),
+      earningsAmount: isPaid ? Number(earningsRate || trip.earningsRate || trip.earningsAmount || 0) : (trip.earningsAmount ?? 0),
+      paidAt: isPaid ? serverTimestamp() : (trip.paidAt ?? null),
     });
   },
 

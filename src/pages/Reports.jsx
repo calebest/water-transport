@@ -1,5 +1,18 @@
 import { useMemo, useState } from "react";
-import { today, getWeekRange, getMonthRange, filterByRange, summarize, collectExpenseKeys, sumExpenseKey, fmt } from "../utils/helpers";
+import {
+  today,
+  getWeekRange,
+  getMonthRange,
+  filterByRange,
+  summarize,
+  collectDeductionKeys,
+  collectExpenseKeys,
+  getSettlementStatus,
+  isPaidTrip,
+  sumDeductionKey,
+  sumExpenseKey,
+  fmt
+} from "../utils/helpers";
 import { exportCSV, exportPDF, handleShareText } from "../utils/export";
 import { StatCard, Badge } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
@@ -33,7 +46,12 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
   const [range, setRange] = useState("daily");
   const [customStart, setCustomStart] = useState(today());
   const [customEnd, setCustomEnd] = useState(today());
+  const [reportType, setReportType] = useState("pending");
   const [filterVehicle, setFilterVehicle] = useState("All Vehicles");
+  const [filterRoute, setFilterRoute] = useState("All Routes");
+  const [filterTripStatus, setFilterTripStatus] = useState("All Trip Statuses");
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState("All Payment Statuses");
+  const [filterSettlementStatus, setFilterSettlementStatus] = useState("All Settlement Statuses");
 
   const [complaintCategory, setComplaintCategory] = useState("General");
   const [complaintVehicle, setComplaintVehicle] = useState("");
@@ -49,11 +67,32 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
     if (filterVehicle !== "All Vehicles") {
       filtered = filtered.filter(t => t.lorry === filterVehicle);
     }
+    if (filterRoute !== "All Routes") {
+      filtered = filtered.filter(t => (t.location || "N/A") === filterRoute);
+    }
+    if (filterTripStatus !== "All Trip Statuses") {
+      filtered = filtered.filter(t => (t.approvalStatus || "approved") === filterTripStatus);
+    }
+    if (filterPaymentStatus !== "All Payment Statuses") {
+      filtered = filtered.filter(t => (t.status || "Pending") === filterPaymentStatus);
+    }
+    if (filterSettlementStatus !== "All Settlement Statuses") {
+      filtered = filtered.filter(t => getSettlementStatus(t) === filterSettlementStatus);
+    }
+    if (reportType === "pending") {
+      filtered = filtered.filter(t => !isPaidTrip(t));
+    } else if (reportType === "paid") {
+      filtered = filtered.filter(isPaidTrip);
+    } else if (reportType === "vehicle" && filterVehicle === "All Vehicles") {
+      filtered = filtered.filter(t => t.lorry);
+    } else if (reportType === "route" && filterRoute === "All Routes") {
+      filtered = filtered.filter(t => t.location);
+    }
     if (range === "daily") return filterByRange(filtered, today(), today());
     if (range === "weekly") { const [s, e] = getWeekRange(); return filterByRange(filtered, s, e); }
     if (range === "monthly") { const [s, e] = getMonthRange(); return filterByRange(filtered, s, e); }
     return filterByRange(filtered, customStart, customEnd);
-  }, [trips, range, customStart, customEnd, filterVehicle]);
+  }, [trips, range, customStart, customEnd, reportType, filterVehicle, filterRoute, filterTripStatus, filterPaymentStatus, filterSettlementStatus]);
 
   const sum = useMemo(() => summarize(rangeTrips), [rangeTrips]);
 
@@ -62,6 +101,32 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
   }, [rangeTrips]);
 
   const { fixed, custom: customLabels } = useMemo(() => collectExpenseKeys(rangeTrips), [rangeTrips]);
+  const { fixed: deductionFixed, custom: deductionCustomLabels } = useMemo(() => collectDeductionKeys(rangeTrips), [rangeTrips]);
+
+  const routeOptions = useMemo(() => [...new Set(trips.map(t => t.location || "N/A"))].sort(), [trips]);
+  const routeStats = useMemo(() => {
+    return [...new Set(rangeTrips.map(t => t.location || "N/A"))].sort().map(route => ({
+      route,
+      ...summarize(rangeTrips.filter(t => (t.location || "N/A") === route))
+    }));
+  }, [rangeTrips]);
+  const dailyStats = useMemo(() => {
+    const byDate = {};
+    rangeTrips.forEach(t => {
+      if (!byDate[t.date]) byDate[t.date] = [];
+      byDate[t.date].push(t);
+    });
+    return Object.keys(byDate).sort().map(date => ({ date, ...summarize(byDate[date]) }));
+  }, [rangeTrips]);
+  const monthlyStats = useMemo(() => {
+    const byMonth = {};
+    rangeTrips.forEach(t => {
+      const month = (t.date || "").slice(0, 7) || "No date";
+      if (!byMonth[month]) byMonth[month] = [];
+      byMonth[month].push(t);
+    });
+    return Object.keys(byMonth).sort().map(month => ({ month, ...summarize(byMonth[month]) }));
+  }, [rangeTrips]);
 
   const visibleComplaints = useMemo(() => {
     if (isAdmin) return complaints;
@@ -75,7 +140,15 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
     ? `${customStart} to ${customEnd}`
     : `${range.charAt(0).toUpperCase() + range.slice(1)}`;
 
-  const title = `${dateTitle} Report${filterVehicle !== "All Vehicles" ? ` - ${filterVehicle}` : ""}`;
+  const reportTypeLabel = {
+    pending: "Pending Trips",
+    paid: "Paid Trips",
+    all: "Full Financial",
+    vehicle: "Vehicle",
+    route: "Route",
+  }[reportType] || "Financial";
+
+  const title = `${dateTitle} ${reportTypeLabel} Report${filterVehicle !== "All Vehicles" ? ` - ${filterVehicle}` : ""}${filterRoute !== "All Routes" ? ` - ${filterRoute}` : ""}`;
 
   const btnCls = (v) =>
     `px-4 py-2 rounded-xl text-sm font-bold transition-all ${range === v
@@ -161,7 +234,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
 
       {activeTab === "reports" ? (
         <>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3">
             <div className="flex flex-wrap gap-2 mobile-control-rail">
               {["daily", "weekly", "monthly", "custom"].map(v => (
                 <button key={v} className={btnCls(v)} onClick={() => setRange(v)}>
@@ -169,16 +242,53 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
                 </button>
               ))}
             </div>
-            <select
-              value={filterVehicle}
-              onChange={e => setFilterVehicle(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none sm:w-auto"
-            >
-              <option value="All Vehicles">All Vehicles</option>
-              {vehicles.map(v => (
-                <option key={v.id} value={v.plate}>{v.plate} ({v.name})</option>
-              ))}
-            </select>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <select value={reportType} onChange={e => setReportType(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+                <option value="pending">Pending trips report</option>
+                <option value="paid">Paid trips report</option>
+                <option value="vehicle">Vehicle report</option>
+                <option value="route">Route report</option>
+                <option value="all">Full financial report</option>
+              </select>
+              <select
+                value={filterVehicle}
+                onChange={e => setFilterVehicle(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="All Vehicles">All Vehicles</option>
+                {vehicles.map(v => (
+                  <option key={v.id} value={v.plate}>{v.plate} ({v.name})</option>
+                ))}
+              </select>
+              <select value={filterRoute} onChange={e => setFilterRoute(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+                <option value="All Routes">All Routes</option>
+                {routeOptions.map(route => <option key={route} value={route}>{route}</option>)}
+              </select>
+              <select value={filterTripStatus} onChange={e => setFilterTripStatus(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+                <option value="All Trip Statuses">All Trip Statuses</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending Approval</option>
+                <option value="pending_edit">Pending Edit</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <select value={filterPaymentStatus} onChange={e => setFilterPaymentStatus(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+                <option value="All Payment Statuses">All Payment Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Partial">Partial</option>
+                <option value="Paid">Paid</option>
+              </select>
+              <select value={filterSettlementStatus} onChange={e => setFilterSettlementStatus(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+                <option value="All Settlement Statuses">All Settlement Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Paid">Paid</option>
+              </select>
+            </div>
           </div>
 
           {range === "custom" && (
@@ -197,10 +307,14 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
           )}
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
-            <StatCard label="Revenue" value={fmt(sum.revenue)} icon="💰" color="blue" />
-            <StatCard label="Expenses" value={fmt(sum.expenses)} icon="📉" color="red" />
-            <StatCard label="Profit" value={fmt(sum.profit)} icon="📈" color="green" />
-            <StatCard label="Trips" value={sum.count} icon="🚛" color="amber" />
+            <StatCard label="Gross Revenue" value={fmt(sum.revenue)} icon="💰" color="blue" />
+            <StatCard label="Operating Expenses" value={fmt(sum.operatingExpenses)} icon="📉" color="red" />
+            <StatCard label="Operating Profit" value={fmt(sum.operatingProfit)} icon="📈" color="green" />
+            <StatCard label="Deductions" value={fmt(sum.deductions)} icon="💸" color="amber" />
+            <StatCard label="Net Profit" value={fmt(sum.netProfit)} icon="✅" color={sum.netProfit >= 0 ? "green" : "red"} />
+            <StatCard label="Trips" value={sum.count} icon="🚛" color="slate" />
+            <StatCard label="Paid Trips" value={sum.paidCount} icon="✓" color="green" />
+            <StatCard label="Pending Trips" value={sum.pendingCount} icon="…" color="amber" />
           </div>
 
           {filterVehicle === "All Vehicles" && activeLorryPlates.length > 0 && (
@@ -210,19 +324,39 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
                 return (
                   <div key={plate} className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                     <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">{plate}</p>
-                    <p className="text-lg font-black text-slate-800">{fmt(vehSum.profit)}</p>
-                    <p className="mt-1 text-xs text-slate-500">{vehSum.count} trips · Rev {fmt(vehSum.revenue)} · Exp {fmt(vehSum.expenses)}</p>
+                    <p className="text-lg font-black text-slate-800">{fmt(vehSum.netProfit)}</p>
+                    <p className="mt-1 text-xs text-slate-500">{vehSum.count} trips · Rev {fmt(vehSum.revenue)} · Op profit {fmt(vehSum.operatingProfit)}</p>
                   </div>
                 );
               })}
             </div>
           )}
 
+          {routeStats.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mobile-card-rail mobile-card-rail--wide">
+              {routeStats.map(item => (
+                <div key={item.route} className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">{item.route}</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs text-slate-400">Revenue</p>
+                      <p className="font-black text-blue-700">{fmt(item.revenue)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Net Profit</p>
+                      <p className={`font-black ${item.netProfit >= 0 ? "text-emerald-700" : "text-rose-600"}`}>{fmt(item.netProfit)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <p className="mb-4 text-sm font-bold text-slate-700">Expense Breakdown</p>
+            <p className="mb-4 text-sm font-bold text-slate-700">Operating Expense Breakdown</p>
             {[...fixed.map(k => ({ key: k, isCustom: false })), ...customLabels.map(k => ({ key: k, isCustom: true }))].map(({ key, isCustom }) => {
               const total = sumExpenseKey(rangeTrips, key, isCustom);
-              const pct = sum.expenses > 0 ? (total / sum.expenses * 100).toFixed(1) : 0;
+              const pct = sum.operatingExpenses > 0 ? (total / sum.operatingExpenses * 100).toFixed(1) : 0;
               return (
                 <div key={key} className="mobile-expense-row mb-2 flex items-center gap-3">
                   <span className="mobile-expense-label w-24 flex items-center gap-1 text-xs font-semibold capitalize text-slate-500">
@@ -241,6 +375,62 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
               <p className="py-4 text-center text-sm text-slate-400">No expense data in this period</p>
             )}
           </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <p className="mb-4 text-sm font-bold text-slate-700">Deduction Summary</p>
+            {[...deductionFixed.map(k => ({ key: k, isCustom: false })), ...deductionCustomLabels.map(k => ({ key: k, isCustom: true }))].map(({ key, isCustom }) => {
+              const total = sumDeductionKey(rangeTrips, key, isCustom);
+              const pct = sum.deductions > 0 ? (total / sum.deductions * 100).toFixed(1) : 0;
+              return (
+                <div key={key} className="mobile-expense-row mb-2 flex items-center gap-3">
+                  <span className="mobile-expense-label w-32 flex items-center gap-1 text-xs font-semibold capitalize text-slate-500">
+                    {key.replace(/([A-Z])/g, " $1")}
+                    {isCustom && <span className="rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-700">legacy</span>}
+                  </span>
+                  <div className="mobile-expense-bar h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="mobile-expense-total w-28 text-right text-xs font-bold text-slate-700">{fmt(total)}</span>
+                  <span className="mobile-expense-pct w-10 text-right text-xs text-slate-400">{pct}%</span>
+                </div>
+              );
+            })}
+            {[...deductionFixed, ...deductionCustomLabels].every((key) => {
+              const isCustom = deductionCustomLabels.includes(key);
+              return sumDeductionKey(rangeTrips, key, isCustom) === 0;
+            }) && (
+              <p className="py-4 text-center text-sm text-slate-400">No deductions in this period</p>
+            )}
+          </div>
+
+          {(dailyStats.length > 0 || monthlyStats.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                <p className="mb-4 text-sm font-bold text-slate-700">Daily Profit Trends</p>
+                <div className="space-y-2">
+                  {dailyStats.slice(-10).map(item => (
+                    <div key={item.date} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                      <span className="text-xs font-semibold text-slate-500">{item.date}</span>
+                      <span className={`text-sm font-black ${item.netProfit >= 0 ? "text-emerald-700" : "text-rose-600"}`}>{fmt(item.netProfit)}</span>
+                    </div>
+                  ))}
+                  {dailyStats.length === 0 && <p className="py-4 text-center text-sm text-slate-400">No daily data</p>}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                <p className="mb-4 text-sm font-bold text-slate-700">Monthly Summaries</p>
+                <div className="space-y-2">
+                  {monthlyStats.map(item => (
+                    <div key={item.month} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                      <span className="text-xs font-semibold text-slate-500">{item.month}</span>
+                      <span className="text-sm font-black text-slate-800">{fmt(item.netProfit)}</span>
+                    </div>
+                  ))}
+                  {monthlyStats.length === 0 && <p className="py-4 text-center text-sm text-slate-400">No monthly data</p>}
+                </div>
+              </div>
+            </div>
+          )}
 
           {rangeTrips.length > 0 ? (
             <div className="flex flex-col gap-3 sm:flex-row">

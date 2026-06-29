@@ -1,33 +1,54 @@
 import { useState, useEffect } from "react";
-import { today, calcExpenses, calcProfit, fmt, FIXED_EXPENSE_KEYS } from "../utils/helpers";
+import {
+  today,
+  calcDeductions,
+  calcOperatingExpenses,
+  calcProfit,
+  fmt,
+  DEDUCTION_KEYS,
+  DEDUCTION_LABELS,
+  EXPENSE_LABELS,
+  FIXED_EXPENSE_KEYS
+} from "../utils/helpers";
 import { locationService } from "../services/locations";
 import { useAuth } from "../contexts/AuthContext";
-import { tripService } from "../services/trips";
 
 const EMPTY_FORM = {
   date: today(), lorry: "KBZ", tripNumber: "",
   location: "",
   revenue: "",
   status: "Pending",
+  settlementStatus: "Pending",
   amountPaid: "",
   driverId: "",
   conductorId: "",
   odometerStart: "",
   odometerEnd: "",
   expenses: {
-    water: "", diesel: "", petrol: "", police: "", driver: "", conductor: "",
+    diesel: "", water: "", driver: "", conductor: "", police: "", repairs: "", fuel: "",
     custom: []   // [{ id, label, amount }]
+  },
+  deductions: {
+    loanRecovery: "", advanceRecovery: "", other: ""
   }
 };
 
 const normaliseExpenses = (exp = {}) => ({
-  water: exp.water ?? "",
   diesel: exp.diesel ?? "",
-  petrol: exp.petrol ?? "",
-  police: exp.police ?? "",
+  water: exp.water ?? "",
   driver: exp.driver ?? "",
   conductor: exp.conductor ?? "",
+  police: exp.police ?? "",
+  repairs: exp.repairs ?? "",
+  fuel: exp.fuel ?? exp.petrol ?? "",
+  petrol: exp.petrol ?? "",
   custom: (exp.custom || []).map((c, i) => ({ id: Date.now() + i, label: c.label || "", amount: c.amount ?? "" }))
+});
+
+const normaliseDeductions = (deductions = {}) => ({
+  loanRecovery: deductions.loanRecovery ?? "",
+  advanceRecovery: deductions.advanceRecovery ?? "",
+  other: deductions.other ?? "",
 });
 
 export default function TripForm({ initial, locations = [], personnel = [], vehicles = [], onSave, onCancel }) {
@@ -46,21 +67,28 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     return {
       ...initial,
       status: initial.status || "Pending",
+      settlementStatus: initial.settlementStatus || (initial.status === "Paid" ? "Paid" : "Pending"),
       amountPaid: initial.amountPaid || "",
       driverId: initial.driverId || "",
       conductorId: initial.conductorId || "",
       odometerStart: initial.odometerStart || "",
       odometerEnd: initial.odometerEnd || "",
-      expenses: normaliseExpenses(initial.expenses)
+      expenses: normaliseExpenses(initial.expenses),
+      deductions: normaliseDeductions(initial.deductions)
     };
   });
   const [saving, setSaving] = useState(false);
+  const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const setFixed = (k, v) => setForm(f => ({ ...f, expenses: { ...f.expenses, [k]: v } }));
+  const setDeduction = (k, v) => setForm(f => ({ ...f, deductions: { ...f.deductions, [k]: v } }));
 
   // Keep driver/conductor locked if user has a linked profile
   useEffect(() => {
     if (!initial) {
-      if (isDriver && personnelId) setField("driverId", personnelId);
-      if (isConductor && personnelId) setField("conductorId", personnelId);
+      queueMicrotask(() => {
+        if (isDriver && personnelId) setField("driverId", personnelId);
+        if (isConductor && personnelId) setField("conductorId", personnelId);
+      });
     }
   }, [isDriver, isConductor, personnelId, initial]);
 
@@ -71,9 +99,6 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
   const [newLocName, setNewLocName] = useState("");
   const [newLocRev, setNewLocRev] = useState("");
   const [inlineSaving, setInlineSaving] = useState(false);
-
-  const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const setFixed = (k, v) => setForm(f => ({ ...f, expenses: { ...f.expenses, [k]: v } }));
 
   const handleLocationChange = (e) => {
     const val = e.target.value;
@@ -143,8 +168,10 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     }));
   };
 
-  const totalExp = calcExpenses(form.expenses);
-  const profit = calcProfit(form.revenue, totalExp);
+  const operatingExpenses = calcOperatingExpenses(form.expenses);
+  const operatingProfit = calcProfit(form.revenue, operatingExpenses);
+  const deductions = calcDeductions(form.deductions, form.expenses);
+  const netPayable = operatingProfit - deductions;
 
   const handleSubmit = async () => {
     if (!form.date || !form.tripNumber || !form.location || !form.revenue) {
@@ -160,7 +187,12 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     }));
     const payload = {
       ...form,
-      expenses: { ...form.expenses, custom: cleanCustom }
+      expenses: { ...form.expenses, petrol: "", custom: cleanCustom },
+      deductions: {
+        loanRecovery: Number(form.deductions?.loanRecovery || 0),
+        advanceRecovery: Number(form.deductions?.advanceRecovery || 0),
+        other: Number(form.deductions?.other || 0),
+      }
     };
     setSaving(true);
     try { await onSave(payload); onCancel(); }
@@ -226,6 +258,14 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
             <option value="Paid">Paid</option>
             <option value="Pending">Pending</option>
             <option value="Partial">Partial</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1">Settlement Status *</label>
+          <select className={inp} value={form.settlementStatus} onChange={e => setField("settlementStatus", e.target.value)}>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Paid">Paid</option>
           </select>
         </div>
         {form.status === "Partial" && (
@@ -329,11 +369,11 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       </div>
 
       <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Standard Expenses</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Operating Expenses</p>
         <div className="grid grid-cols-2 gap-3 mobile-form-grid">
           {FIXED_EXPENSE_KEYS.map(k => (
             <div key={k}>
-              <label className="block text-xs font-semibold text-slate-500 mb-1 capitalize">{k}</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">{EXPENSE_LABELS[k] || k}</label>
               <input type="number" className={inp} placeholder="0"
                 value={form.expenses[k]}
                 onChange={e => setFixed(k, e.target.value)} />
@@ -344,7 +384,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
 
       <div>
         <div className="flex items-center justify-between gap-3 mb-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Additional Expenses</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Additional Operating Expenses</p>
           <button
             type="button"
             onClick={addCustomField}
@@ -389,6 +429,20 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
         )}
       </div>
 
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Deductions</p>
+        <div className="grid grid-cols-2 gap-3 mobile-form-grid">
+          {DEDUCTION_KEYS.map(k => (
+            <div key={k}>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">{DEDUCTION_LABELS[k]}</label>
+              <input type="number" className={inp} placeholder="0"
+                value={form.deductions?.[k] ?? ""}
+                onChange={e => setDeduction(k, e.target.value)} />
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="rounded-xl bg-slate-50 p-4 space-y-2">
         {(form.expenses.custom || []).filter(c => c.label && c.amount !== "").map(c => (
           <div key={c.id} className="flex justify-between text-xs text-slate-400">
@@ -397,21 +451,31 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
           </div>
         ))}
         <div className="flex justify-between text-sm">
-          <span className="text-slate-500">Total Expenses</span>
-          <span className="font-bold text-rose-600">{fmt(totalExp)}</span>
+          <span className="text-slate-500">Operating Expenses</span>
+          <span className="font-bold text-rose-600">{fmt(operatingExpenses)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-slate-500">Revenue</span>
           <span className="font-bold text-blue-600">{fmt(form.revenue)}</span>
         </div>
         <div className="flex justify-between text-sm">
+          <span className="text-slate-500">Operating Profit</span>
+          <span className={`font-bold ${operatingProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+            {fmt(operatingProfit)}
+          </span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-500">Deductions</span>
+          <span className="font-bold text-amber-600">{fmt(deductions)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
           <span className="text-slate-500">Amount Paid</span>
           <span className="font-bold text-amber-600">{form.amountPaid !== "" ? fmt(form.amountPaid) : (form.revenue ? fmt(form.revenue) : "0")}</span>
         </div>
         <div className="border-t border-slate-200 pt-2 flex justify-between">
-          <span className="font-bold text-slate-700">Profit</span>
-          <span className={`text-lg font-black ${profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-            {fmt(profit)}
+          <span className="font-bold text-slate-700">Net Payable</span>
+          <span className={`text-lg font-black ${netPayable >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+            {fmt(netPayable)}
           </span>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { today, getWeekRange, getMonthRange, filterByRange, summarize, fmt } from "../utils/helpers";
+import { getTripFinancials, isPaidTrip, today, getWeekRange, getMonthRange, filterByRange, summarize, fmt } from "../utils/helpers";
 import { StatCard, Badge } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -13,7 +13,7 @@ const dayDiff = (dateValue) => {
 };
 
 export default function DashboardPage({ trips, vehicles = [], earningsConfig = { ratePerTrip: 200 }, onOpenTripReview, onMarkTripPaid, onGoToTrips }) {
-  const { profile, isAdmin, isOwner, isPrivileged } = useAuth();
+  const { profile, isAdmin, isOwner } = useAuth();
   const [pendingOpen, setPendingOpen] = useState(true);
   const todayStr = today();
   const [weekStart, weekEnd] = getWeekRange();
@@ -32,13 +32,16 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
     for (let i = 13; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
       const key = d.toISOString().slice(0, 10);
-      days[key] = { date: key.slice(5), revenue: 0, expenses: 0, profit: 0 };
+      days[key] = { date: key.slice(5), revenue: 0, expenses: 0, operatingProfit: 0, deductions: 0, netProfit: 0 };
     }
     trips.forEach(t => {
       if (days[t.date]) {
-        days[t.date].revenue += Number(t.revenue || 0);
-        days[t.date].expenses += Number(t.totalExpenses || 0);
-        days[t.date].profit += Number(t.profit || 0);
+        const financials = getTripFinancials(t);
+        days[t.date].revenue += financials.revenue;
+        days[t.date].expenses += financials.operatingExpenses;
+        days[t.date].operatingProfit += financials.operatingProfit;
+        days[t.date].deductions += financials.totalDeductions;
+        days[t.date].netProfit += financials.netPayable;
       }
     });
     return Object.values(days);
@@ -62,8 +65,8 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   const approvalPendingTrips = trips.filter(t => t.approvalStatus === "pending" || t.approvalStatus === "pending_edit");
-  const paymentPendingTrips = trips.filter(t => t.status === "Pending" && t.approvalStatus !== "rejected");
-  const unpaidTrips = trips.filter(t => t.status !== "Paid" && t.approvalStatus === "approved" && t.revenue > 0);
+  const paymentPendingTrips = trips.filter(t => !isPaidTrip(t) && t.approvalStatus !== "rejected");
+  const unpaidTrips = trips.filter(t => !isPaidTrip(t) && t.approvalStatus === "approved" && t.revenue > 0);
   const outstandingBalance = unpaidTrips.reduce((acc, t) => acc + ((t.revenue || 0) - (t.amountPaid || 0)), 0);
   const pendingOutstanding = paymentPendingTrips.reduce((acc, t) => acc + ((t.revenue || 0) - (t.amountPaid || 0)), 0);
   const ratePerTrip = Number(earningsConfig?.ratePerTrip || 200);
@@ -107,10 +110,13 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Today — {todayStr}</p>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
               <StatCard label="Revenue" value={fmt(todaySummary.revenue)} icon="💰" color="blue" />
-              <StatCard label="Expenses" value={fmt(todaySummary.expenses)} icon="📉" color="red" />
-              <StatCard label="Profit" value={fmt(todaySummary.profit)} icon="📈" color="green"
-                sub={`${todaySummary.count} trips`} />
-              <StatCard label="Trips" value={todaySummary.count} icon="🚛" color="amber" />
+              <StatCard label="Expenses" value={fmt(todaySummary.operatingExpenses)} icon="📉" color="red" />
+              <StatCard label="Operating Profit" value={fmt(todaySummary.operatingProfit)} icon="📈" color="green" />
+              <StatCard label="Deductions" value={fmt(todaySummary.deductions)} icon="💸" color="amber" />
+              <StatCard label="Net Profit" value={fmt(todaySummary.netProfit)} icon="✓" color={todaySummary.netProfit >= 0 ? "green" : "red"} />
+              <StatCard label="Total Trips" value={todaySummary.count} icon="🚛" color="slate" />
+              <StatCard label="Pending Trips" value={todaySummary.pendingCount} icon="…" color="amber" />
+              <StatCard label="Paid Trips" value={todaySummary.paidCount} icon="✓" color="green" />
             </div>
           </div>
 
@@ -118,7 +124,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
             {vehicleTodayStats.map(v => (
               <div key={v.id} className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{v.plate} Today</p>
-                <p className="text-xl font-black text-slate-800">{fmt(v.summary.profit)}</p>
+                <p className="text-xl font-black text-slate-800">{fmt(v.summary.netProfit)}</p>
                 <p className="text-xs text-slate-500 mt-1">{v.summary.count} trips · Rev {fmt(v.summary.revenue)}</p>
               </div>
             ))}
@@ -206,7 +212,9 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
                 <Legend />
                 <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={false} name="Revenue" />
                 <Line type="monotone" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} dot={false} name="Expenses" />
-                <Line type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={2.5} dot={false} name="Profit" />
+                <Line type="monotone" dataKey="operatingProfit" stroke="#10b981" strokeWidth={2} dot={false} name="Operating Profit" />
+                <Line type="monotone" dataKey="deductions" stroke="#f59e0b" strokeWidth={2} dot={false} name="Deductions" />
+                <Line type="monotone" dataKey="netProfit" stroke="#0f766e" strokeWidth={2.5} dot={false} name="Net Profit" />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -214,7 +222,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
           <div className="grid grid-cols-2 gap-3 mobile-card-rail mobile-card-rail--wide">
             <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">This Week</p>
-              <p className="text-xl font-black text-slate-800">{fmt(weekSummary.profit)}</p>
+              <p className="text-xl font-black text-slate-800">{fmt(weekSummary.netProfit)}</p>
               <div className="mt-2 space-y-1">
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Revenue</span><span className="font-semibold">{fmt(weekSummary.revenue)}</span>
@@ -222,17 +230,23 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Expenses</span><span className="font-semibold text-rose-500">{fmt(weekSummary.expenses)}</span>
                 </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Deductions</span><span className="font-semibold text-amber-600">{fmt(weekSummary.deductions)}</span>
+                </div>
               </div>
             </div>
             <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">This Month</p>
-              <p className="text-xl font-black text-slate-800">{fmt(monthSummary.profit)}</p>
+              <p className="text-xl font-black text-slate-800">{fmt(monthSummary.netProfit)}</p>
               <div className="mt-2 space-y-1">
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Revenue</span><span className="font-semibold">{fmt(monthSummary.revenue)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Expenses</span><span className="font-semibold text-rose-500">{fmt(monthSummary.expenses)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Deductions</span><span className="font-semibold text-amber-600">{fmt(monthSummary.deductions)}</span>
                 </div>
               </div>
             </div>
@@ -248,7 +262,8 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
                 <Tooltip formatter={(v, n) => [fmt(v), n]} />
                 <Legend />
                 <Bar dataKey="revenue" fill="#3b82f6" name="Revenue" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="profit" fill="#10b981" name="Profit" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="operatingProfit" fill="#10b981" name="Operating Profit" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="netProfit" fill="#0f766e" name="Net Profit" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
