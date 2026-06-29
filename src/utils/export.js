@@ -1,23 +1,69 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { collectDeductionKeys, collectExpenseKeys, getSettlementStatus, getTripFinancials, splitCustomExpenses, summarize, sumDeductionKey, fmtN } from "./helpers";
+import { collectDeductionKeys, collectExpenseKeys, getTripFinancials, splitCustomExpenses, summarize, sumDeductionKey, fmtN } from "./helpers";
+
+const labelForKey = (key) => key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase());
+
+const sortedTrips = (trips) => [...trips].sort((a, b) => {
+  const dateCompare = (b.date || "").localeCompare(a.date || "");
+  if (dateCompare !== 0) return dateCompare;
+  const aTrip = Number(a.tripNumber);
+  const bTrip = Number(b.tripNumber);
+  if (!Number.isNaN(aTrip) && !Number.isNaN(bTrip)) return aTrip - bTrip;
+  return String(a.tripNumber || "").localeCompare(String(b.tripNumber || ""));
+});
+
+const getDeductionLines = (trip) => {
+  const { fixed, custom } = collectDeductionKeys([trip]);
+  const fixedLines = fixed
+    .map(key => ({ label: labelForKey(key), amount: sumDeductionKey([trip], key, false) }))
+    .filter(item => item.amount > 0);
+  const customLines = custom
+    .map(key => ({ label: key, amount: sumDeductionKey([trip], key, true) }))
+    .filter(item => item.amount > 0);
+  return [...fixedLines, ...customLines];
+};
+
+const getExpenseLines = (trip) => {
+  const { fixed, custom } = collectExpenseKeys([trip]);
+  const operating = [
+    ...fixed.map(key => {
+      const value = key === "petrol" ? (trip.expenses?.petrol ?? trip.expenses?.fuel) : trip.expenses?.[key];
+      return { label: labelForKey(key), amount: Number(value || 0) };
+    }),
+    ...custom.map(label => {
+      const match = splitCustomExpenses(trip.expenses?.custom || []).operating.find(c => c.label === label);
+      return { label, amount: Number(match?.amount || 0) };
+    }),
+  ];
+  return [...operating, ...getDeductionLines(trip)];
+};
+
+const reportTotals = (trips) => {
+  const sum = summarize(trips);
+  return {
+    ...sum,
+    totalExpenses: sum.operatingExpenses + sum.deductions,
+    totalProfit: sum.netProfit,
+  };
+};
 
 export const exportCSV = (trips, filename) => {
   const { fixed, custom } = collectExpenseKeys(trips);
   const { fixed: deductionFixed, custom: deductionCustom } = collectDeductionKeys(trips);
   const allKeys = [...fixed, ...custom];
   const deductionKeys = [...deductionFixed, ...deductionCustom];
-  const headers = ["Date", "Lorry", "Trip#", "Location", "Revenue", ...allKeys.map(k => k.charAt(0).toUpperCase() + k.slice(1)), "Operating Expenses", "Operating Profit", ...deductionKeys.map(k => k.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase())), "Total Deductions", "Net Payable", "Payment Status", "Settlement Status"];
+  const headers = ["Date", "Lorry", "Trip#", "Location", "Revenue", ...allKeys.map(labelForKey), "Operating Expenses", "Operating Profit", ...deductionKeys.map(labelForKey), "Total Deductions", "Total Expenses", "Profit", "Payment Status"];
 
   const rows = trips.map(t => {
     const financials = getTripFinancials(t);
-    const fixedVals = fixed.map(k => t.expenses?.[k] || 0);
+    const fixedVals = fixed.map(k => k === "petrol" ? (t.expenses?.petrol ?? t.expenses?.fuel ?? 0) : (t.expenses?.[k] || 0));
     const customVals = custom.map(label => {
       const match = (t.expenses?.custom || []).find(c => c.label === label);
       return match?.amount || 0;
     });
     const deductionVals = deductionKeys.map(k => sumDeductionKey([t], k, deductionCustom.includes(k)));
-    return [t.date, t.lorry, t.tripNumber, t.location || "N/A", financials.revenue, ...fixedVals, ...customVals, financials.operatingExpenses, financials.operatingProfit, ...deductionVals, financials.totalDeductions, financials.netPayable, t.status, getSettlementStatus(t)];
+    return [t.date, t.lorry, t.tripNumber, t.location || "N/A", financials.revenue, ...fixedVals, ...customVals, financials.operatingExpenses, financials.operatingProfit, ...deductionVals, financials.totalDeductions, financials.operatingExpenses + financials.totalDeductions, financials.netPayable, t.status];
   });
 
   const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
@@ -28,62 +74,82 @@ export const exportCSV = (trips, filename) => {
 };
 
 export const exportPDF = (trips, title) => {
-  const doc = new jsPDF();
-  const sum = summarize(trips);
+  const doc = new jsPDF({ orientation: "landscape" });
+  const sum = reportTotals(trips);
   const activeLorryPlates = [...new Set(trips.map(t => t.lorry))].sort();
+  const pageWidth = doc.internal.pageSize.getWidth();
 
-  doc.setFontSize(20); doc.setTextColor(30, 130, 80);
-  doc.text("Water Transport Manager", 14, 18);
-  doc.setFontSize(13); doc.setTextColor(60, 60, 60);
-  doc.text(title, 14, 26);
-  doc.setFontSize(10); doc.setTextColor(120, 120, 120);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 32);
-
-  doc.setFontSize(11); doc.setTextColor(30, 30, 30);
-  doc.text(`Gross Revenue: KES ${fmtN(sum.revenue)}`, 14, 44);
-  doc.text(`Operating Expenses: KES ${fmtN(sum.operatingExpenses)}`, 14, 51);
-  doc.text(`Operating Profit: KES ${fmtN(sum.operatingProfit)}`, 14, 58);
-  doc.text(`Total Deductions: KES ${fmtN(sum.deductions)}`, 14, 65);
-  doc.text(`Net Profit: KES ${fmtN(sum.netProfit)}`, 14, 72);
-  doc.text(`Trips: ${sum.count} | Paid: ${sum.paidCount} | Pending: ${sum.pendingCount}`, 14, 79);
-  
-  let yPos = 88;
-  activeLorryPlates.forEach(plate => {
-    const vehSum = summarize(trips.filter(t => t.lorry === plate));
-    doc.text(`${plate} - Revenue: KES ${fmtN(vehSum.revenue)} | Net: KES ${fmtN(vehSum.netProfit)}`, 14, yPos);
-    yPos += 7;
-  });
-
-  // Build dynamic columns for PDF table
-  const { fixed, custom } = collectExpenseKeys(trips);
-  const expCols = [...fixed, ...custom].map(k => k.charAt(0).toUpperCase() + k.slice(1));
+  doc.setFillColor(15, 118, 110);
+  doc.rect(0, 0, pageWidth, 28, "F");
+  doc.setFontSize(18); doc.setTextColor(255, 255, 255);
+  doc.text("Water Transport Report", 14, 13);
+  doc.setFontSize(10);
+  doc.text(title, 14, 21);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 21, { align: "right" });
 
   autoTable(doc, {
-    startY: Math.max(90, yPos + 10),
-    head: [["Date", "Lorry", "Trip#", "Location", "Revenue", ...expCols, "Op Exp", "Op Profit", "Deductions", "Net Payable", "Payment", "Settlement"]],
-    body: trips.map(t => {
+    startY: 36,
+    head: [["Revenue", "Expenses", "Profit", "Trips", "Paid", "Pending"]],
+    body: [[
+      `KES ${fmtN(sum.revenue)}`,
+      `KES ${fmtN(sum.totalExpenses)}`,
+      `KES ${fmtN(sum.totalProfit)}`,
+      sum.count,
+      sum.paidCount,
+      sum.pendingCount,
+    ]],
+    theme: "grid",
+    headStyles: { fillColor: [15, 118, 110], textColor: 255 },
+    bodyStyles: { fontStyle: "bold", textColor: [30, 41, 59] },
+    styles: { fontSize: 10, cellPadding: 3 },
+  });
+
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [["Vehicle", "Revenue", "Expenses", "Profit", "Trips"]],
+    body: activeLorryPlates.map(plate => {
+      const vehSum = reportTotals(trips.filter(t => t.lorry === plate));
+      return [plate, `KES ${fmtN(vehSum.revenue)}`, `KES ${fmtN(vehSum.totalExpenses)}`, `KES ${fmtN(vehSum.totalProfit)}`, vehSum.count];
+    }),
+    theme: "striped",
+    headStyles: { fillColor: [51, 65, 85], textColor: 255 },
+    styles: { fontSize: 9, cellPadding: 2.5 },
+  });
+
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [["#", "Date", "Vehicle", "Trip", "Route", "Revenue", "Expense Breakdown", "Total Expenses", "Profit", "Status"]],
+    body: sortedTrips(trips).map((t, index) => {
       const financials = getTripFinancials(t);
-      const fixedVals = fixed.map(k => `KES ${fmtN(t.expenses?.[k] || 0)}`);
-      const customVals = custom.map(label => {
-        const match = (t.expenses?.custom || []).find(c => c.label === label);
-        return `KES ${fmtN(match?.amount || 0)}`;
-      });
+      const totalExpenses = financials.operatingExpenses + financials.totalDeductions;
+      const expenseText = getExpenseLines(t).map(item => `${item.label}: ${fmtN(item.amount)}`).join("\n");
       return [
+        index + 1,
         t.date, t.lorry, t.tripNumber,
         t.location || "N/A",
         `KES ${fmtN(financials.revenue)}`,
-        ...fixedVals, ...customVals,
-        `KES ${fmtN(financials.operatingExpenses)}`,
-        `KES ${fmtN(financials.operatingProfit)}`,
-        `KES ${fmtN(financials.totalDeductions)}`,
+        expenseText,
+        `KES ${fmtN(totalExpenses)}`,
         `KES ${fmtN(financials.netPayable)}`,
-        t.status,
-        getSettlementStatus(t)
+        t.status || "Pending",
       ];
     }),
-    headStyles: { fillColor: [30, 130, 80] },
-    alternateRowStyles: { fillColor: [240, 255, 245] },
-    styles: { fontSize: 8 }
+    theme: "grid",
+    headStyles: { fillColor: [15, 118, 110], textColor: 255 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 24 },
+      2: { cellWidth: 18 },
+      3: { cellWidth: 15 },
+      4: { cellWidth: 36 },
+      5: { cellWidth: 24, halign: "right" },
+      6: { cellWidth: 70 },
+      7: { cellWidth: 28, halign: "right" },
+      8: { cellWidth: 24, halign: "right" },
+      9: { cellWidth: 20 },
+    },
+    styles: { fontSize: 7.5, cellPadding: 2, overflow: "linebreak", valign: "top" },
   });
 
   doc.save(`${title.replace(/\s+/g, "-")}.pdf`);
@@ -92,7 +158,6 @@ export const exportPDF = (trips, title) => {
 export const exportVoucher = (trip) => {
   const doc = new jsPDF({ format: 'a5' }); // A5 size for receipts
   const financials = getTripFinancials(trip);
-  const settlementStatus = getSettlementStatus(trip);
   
   doc.setFontSize(18); doc.setTextColor(30, 130, 80);
   doc.text("WATER TRANSPORT MANAGER", 10, 15);
@@ -133,21 +198,21 @@ export const exportVoucher = (trip) => {
   }
   
   doc.text(`Payment:`, 80, 76); doc.text(`${trip.status}`, 138, 76, { align: "right" });
-  doc.text(`Settlement:`, 80, 82); doc.text(`${settlementStatus}`, 138, 82, { align: "right" });
 
-  doc.line(10, 88, 138, 88);
+  doc.line(10, 84, 138, 84);
 
   // Expenses Breakdown
   doc.setFontSize(11); doc.setFont("helvetica", "bold");
-  doc.text("OPERATING EXPENSES", 10, 97);
+  doc.text("EXPENSES BREAKDOWN", 10, 93);
   doc.setFont("helvetica", "normal"); doc.setFontSize(10);
   
-  let y = 105;
-  const fixedKeys = ['diesel', 'water', 'driver', 'conductor', 'police', 'repairs', 'fuel', 'petrol'];
+  let y = 101;
+  const fixedKeys = ['water', 'diesel', 'petrol', 'police', 'driver', 'conductor', 'repairs'];
   fixedKeys.forEach(k => {
-    if (trip.expenses?.[k]) {
+    const amount = k === "petrol" ? (trip.expenses?.petrol ?? trip.expenses?.fuel) : trip.expenses?.[k];
+    if (amount) {
       doc.text(`${k.charAt(0).toUpperCase() + k.slice(1)}:`, 10, y);
-      doc.text(`KES ${fmtN(trip.expenses[k])}`, 70, y, { align: "right" });
+      doc.text(`KES ${fmtN(amount)}`, 70, y, { align: "right" });
       y += 6;
     }
   });
@@ -160,32 +225,23 @@ export const exportVoucher = (trip) => {
     }
   });
 
+  getDeductionLines(trip).forEach(item => {
+    doc.text(`${item.label}:`, 10, y);
+    doc.text(`KES ${fmtN(item.amount)}`, 70, y, { align: "right" });
+    y += 6;
+  });
+
   doc.setLineWidth(0.2); doc.line(10, y, 70, y);
   y += 6;
   doc.setFont("helvetica", "bold");
-  doc.text(`Operating Expenses:`, 10, y);
-  doc.text(`KES ${fmtN(financials.operatingExpenses)}`, 70, y, { align: "right" });
+  const totalExpenses = financials.operatingExpenses + financials.totalDeductions;
+  doc.text(`Total Expenses:`, 10, y);
+  doc.text(`KES ${fmtN(totalExpenses)}`, 70, y, { align: "right" });
   
   y += 6;
   doc.setTextColor(30, 130, 80);
-  doc.text(`Operating Profit:`, 10, y);
-  doc.text(`KES ${fmtN(financials.operatingProfit)}`, 70, y, { align: "right" });
-  doc.setTextColor(30, 30, 30);
-
-  y += 8;
-  doc.setFont("helvetica", "bold");
-  doc.text(`Deductions:`, 10, y);
-  doc.text(`KES ${fmtN(financials.totalDeductions)}`, 70, y, { align: "right" });
-
-  y += 6;
-  doc.setTextColor(30, 130, 80);
-  doc.text(`Net Payable:`, 10, y);
+  doc.text(`Profit:`, 10, y);
   doc.text(`KES ${fmtN(financials.netPayable)}`, 70, y, { align: "right" });
-  
-  y += 4;
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(8);
-  doc.text(`(Revenue - operating expenses - deductions)`, 10, y);
 
   // Footer
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(150, 150, 150);
@@ -195,8 +251,9 @@ export const exportVoucher = (trip) => {
 };
 
 export const generateReportText = (trips, filterVehicle, dateTitle) => {
-  const sum = summarize(trips);
-  const activeLorryPlates = [...new Set(trips.map(t => t.lorry))].sort();
+  const orderedTrips = sortedTrips(trips);
+  const sum = reportTotals(orderedTrips);
+  const activeLorryPlates = [...new Set(orderedTrips.map(t => t.lorry))].sort();
   
   const getNumberEmoji = (num) => {
     if (num === 10) return "🔟";
@@ -205,29 +262,22 @@ export const generateReportText = (trips, filterVehicle, dateTitle) => {
 
   const lines = [];
   lines.push(`📊 WATER TRANSPORT REPORT ${filterVehicle !== "All Vehicles" ? `(${filterVehicle})` : ""}`.trim());
-  lines.push("");
-  lines.push("📅 Reporting Period:");
-  lines.push(dateTitle);
+  lines.push(`📅 Reporting Period: ${dateTitle}`);
   lines.push("");
   lines.push("━━━━━━━━━━━━━━━━━━━");
   lines.push("📈 SUMMARY");
   lines.push("━━━━━━━━━━━━━━━━━━━");
-  lines.push("");
-  lines.push(`• Gross Revenue: KES ${fmtN(sum.revenue)}`);
-  lines.push(`• Operating Expenses: KES ${fmtN(sum.operatingExpenses)}`);
-  lines.push(`• Operating Profit: KES ${fmtN(sum.operatingProfit)}`);
-  lines.push(`• Total Deductions: KES ${fmtN(sum.deductions)}`);
-  lines.push(`• Net Profit: KES ${fmtN(sum.netProfit)}`);
-  lines.push(`• Total Trips: ${sum.count}`);
-  lines.push(`• Paid Trips: ${sum.paidCount}`);
-  lines.push(`• Pending Trips: ${sum.pendingCount}`);
+  lines.push(`• Total Revenue: KES ${fmtN(sum.revenue)}`);
+  lines.push(`• Total Expenses: KES ${fmtN(sum.totalExpenses)}`);
+  lines.push(`• Total Profit: KES ${fmtN(sum.totalProfit)}`);
+  lines.push(`• Total Trips Completed: ${sum.count}`);
   lines.push("");
   
   if (activeLorryPlates.length > 0) {
     lines.push("Vehicle Performance:");
     activeLorryPlates.forEach(plate => {
-      const vehSum = summarize(trips.filter(t => t.lorry === plate));
-      lines.push(`• ${plate}: Revenue KES ${fmtN(vehSum.revenue)} | Net KES ${fmtN(vehSum.netProfit)}`);
+      const vehSum = reportTotals(orderedTrips.filter(t => t.lorry === plate));
+      lines.push(`• ${plate}: Revenue KES ${fmtN(vehSum.revenue)} | Profit KES ${fmtN(vehSum.totalProfit)}`);
     });
     lines.push("");
   }
@@ -237,43 +287,21 @@ export const generateReportText = (trips, filterVehicle, dateTitle) => {
   lines.push("━━━━━━━━━━━━━━━━━━━");
   lines.push("");
 
-  const { fixed } = collectExpenseKeys(trips);
-
-  trips.forEach((t, i) => {
+  orderedTrips.forEach((t, i) => {
     const financials = getTripFinancials(t);
-    lines.push(`${getNumberEmoji(i + 1)} ${t.date}`);
-    lines.push(`Vehicle: ${t.lorry}`);
-    lines.push(`Route: ${t.location || "N/A"}`);
-    lines.push("");
+    const totalExpenses = financials.operatingExpenses + financials.totalDeductions;
+    lines.push(`${getNumberEmoji(i + 1)} ${t.date} Vehicle: ${t.lorry} Route: ${t.location || "N/A"}`);
     lines.push(`Revenue: KES ${fmtN(financials.revenue)}`);
-    lines.push("");
-    lines.push("Operating Expenses:");
-    lines.push("");
+    lines.push("Expenses:");
     
-    fixed.forEach(k => {
-      if (t.expenses?.[k] !== undefined) {
-        lines.push(`- ${k.charAt(0).toUpperCase() + k.slice(1)}: KES ${fmtN(t.expenses[k])}`);
-      }
-    });
-    
-    splitCustomExpenses(t.expenses?.custom || []).operating.forEach(c => {
-      if (c.amount) {
-        lines.push(`- ${c.label || 'Custom'}: KES ${fmtN(c.amount)}`);
-      }
+    getExpenseLines(t).forEach(item => {
+      lines.push(`${item.label}: KES ${fmtN(item.amount)}`);
     });
 
-    lines.push("");
-    lines.push(`Operating Expenses: KES ${fmtN(financials.operatingExpenses)}`);
-    lines.push(`Operating Profit: KES ${fmtN(financials.operatingProfit)}`);
-    lines.push(`Deductions: KES ${fmtN(financials.totalDeductions)}`);
-    lines.push(`Net Payable: KES ${fmtN(financials.netPayable)}`);
-    lines.push(`Payment Status: ${t.status}`);
-    lines.push(`Settlement Status: ${getSettlementStatus(t)}`);
-    lines.push("");
+    lines.push(`Total Expenses: KES ${fmtN(totalExpenses)} Profit: KES ${fmtN(financials.netPayable)} Status: ${t.status || "Pending"}`);
     
-    if (i < trips.length - 1) {
+    if (i < orderedTrips.length - 1) {
       lines.push("───────────────────");
-      lines.push("");
     }
   });
 

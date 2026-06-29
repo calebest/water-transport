@@ -26,10 +26,6 @@ const calcFields = (data) => {
     status = amountPaid >= revenue ? "Paid" : (amountPaid > 0 ? "Partial" : "Pending");
   }
 
-  let settlementStatus = data.settlementStatus || (status === "Paid" ? "Paid" : "Pending");
-  if (settlementStatus === "Paid") status = "Paid";
-  if (!["Pending", "Approved", "Paid"].includes(settlementStatus)) settlementStatus = "Pending";
-
   return {
     totalExpenses: operatingExpenses,
     profit: operatingProfit,
@@ -40,7 +36,6 @@ const calcFields = (data) => {
     operatingProfit,
     totalDeductions,
     netPayable,
-    settlementStatus,
   };
 };
 
@@ -161,22 +156,9 @@ export const tripService = {
     return updateDoc(doc(db, "trips", id), {
       amountPaid: Number(amountPaid),
       status,
-      settlementStatus: isPaid ? "Paid" : "Pending",
       earningsRate: null,
       earningsAmount: 0,
       paidAt: isPaid ? serverTimestamp() : null,
-    });
-  },
-
-  updateSettlement: async (id, settlementStatus, trip = {}) => {
-    const isPaid = settlementStatus === "Paid";
-    return updateDoc(doc(db, "trips", id), {
-      settlementStatus,
-      status: isPaid ? "Paid" : (trip.status === "Paid" ? "Pending" : (trip.status || "Pending")),
-      amountPaid: isPaid ? Number(trip.revenue || 0) : Number(trip.amountPaid || 0),
-      earningsRate: null,
-      earningsAmount: 0,
-      paidAt: isPaid ? serverTimestamp() : (trip.paidAt ?? null),
     });
   },
 

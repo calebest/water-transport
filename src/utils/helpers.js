@@ -22,8 +22,8 @@ export const getMonthRange = () => {
 export const filterByRange = (trips, start, end) =>
   trips.filter(t => t.date >= start && t.date <= end);
 
-export const OPERATING_EXPENSE_KEYS = ["diesel", "water", "driver", "conductor", "police", "repairs", "fuel"];
-export const LEGACY_EXPENSE_KEYS = ["petrol"];
+export const OPERATING_EXPENSE_KEYS = ["water", "diesel", "petrol", "police", "driver", "conductor", "repairs"];
+export const LEGACY_EXPENSE_KEYS = [];
 export const FIXED_EXPENSE_KEYS = OPERATING_EXPENSE_KEYS;
 
 export const DEDUCTION_KEYS = ["loanRecovery", "advanceRecovery", "other"];
@@ -35,8 +35,7 @@ export const EXPENSE_LABELS = {
   conductor: "Conductor",
   police: "Police",
   repairs: "Repairs",
-  fuel: "Fuel",
-  petrol: "Fuel",
+  petrol: "Petrol",
 };
 
 export const DEDUCTION_LABELS = {
@@ -65,8 +64,10 @@ export const splitCustomExpenses = (custom = []) => {
 };
 
 export const calcOperatingExpenses = (exp = {}) => {
-  const fixedTotal = [...OPERATING_EXPENSE_KEYS, ...LEGACY_EXPENSE_KEYS]
-    .reduce((s, k) => s + Number(exp[k] || 0), 0);
+  const fixedTotal = OPERATING_EXPENSE_KEYS.reduce((s, k) => {
+    const value = k === "petrol" ? (exp.petrol ?? exp.fuel) : exp[k];
+    return s + Number(value || 0);
+  }, 0);
   const customTotal = splitCustomExpenses(exp.custom || []).operating
     .reduce((s, c) => s + Number(c.amount || 0), 0);
   return fixedTotal + customTotal;
@@ -111,15 +112,8 @@ export const getTripFinancials = (trip = {}) => {
   };
 };
 
-export const getSettlementStatus = (trip = {}) => {
-  trip = trip || {};
-  if (trip.settlementStatus) return trip.settlementStatus;
-  if (trip.status === "Paid") return "Paid";
-  return "Pending";
-};
-
 export const isPaidTrip = (trip = {}) =>
-  trip.status === "Paid" || getSettlementStatus(trip) === "Paid";
+  trip?.status === "Paid";
 
 export const summarize = (trips) => {
   const paidTrips = trips.filter(isPaidTrip).length;
@@ -146,8 +140,7 @@ export const collectExpenseKeys = (trips) => {
       if (c.label) customLabels.add(c.label);
     });
   });
-  const legacyKeys = trips.some(t => Number(t.expenses?.petrol || 0) > 0) ? LEGACY_EXPENSE_KEYS : [];
-  return { fixed: [...OPERATING_EXPENSE_KEYS, ...legacyKeys], custom: [...customLabels] };
+  return { fixed: OPERATING_EXPENSE_KEYS, custom: [...customLabels] };
 };
 
 export const collectDeductionKeys = (trips) => {
@@ -161,7 +154,10 @@ export const collectDeductionKeys = (trips) => {
 };
 
 export const sumExpenseKey = (trips, key, isCustom = false) => {
-  if (!isCustom) return trips.reduce((s, t) => s + Number(t.expenses?.[key] || 0), 0);
+  if (!isCustom) return trips.reduce((s, t) => {
+    const value = key === "petrol" ? (t.expenses?.petrol ?? t.expenses?.fuel) : t.expenses?.[key];
+    return s + Number(value || 0);
+  }, 0);
   return trips.reduce((s, t) => {
     const match = splitCustomExpenses(t.expenses?.custom || []).operating.find(c => c.label === key);
     return s + Number(match?.amount || 0);

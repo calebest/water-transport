@@ -18,14 +18,13 @@ const EMPTY_FORM = {
   location: "",
   revenue: "",
   status: "Pending",
-  settlementStatus: "Pending",
   amountPaid: "",
   driverId: "",
   conductorId: "",
   odometerStart: "",
   odometerEnd: "",
   expenses: {
-    diesel: "", water: "", driver: "", conductor: "", police: "", repairs: "", fuel: "",
+    water: "", diesel: "", petrol: "", police: "", driver: "", conductor: "", repairs: "",
     custom: []   // [{ id, label, amount }]
   },
   deductions: {
@@ -40,8 +39,7 @@ const normaliseExpenses = (exp = {}) => ({
   conductor: exp.conductor ?? "",
   police: exp.police ?? "",
   repairs: exp.repairs ?? "",
-  fuel: exp.fuel ?? exp.petrol ?? "",
-  petrol: exp.petrol ?? "",
+  petrol: exp.petrol ?? exp.fuel ?? "",
   custom: (exp.custom || []).map((c, i) => ({ id: Date.now() + i, label: c.label || "", amount: c.amount ?? "" }))
 });
 
@@ -67,7 +65,6 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     return {
       ...initial,
       status: initial.status || "Pending",
-      settlementStatus: initial.settlementStatus || (initial.status === "Paid" ? "Paid" : "Pending"),
       amountPaid: initial.amountPaid || "",
       driverId: initial.driverId || "",
       conductorId: initial.conductorId || "",
@@ -187,7 +184,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     }));
     const payload = {
       ...form,
-      expenses: { ...form.expenses, petrol: "", custom: cleanCustom },
+      expenses: { ...form.expenses, custom: cleanCustom },
       deductions: {
         loanRecovery: Number(form.deductions?.loanRecovery || 0),
         advanceRecovery: Number(form.deductions?.advanceRecovery || 0),
@@ -258,14 +255,6 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
             <option value="Paid">Paid</option>
             <option value="Pending">Pending</option>
             <option value="Partial">Partial</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1">Settlement Status *</label>
-          <select className={inp} value={form.settlementStatus} onChange={e => setField("settlementStatus", e.target.value)}>
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Paid">Paid</option>
           </select>
         </div>
         {form.status === "Partial" && (

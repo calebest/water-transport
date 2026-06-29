@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { tripService } from "../services/trips";
 import { useAuth } from "../contexts/AuthContext";
 import { Badge, Modal } from "../components/ui";
-import { fmt, getSettlementStatus, getTripFinancials, summarize } from "../utils/helpers";
+import { fmt, getTripFinancials, summarize } from "../utils/helpers";
 import { exportVoucher } from "../utils/export";
 import TripForm from "../components/TripForm";
 
@@ -22,7 +22,6 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
   const [editTrip, setEditTrip] = useState(null);
   const [delTrip, setDelTrip] = useState(null);
   const [markingPaid, setMarkingPaid] = useState(null);
-  const [settlingTrip, setSettlingTrip] = useState(null);
   const [search, setSearch] = useState("");
   const [filterLorry, setFilterLorry] = useState("All");
   const [filterDate, setFilterDate] = useState("");
@@ -119,15 +118,6 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
     finally { setMarkingPaid(null); }
   };
 
-  const handleSettlementChange = async (trip, settlementStatus) => {
-    setSettlingTrip(trip.id);
-    try {
-      await tripService.updateSettlement(trip.id, settlementStatus, trip);
-    }
-    catch (e) { alert(e.message); }
-    finally { setSettlingTrip(null); }
-  };
-
   const handleDel = async () => {
     setDeleting(true);
     try { await tripService.delete(delTrip.id); setDelTrip(null); }
@@ -202,9 +192,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
             onEdit={setEditTrip}
             onDel={setDelTrip}
             onStatusChange={handleStatusChange}
-            onSettlementChange={handleSettlementChange}
             markingPaid={markingPaid}
-            settlingTrip={settlingTrip}
             onApprove={handleApprove}
             onReject={handleReject}
             userId={userId}
@@ -363,7 +351,7 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
 
 // ─── Trip Group (date-grouped list) ──────────────────────────────────────────
 
-export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, onSettlementChange, markingPaid, settlingTrip, onApprove, onReject, userId, canAddTrips, onOpenTripReview }) {
+export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, markingPaid, onApprove, onReject, userId, canAddTrips, onOpenTripReview }) {
   const [expanded, setExpanded] = useState(true);
 
   // Who can edit/delete each trip row
@@ -396,10 +384,10 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, onSet
 
       {expanded && (
         <div className="table-scroll-container">
-          <table className="w-full min-w-[1100px] text-sm">
+          <table className="w-full min-w-[1000px] text-sm">
             <thead className="bg-white">
               <tr className="border-b border-slate-100 bg-white">
-                {["Lorry", "Trip #", "Location", "Revenue", "Op Expenses", "Op Profit", "Deductions", "Net Payable", "Payment", "Settlement", "Actions"].map(h => (
+                {["Lorry", "Trip #", "Location", "Revenue", "Op Expenses", "Op Profit", "Deductions", "Net Payable", "Payment", "Actions"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">{h}</th>
                 ))}
               </tr>
@@ -411,7 +399,6 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, onSet
                 const isPendingEdit = t.approvalStatus === "pending_edit";
                 const isPending = t.approvalStatus === "pending";
                 const financials = getTripFinancials(t);
-                const settlementStatus = getSettlementStatus(t);
 
                 return (
                   <tr key={t.id}
@@ -469,28 +456,6 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, onSet
                           </Badge>
                         )}
                       </div>
-                    </td>
-
-                    <td className="px-4 py-3">
-                      {isAdmin && !isRejected && !isPending ? (
-                        <select
-                          value={settlementStatus}
-                          disabled={settlingTrip === t.id}
-                          onChange={e => onSettlementChange(t, e.target.value)}
-                          className={`rounded-lg border px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60
-                            ${settlementStatus === "Paid" ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : settlementStatus === "Approved" ? "border-blue-200 bg-blue-50 text-blue-700"
-                            : "border-amber-200 bg-amber-50 text-amber-700"}`}
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="Approved">Approved</option>
-                          <option value="Paid">Paid</option>
-                        </select>
-                      ) : (
-                        <Badge color={settlementStatus === "Paid" ? "green" : settlementStatus === "Approved" ? "blue" : "amber"}>
-                          {settlementStatus}
-                        </Badge>
-                      )}
                     </td>
 
                     {/* Actions column */}

@@ -7,7 +7,6 @@ import {
   summarize,
   collectDeductionKeys,
   collectExpenseKeys,
-  getSettlementStatus,
   isPaidTrip,
   sumDeductionKey,
   sumExpenseKey,
@@ -66,7 +65,6 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
   const [filterRoute, setFilterRoute] = useState("All Routes");
   const [filterTripStatus, setFilterTripStatus] = useState("All Trip Statuses");
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("All Payment Statuses");
-  const [filterSettlementStatus, setFilterSettlementStatus] = useState("All Settlement Statuses");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [reportView, setReportView] = useState("summary");
 
@@ -93,9 +91,6 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
     if (filterPaymentStatus !== "All Payment Statuses") {
       filtered = filtered.filter(t => (t.status || "Pending") === filterPaymentStatus);
     }
-    if (filterSettlementStatus !== "All Settlement Statuses") {
-      filtered = filtered.filter(t => getSettlementStatus(t) === filterSettlementStatus);
-    }
     if (reportType === "pending") {
       filtered = filtered.filter(t => !isPaidTrip(t));
     } else if (reportType === "paid") {
@@ -109,7 +104,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
     if (range === "weekly") { const [s, e] = getWeekRange(); return filterByRange(filtered, s, e); }
     if (range === "monthly") { const [s, e] = getMonthRange(); return filterByRange(filtered, s, e); }
     return filterByRange(filtered, customStart, customEnd);
-  }, [trips, range, customStart, customEnd, reportType, filterVehicle, filterRoute, filterTripStatus, filterPaymentStatus, filterSettlementStatus]);
+  }, [trips, range, customStart, customEnd, reportType, filterVehicle, filterRoute, filterTripStatus, filterPaymentStatus]);
 
   const sum = useMemo(() => summarize(rangeTrips), [rangeTrips]);
 
@@ -300,7 +295,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
             </button>
 
             {showAdvancedFilters && (
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <select value={filterTripStatus} onChange={e => setFilterTripStatus(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
                 <option value="All Trip Statuses">All Trip Statuses</option>
@@ -314,13 +309,6 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
                 <option value="All Payment Statuses">All Payment Statuses</option>
                 <option value="Pending">Pending</option>
                 <option value="Partial">Partial</option>
-                <option value="Paid">Paid</option>
-              </select>
-              <select value={filterSettlementStatus} onChange={e => setFilterSettlementStatus(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
-                <option value="All Settlement Statuses">All Settlement Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
                 <option value="Paid">Paid</option>
               </select>
               </div>

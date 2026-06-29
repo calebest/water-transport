@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Modal } from "./ui";
 import { exportVoucher } from "../utils/export";
-import { DEDUCTION_LABELS, EXPENSE_LABELS, getSettlementStatus, getTripFinancials, splitCustomExpenses, fmt } from "../utils/helpers";
+import { DEDUCTION_LABELS, EXPENSE_LABELS, getTripFinancials, splitCustomExpenses, fmt } from "../utils/helpers";
 
 const statusColors = {
   Paid: "green",
@@ -76,8 +76,7 @@ export default function TripReviewModal({
   const amountPaid = toAmount(currentTrip?.amountPaid);
   const balance = Math.max(revenue - amountPaid, 0);
   const expenseRatio = revenue > 0 ? Math.round((totalExpenses / revenue) * 100) : 0;
-  const settlementStatus = getSettlementStatus(currentTrip);
-  const headerTone = netPayable < 0 ? "from-rose-500 to-red-600" : settlementStatus === "Paid" ? "from-emerald-500 to-teal-600" : "from-amber-500 to-orange-600";
+  const headerTone = netPayable < 0 ? "from-rose-500 to-red-600" : currentTrip?.status === "Paid" ? "from-emerald-500 to-teal-600" : "from-amber-500 to-orange-600";
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -91,7 +90,7 @@ export default function TripReviewModal({
     setSaving(true);
     try {
       await onMarkPaid(currentTrip);
-      setCurrentTrip((prev) => prev ? { ...prev, status: "Paid", settlementStatus: "Paid", amountPaid: prev.revenue, earningsRate: null, earningsAmount: 0 } : prev);
+      setCurrentTrip((prev) => prev ? { ...prev, status: "Paid", amountPaid: prev.revenue, earningsRate: null, earningsAmount: 0 } : prev);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -111,7 +110,6 @@ export default function TripReviewModal({
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Badge color="slate">{currentTrip.lorry || "N/A"}</Badge>
                   <Badge color={statusColors[currentTrip.status] || "slate"}>{currentTrip.status || "Pending"}</Badge>
-                  <Badge color={settlementStatus === "Paid" ? "green" : settlementStatus === "Approved" ? "blue" : "amber"}>{settlementStatus}</Badge>
                   <span className="text-sm text-white/80">{currentTrip.date || "No date"}</span>
                 </div>
               </div>
@@ -200,15 +198,12 @@ export default function TripReviewModal({
                         ["Date", currentTrip.date || "N/A"],
                         ["Lorry", currentTrip.lorry || "N/A"],
                         ["Payment", currentTrip.status || "Pending"],
-                        ["Settlement", settlementStatus],
                         ["Balance", fmt(balance)],
                       ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
                           <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</span>
                           {label === "Payment" ? (
                             <Badge color={statusColors[currentTrip.status] || "slate"}>{value}</Badge>
-                          ) : label === "Settlement" ? (
-                            <Badge color={settlementStatus === "Paid" ? "green" : settlementStatus === "Approved" ? "blue" : "amber"}>{value}</Badge>
                           ) : label === "Balance" ? (
                             <span className="text-sm font-black text-rose-600">{value}</span>
                           ) : (
