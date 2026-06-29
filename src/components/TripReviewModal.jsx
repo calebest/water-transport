@@ -91,7 +91,7 @@ export default function TripReviewModal({
     setSaving(true);
     try {
       await onMarkPaid(currentTrip);
-      setCurrentTrip((prev) => prev ? { ...prev, status: "Paid", settlementStatus: "Paid", amountPaid: prev.revenue, earningsRate: ratePerTrip, earningsAmount: ratePerTrip } : prev);
+      setCurrentTrip((prev) => prev ? { ...prev, status: "Paid", settlementStatus: "Paid", amountPaid: prev.revenue, earningsRate: null, earningsAmount: 0 } : prev);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -321,10 +321,9 @@ export default function TripReviewModal({
 
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Owner Earnings</p>
-                  <p className="mt-2 text-lg font-black text-slate-800">
-                    {currentTrip.status === "Paid"
-                      ? `Your earnings for this trip: ${fmt(currentTrip.earningsAmount ?? currentTrip.earningsRate ?? ratePerTrip)}`
-                      : "Earnings pending - trip not yet paid"}
+                  <p className="mt-2 text-lg font-black text-slate-800">Calculated once per paid vehicle day</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Current daily commission setting: {fmt(ratePerTrip)}. Multiple paid trips for this vehicle on the same date count once.
                   </p>
                 </div>
               </div>

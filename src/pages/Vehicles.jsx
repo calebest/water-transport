@@ -48,7 +48,7 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel, ea
         const amountPaid = newStatus === "Paid" ? Number(trip.revenue)
           : newStatus === "Pending" ? 0
           : Number(trip.amountPaid || 0);
-        await tripService.markPaid(trip.id, amountPaid, newStatus, earningsConfig?.ratePerTrip);
+        await tripService.markPaid(trip.id, amountPaid, newStatus);
       }
       catch (e) { alert(e.message); }
       finally { setMarkingPaid(null); }

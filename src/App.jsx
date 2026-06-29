@@ -122,8 +122,8 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 
   const handleMarkTripPaid = useCallback(async (trip) => {
     if (!trip) return;
-    await tripService.markPaid(trip.id, Number(trip.revenue || 0), "Paid", Number(earningsConfig?.ratePerTrip || 200));
-  }, [earningsConfig?.ratePerTrip]);
+    await tripService.markPaid(trip.id, Number(trip.revenue || 0), "Paid");
+  }, []);
 
   const handleSaveTripEdit = useCallback(async (form) => {
     if (!tripEditTrip) return;
@@ -160,7 +160,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} />,
     loans: <LoansPage loans={loans} onOpenTripReview={openTripReview} />,
-    earnings: <EarningsPage trips={trips} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} onMarkTripPaid={handleMarkTripPaid} />,
+    earnings: <EarningsPage trips={trips} vehicles={vehicles} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} onMarkTripPaid={handleMarkTripPaid} />,
     backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} loans={loans} complaints={complaints} settings={settings} earningsConfig={earningsConfig} />,
     settings: <SettingsPage settings={settings} />,
     users: <UsersPage personnel={personnel} />
@@ -306,7 +306,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 }
 
 function AppInner() {
-  const { user, loading, isAdmin, isOwner, isPrivileged, personnelId } = useAuth();
+  const { user, loading, isPrivileged, personnelId } = useAuth();
   const [rawTrips, setRawTrips] = useState([]);
   const [locations, setLocations] = useState([]);
   const [rawVehicles, setRawVehicles] = useState([]);
@@ -315,7 +315,7 @@ function AppInner() {
   const [settings, setSettings] = useState({ directApproval: false });
   const [complaints, setComplaints] = useState([]);
   const [loans, setLoans] = useState([]);
-  const [earningsConfig, setEarningsConfig] = useState({ ratePerTrip: 200 });
+  const [earningsConfig, setEarningsConfig] = useState({ ratePerTrip: 200, dailyCommissionAmount: 200, commissionStatus: "Enabled" });
 
   useEffect(() => {
     if (!user) {
@@ -327,7 +327,7 @@ function AppInner() {
       setSettings({ directApproval: false });
       setComplaints([]);
       setLoans([]);
-      setEarningsConfig({ ratePerTrip: 200 });
+      setEarningsConfig({ ratePerTrip: 200, dailyCommissionAmount: 200, commissionStatus: "Enabled" });
       return;
     }
 

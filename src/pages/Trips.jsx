@@ -113,7 +113,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       const amountPaid = newStatus === "Paid" ? Number(trip.revenue)
         : newStatus === "Pending" ? 0
         : Number(trip.amountPaid || 0);
-      await tripService.markPaid(trip.id, amountPaid, newStatus, earningsConfig?.ratePerTrip);
+      await tripService.markPaid(trip.id, amountPaid, newStatus);
     }
     catch (e) { alert(e.message); }
     finally { setMarkingPaid(null); }
@@ -122,7 +122,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
   const handleSettlementChange = async (trip, settlementStatus) => {
     setSettlingTrip(trip.id);
     try {
-      await tripService.updateSettlement(trip.id, settlementStatus, trip, earningsConfig?.ratePerTrip);
+      await tripService.updateSettlement(trip.id, settlementStatus, trip);
     }
     catch (e) { alert(e.message); }
     finally { setSettlingTrip(null); }

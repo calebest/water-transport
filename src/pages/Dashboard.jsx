@@ -69,7 +69,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
   const unpaidTrips = trips.filter(t => !isPaidTrip(t) && t.approvalStatus === "approved" && t.revenue > 0);
   const outstandingBalance = unpaidTrips.reduce((acc, t) => acc + ((t.revenue || 0) - (t.amountPaid || 0)), 0);
   const pendingOutstanding = paymentPendingTrips.reduce((acc, t) => acc + ((t.revenue || 0) - (t.amountPaid || 0)), 0);
-  const ratePerTrip = Number(earningsConfig?.ratePerTrip || 200);
+  const dailyCommissionAmount = Number(earningsConfig?.dailyCommissionAmount ?? earningsConfig?.ratePerTrip ?? 200);
 
   return (
     <div className="space-y-6">
@@ -187,7 +187,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
                   </div>
                   <div className="rounded-xl bg-amber-100 px-4 py-3">
                     <p className="text-sm font-bold text-amber-900">Outstanding total: {fmt(pendingOutstanding)}</p>
-                    <p className="mt-1 text-xs text-amber-700">Pending balance: {fmt(paymentPendingTrips.length * ratePerTrip)}</p>
+                    <p className="mt-1 text-xs text-amber-700">Daily commission setting: {fmt(dailyCommissionAmount)} per paid vehicle day.</p>
                   </div>
                   <button
                     type="button"

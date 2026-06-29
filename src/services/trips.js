@@ -44,12 +44,9 @@ const calcFields = (data) => {
   };
 };
 
-const applyEarningsSnapshot = (data, earningsRate) => {
+const applyEarningsSnapshot = (data) => {
   const next = { ...data };
   if (next.status === "Paid") {
-    const rate = Number(earningsRate ?? next.earningsRate ?? next.earningsAmount ?? 0);
-    next.earningsRate = rate;
-    next.earningsAmount = rate;
     if (!next.paidAt) next.paidAt = serverTimestamp();
   }
   return next;
@@ -159,26 +156,26 @@ export const tripService = {
 
   delete: async (id) => deleteDoc(doc(db, "trips", id)),
 
-  markPaid: async (id, amountPaid, status, earningsRate = null) => {
+  markPaid: async (id, amountPaid, status) => {
     const isPaid = status === "Paid";
     return updateDoc(doc(db, "trips", id), {
       amountPaid: Number(amountPaid),
       status,
       settlementStatus: isPaid ? "Paid" : "Pending",
-      earningsRate: isPaid ? Number(earningsRate || 0) : null,
-      earningsAmount: isPaid ? Number(earningsRate || 0) : 0,
+      earningsRate: null,
+      earningsAmount: 0,
       paidAt: isPaid ? serverTimestamp() : null,
     });
   },
 
-  updateSettlement: async (id, settlementStatus, trip = {}, earningsRate = null) => {
+  updateSettlement: async (id, settlementStatus, trip = {}) => {
     const isPaid = settlementStatus === "Paid";
     return updateDoc(doc(db, "trips", id), {
       settlementStatus,
       status: isPaid ? "Paid" : (trip.status === "Paid" ? "Pending" : (trip.status || "Pending")),
       amountPaid: isPaid ? Number(trip.revenue || 0) : Number(trip.amountPaid || 0),
-      earningsRate: isPaid ? Number(earningsRate || trip.earningsRate || trip.earningsAmount || 0) : (trip.earningsRate ?? null),
-      earningsAmount: isPaid ? Number(earningsRate || trip.earningsRate || trip.earningsAmount || 0) : (trip.earningsAmount ?? 0),
+      earningsRate: null,
+      earningsAmount: 0,
       paidAt: isPaid ? serverTimestamp() : (trip.paidAt ?? null),
     });
   },

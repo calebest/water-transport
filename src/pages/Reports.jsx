@@ -14,7 +14,7 @@ import {
   fmt
 } from "../utils/helpers";
 import { exportCSV, exportPDF, handleShareText } from "../utils/export";
-import { StatCard, Badge } from "../components/ui";
+import { Badge } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
 import { complaintService } from "../services/complaints";
 
@@ -31,6 +31,21 @@ const COMPLAINT_CATEGORIES = [
   "Payment",
   "Safety",
   "Other",
+];
+
+const REPORT_TYPES = [
+  { id: "pending", label: "Pending" },
+  { id: "paid", label: "Paid" },
+  { id: "vehicle", label: "Vehicle" },
+  { id: "route", label: "Route" },
+  { id: "all", label: "Full" },
+];
+
+const REPORT_VIEWS = [
+  { id: "summary", label: "Summary" },
+  { id: "breakdown", label: "Breakdown" },
+  { id: "trends", label: "Trends" },
+  { id: "performance", label: "Performance" },
 ];
 
 const formatComplaintDate = (value) => {
@@ -52,6 +67,8 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
   const [filterTripStatus, setFilterTripStatus] = useState("All Trip Statuses");
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("All Payment Statuses");
   const [filterSettlementStatus, setFilterSettlementStatus] = useState("All Settlement Statuses");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [reportView, setReportView] = useState("summary");
 
   const [complaintCategory, setComplaintCategory] = useState("General");
   const [complaintVehicle, setComplaintVehicle] = useState("");
@@ -234,7 +251,20 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
 
       {activeTab === "reports" ? (
         <>
-          <div className="flex flex-col gap-3">
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex flex-wrap gap-2 mobile-control-rail">
+              {REPORT_TYPES.map(type => (
+                <button
+                  key={type.id}
+                  type="button"
+                  onClick={() => setReportType(type.id)}
+                  className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${reportType === type.id ? "bg-slate-800 text-white" : "border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+
             <div className="flex flex-wrap gap-2 mobile-control-rail">
               {["daily", "weekly", "monthly", "custom"].map(v => (
                 <button key={v} className={btnCls(v)} onClick={() => setRange(v)}>
@@ -242,15 +272,8 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <select value={reportType} onChange={e => setReportType(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
-                <option value="pending">Pending trips report</option>
-                <option value="paid">Paid trips report</option>
-                <option value="vehicle">Vehicle report</option>
-                <option value="route">Route report</option>
-                <option value="all">Full financial report</option>
-              </select>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <select
                 value={filterVehicle}
                 onChange={e => setFilterVehicle(e.target.value)}
@@ -266,6 +289,18 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
                 <option value="All Routes">All Routes</option>
                 {routeOptions.map(route => <option key={route} value={route}>{route}</option>)}
               </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters(v => !v)}
+              className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+            >
+              {showAdvancedFilters ? "Hide advanced filters" : "Advanced filters"}
+            </button>
+
+            {showAdvancedFilters && (
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <select value={filterTripStatus} onChange={e => setFilterTripStatus(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
                 <option value="All Trip Statuses">All Trip Statuses</option>
@@ -288,7 +323,8 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
                 <option value="Approved">Approved</option>
                 <option value="Paid">Paid</option>
               </select>
-            </div>
+              </div>
+            )}
           </div>
 
           {range === "custom" && (
@@ -306,18 +342,52 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
-            <StatCard label="Gross Revenue" value={fmt(sum.revenue)} icon="💰" color="blue" />
-            <StatCard label="Operating Expenses" value={fmt(sum.operatingExpenses)} icon="📉" color="red" />
-            <StatCard label="Operating Profit" value={fmt(sum.operatingProfit)} icon="📈" color="green" />
-            <StatCard label="Deductions" value={fmt(sum.deductions)} icon="💸" color="amber" />
-            <StatCard label="Net Profit" value={fmt(sum.netProfit)} icon="✅" color={sum.netProfit >= 0 ? "green" : "red"} />
-            <StatCard label="Trips" value={sum.count} icon="🚛" color="slate" />
-            <StatCard label="Paid Trips" value={sum.paidCount} icon="✓" color="green" />
-            <StatCard label="Pending Trips" value={sum.pendingCount} icon="…" color="amber" />
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+              {[
+                ["Gross Revenue", sum.revenue, "text-blue-700"],
+                ["Operating Expenses", sum.operatingExpenses, "text-rose-600"],
+                ["Operating Profit", sum.operatingProfit, sum.operatingProfit >= 0 ? "text-emerald-700" : "text-rose-600"],
+                ["Deductions", sum.deductions, "text-amber-700"],
+                ["Net Profit", sum.netProfit, sum.netProfit >= 0 ? "text-emerald-700" : "text-rose-600"],
+              ].map(([label, value, tone], index) => (
+                <div key={label} className="relative rounded-xl bg-slate-50 p-3">
+                  {index > 0 && <span className="absolute -left-2 top-1/2 hidden -translate-y-1/2 text-slate-300 md:block">→</span>}
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+                  <p className={`mt-1 text-lg font-black ${tone}`}>{fmt(value)}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl border border-slate-100 px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Trips</p>
+                <p className="font-black text-slate-800">{sum.count}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Paid</p>
+                <p className="font-black text-emerald-700">{sum.paidCount}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 px-3 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Pending</p>
+                <p className="font-black text-amber-700">{sum.pendingCount}</p>
+              </div>
+            </div>
           </div>
 
-          {filterVehicle === "All Vehicles" && activeLorryPlates.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {REPORT_VIEWS.map(view => (
+              <button
+                key={view.id}
+                type="button"
+                onClick={() => setReportView(view.id)}
+                className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold ${reportView === view.id ? "bg-emerald-600 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+              >
+                {view.label}
+              </button>
+            ))}
+          </div>
+
+          {reportView === "performance" && filterVehicle === "All Vehicles" && activeLorryPlates.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mobile-card-rail mobile-card-rail--wide">
               {activeLorryPlates.map(plate => {
                 const vehSum = summarize(rangeTrips.filter(t => t.lorry === plate));
@@ -332,7 +402,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
             </div>
           )}
 
-          {routeStats.length > 0 && (
+          {reportView === "performance" && routeStats.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mobile-card-rail mobile-card-rail--wide">
               {routeStats.map(item => (
                 <div key={item.route} className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -352,6 +422,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
             </div>
           )}
 
+          {reportView === "breakdown" && (
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <p className="mb-4 text-sm font-bold text-slate-700">Operating Expense Breakdown</p>
             {[...fixed.map(k => ({ key: k, isCustom: false })), ...customLabels.map(k => ({ key: k, isCustom: true }))].map(({ key, isCustom }) => {
@@ -375,7 +446,9 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
               <p className="py-4 text-center text-sm text-slate-400">No expense data in this period</p>
             )}
           </div>
+          )}
 
+          {reportView === "breakdown" && (
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <p className="mb-4 text-sm font-bold text-slate-700">Deduction Summary</p>
             {[...deductionFixed.map(k => ({ key: k, isCustom: false })), ...deductionCustomLabels.map(k => ({ key: k, isCustom: true }))].map(({ key, isCustom }) => {
@@ -402,8 +475,9 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
               <p className="py-4 text-center text-sm text-slate-400">No deductions in this period</p>
             )}
           </div>
+          )}
 
-          {(dailyStats.length > 0 || monthlyStats.length > 0) && (
+          {reportView === "trends" && (dailyStats.length > 0 || monthlyStats.length > 0) && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
                 <p className="mb-4 text-sm font-bold text-slate-700">Daily Profit Trends</p>
