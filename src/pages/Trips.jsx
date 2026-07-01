@@ -361,6 +361,14 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
   const canDelTrip = (t) =>
     isAdmin && (!t.approvalStatus || t.approvalStatus === "approved");
 
+  const paymentBadgeColor = (status) =>
+    status === "Paid" ? "green" : status === "Partial" ? "amber" : "red";
+
+  const paymentSelectClass = (status) =>
+    status === "Paid"    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : status === "Partial" ? "border-amber-200 bg-amber-50 text-amber-700"
+    :                        "border-rose-200 bg-rose-50 text-rose-600";
+
   return (
     <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
       <div
@@ -383,7 +391,125 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
       </div>
 
       {expanded && (
-        <div className="table-scroll-container">
+        <>
+        <div className="space-y-3 p-3 md:hidden">
+          {group.trips.map(t => {
+            const approval = t.approvalStatus && t.approvalStatus !== "approved" ? t.approvalStatus : null;
+            const isRejected = t.approvalStatus === "rejected";
+            const isPendingEdit = t.approvalStatus === "pending_edit";
+            const isPending = t.approvalStatus === "pending";
+            const financials = getTripFinancials(t);
+
+            return (
+              <article
+                key={t.id}
+                className={`rounded-xl border p-3 shadow-sm ${
+                  isRejected ? "border-rose-100 bg-rose-50/40 opacity-70" :
+                  isPending  ? "border-amber-100 bg-amber-50/50" :
+                  "border-slate-100 bg-white"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge color={t.lorry === "KBZ" ? "blue" : "amber"}>{t.lorry}</Badge>
+                      <span className="text-xs font-black uppercase tracking-wide text-slate-400">Trip #{t.tripNumber}</span>
+                    </div>
+                    <p className="mt-2 truncate text-sm font-bold text-slate-800">{t.location || "N/A"}</p>
+                  </div>
+
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {isAdmin && !isRejected && !isPending ? (
+                      <select
+                        value={t.status}
+                        disabled={markingPaid === t.id}
+                        onChange={e => onStatusChange(t, e.target.value)}
+                        className={`rounded-full border px-2.5 py-1 text-xs font-black focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60 ${paymentSelectClass(t.status)}`}
+                        aria-label={`Payment status for trip ${t.tripNumber}`}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Partial">Partial</option>
+                        <option value="Paid">Paid</option>
+                      </select>
+                    ) : (
+                      <Badge color={paymentBadgeColor(t.status)}>{t.status}</Badge>
+                    )}
+                    {approval && APPROVAL_BADGE[approval] && (
+                      <Badge color={APPROVAL_BADGE[approval].color}>
+                        {APPROVAL_BADGE[approval].label}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-blue-50 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-blue-500">Revenue</p>
+                    <p className="text-sm font-black text-blue-700">{fmt(financials.revenue)}</p>
+                  </div>
+                  <div className="rounded-lg bg-rose-50 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-rose-500">Expenses</p>
+                    <p className="text-sm font-black text-rose-600">{fmt(financials.operatingExpenses)}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Deductions</p>
+                    <p className="text-sm font-black text-amber-600">{fmt(financials.totalDeductions)}</p>
+                  </div>
+                  <div className={`rounded-lg px-3 py-2 ${financials.netPayable >= 0 ? "bg-emerald-50" : "bg-rose-50"}`}>
+                    <p className={`text-[11px] font-bold uppercase tracking-wide ${financials.netPayable >= 0 ? "text-emerald-500" : "text-rose-500"}`}>Net Payable</p>
+                    <p className={`text-sm font-black ${financials.netPayable >= 0 ? "text-emerald-700" : "text-rose-600"}`}>{fmt(financials.netPayable)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                  {!isRejected && (
+                    <button onClick={() => exportVoucher(t)}
+                      className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+                      title="Print Receipt">Print</button>
+                  )}
+
+                  {onOpenTripReview && (
+                    <button
+                      onClick={() => onOpenTripReview(t)}
+                      className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                    >
+                      View
+                    </button>
+                  )}
+
+                  {isAdmin && isPendingEdit && onApprove && onReject && (
+                    <>
+                      <button onClick={() => onApprove(t)}
+                        className="rounded-lg bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-200">
+                        Apply
+                      </button>
+                      <button onClick={() => onReject(t)}
+                        className="rounded-lg bg-rose-100 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-200">
+                        Discard
+                      </button>
+                    </>
+                  )}
+
+                  {canEditTrip(t) && !isPendingEdit && onEdit && (
+                    <button onClick={() => onEdit(t)}
+                      className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-100">
+                      Edit
+                    </button>
+                  )}
+
+                  {canDelTrip(t) && onDel && (
+                    <button onClick={() => onDel(t)}
+                      className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-500 hover:bg-rose-100">
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="table-scroll-container hidden md:block">
           <table className="w-full min-w-[1000px] text-sm">
             <thead className="bg-white">
               <tr className="border-b border-slate-100 bg-white">
@@ -436,16 +562,14 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                             disabled={markingPaid === t.id}
                             onChange={e => onStatusChange(t, e.target.value)}
                             className={`rounded-lg border px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60
-                              ${t.status === "Paid"    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : t.status === "Partial" ? "border-amber-200 bg-amber-50 text-amber-700"
-                              :                          "border-rose-200 bg-rose-50 text-rose-600"}`}
+                              ${paymentSelectClass(t.status)}`}
                           >
                             <option value="Pending">Pending</option>
                             <option value="Partial">Partial</option>
                             <option value="Paid">Paid</option>
                           </select>
                         ) : (
-                          <Badge color={t.status === "Paid" ? "green" : t.status === "Partial" ? "amber" : "red"}>
+                          <Badge color={paymentBadgeColor(t.status)}>
                             {t.status}
                           </Badge>
                         )}
@@ -513,6 +637,7 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
