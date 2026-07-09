@@ -1,40 +1,66 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { supabase } from "./supabase";
+
+const fetchMaintenance = async () => {
+  const { data, error } = await supabase.from('maintenance').select('*').order('date', { ascending: false });
+  if (error) { console.error("maintenance fetch error:", error.message); return []; }
+  return data || [];
+};
 
 export const maintenanceService = {
   add: async (data) => {
-    return addDoc(collection(db, "maintenance"), {
-      date: data.date,
-      lorry: data.lorry,
-      type: data.type,           // "Routine" | "Repair"
-      description: data.description,
-      cost: Number(data.cost || 0),
-      vendor: data.vendor || "",
-      odometer: data.odometer ? Number(data.odometer) : null,
-      notes: data.notes || "",
-      createdAt: serverTimestamp()
-    });
+    const { data: inserted, error } = await supabase
+      .from('maintenance')
+      .insert({
+        date: data.date,
+        lorry: data.lorry,
+        type: data.type,
+        description: data.description || "",
+        cost: Number(data.cost || 0),
+        odometer: data.odometer ? Number(data.odometer) : null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return inserted;
   },
+  
   update: async (id, data) => {
-    return updateDoc(doc(db, "maintenance", id), {
-      date: data.date,
-      lorry: data.lorry,
-      type: data.type,
-      description: data.description,
-      cost: Number(data.cost || 0),
-      vendor: data.vendor || "",
-      odometer: data.odometer ? Number(data.odometer) : null,
-      notes: data.notes || ""
-    });
+    const { error } = await supabase
+      .from('maintenance')
+      .update({
+        date: data.date,
+        lorry: data.lorry,
+        type: data.type,
+        description: data.description || "",
+        cost: Number(data.cost || 0),
+        odometer: data.odometer ? Number(data.odometer) : null,
+      })
+      .eq('id', id);
+    if (error) throw error;
   },
-  delete: async (id) => deleteDoc(doc(db, "maintenance", id)),
+
+  delete: async (id) => {
+    const { error } = await supabase.from('maintenance').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   subscribe: (callback) => {
-    return onSnapshot(collection(db, "maintenance"), (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-      callback(docs);
-    }, (err) => {
-      console.error("maintenance subscribe error:", err.code, err.message);
-    });
+    const channelId = `maintenance-${Math.random().toString(36).slice(2)}`;
+    let mounted = true;
+
+    fetchMaintenance().then(data => { if (mounted) callback(data); });
+
+    const channel = supabase
+      .channel(channelId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance' }, async () => {
+        const data = await fetchMaintenance();
+        if (mounted) callback(data);
+      })
+      .subscribe();
+      
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   }
 };

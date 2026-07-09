@@ -1,30 +1,58 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { supabase } from "./supabase";
+
+const fetchLocations = async () => {
+  const { data, error } = await supabase.from('locations').select('*').order('name');
+  if (error) { console.error("locations fetch error:", error.message); return []; }
+  return (data || []).map(d => ({ ...d, revenue: d.default_rate }));
+};
 
 export const locationService = {
   add: async (data) => {
-    return addDoc(collection(db, "locations"), {
-      name: data.name,
-      revenue: Number(data.revenue),
-      status: data.status || "Active",
-      createdAt: serverTimestamp()
-    });
+    const { data: inserted, error } = await supabase
+      .from('locations')
+      .insert({
+        name: data.name,
+        default_rate: Number(data.revenue) || 0,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return inserted;
   },
+  
   update: async (id, data) => {
-    return updateDoc(doc(db, "locations", id), {
-      name: data.name,
-      revenue: Number(data.revenue),
-      status: data.status || "Active"
-    });
+    const { error } = await supabase
+      .from('locations')
+      .update({
+        name: data.name,
+        default_rate: Number(data.revenue) || 0,
+      })
+      .eq('id', id);
+    if (error) throw error;
   },
-  delete: async (id) => deleteDoc(doc(db, "locations", id)),
+
+  delete: async (id) => {
+    const { error } = await supabase.from('locations').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   subscribe: (callback) => {
-    return onSnapshot(collection(db, "locations"), (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-      callback(docs);
-    }, (err) => {
-      console.error("locations subscribe error:", err.code, err.message);
-    });
+    const channelId = `locations-${Math.random().toString(36).slice(2)}`;
+    let mounted = true;
+
+    fetchLocations().then(data => { if (mounted) callback(data); });
+
+    const channel = supabase
+      .channel(channelId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, async () => {
+        const data = await fetchLocations();
+        if (mounted) callback(data);
+      })
+      .subscribe();
+      
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   }
 };

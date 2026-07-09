@@ -1,9 +1,8 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { onSnapshot, doc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { supabase } from "../services/supabase";
 
 const AuthContext = createContext(null);
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }) {
@@ -12,44 +11,79 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let unsubscribeProfile = null;
+    let profileSubscription = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
-      if (unsubscribeProfile) {
-        unsubscribeProfile();
-        unsubscribeProfile = null;
-      }
-
-      setLoading(true);
-      setUser(u);
-
-      if (u) {
-        unsubscribeProfile = onSnapshot(
-          doc(db, "users", u.uid),
-          (snap) => {
-            setProfile(snap.exists() ? snap.data() : null);
-            setLoading(false);
-          },
-          (err) => {
-            console.error("Failed to load user profile:", err.message);
-            setProfile(null);
-            setLoading(false);
-          }
-        );
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        fetchProfile(currentUser.id);
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        fetchProfile(currentUser.id);
+      } else {
+        setProfile(null);
+        setLoading(false);
+        if (profileSubscription) {
+          profileSubscription.unsubscribe();
+          profileSubscription = null;
+        }
+      }
+    });
+
+    const fetchProfile = async (uid) => {
+      // Fetch initial profile
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', uid).single();
+      if (!error && data) {
+        setProfile(data);
+      } else {
+        console.error("Failed to load user profile:", error);
+        setProfile(null);
+      }
+      setLoading(false);
+
+      // Subscribe to profile changes
+      if (!profileSubscription) {
+        profileSubscription = supabase
+          .channel(`public:profiles:id=eq.${uid}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${uid}` },
+            (payload) => {
+              setProfile(payload.new);
+            }
+          )
+          .subscribe();
+      }
+    };
+
     return () => {
-      unsubscribeAuth();
-      if (unsubscribeProfile) unsubscribeProfile();
+      subscription.unsubscribe();
+      if (profileSubscription) {
+        profileSubscription.unsubscribe();
+      }
     };
   }, []);
 
-  const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
-  const logout = () => signOut(auth);
+  const login = async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  };
 
   const userRole    = profile?.role?.toLowerCase();
   const isAdmin     = userRole === "admin";
@@ -58,8 +92,8 @@ export function AuthProvider({ children }) {
   const isDriver    = userRole === "driver";
   const isConductor = userRole === "conductor";
   const canAddTrips = isAdmin || isDriver || isConductor;
-  const userId      = user?.uid || null;
-  const personnelId = profile?.personnelId || null;
+  const userId      = user?.id || null;
+  const personnelId = profile?.personnel_id || null; // Supabase uses snake_case typically
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isOwner, isPrivileged, isDriver, isConductor, canAddTrips, userId, personnelId }}>

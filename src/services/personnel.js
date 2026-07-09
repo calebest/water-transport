@@ -1,36 +1,66 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { supabase } from "./supabase";
+
+const fetchPersonnel = async () => {
+  const { data, error } = await supabase.from('personnel').select('*').order('name');
+  if (error) { console.error("personnel fetch error:", error.message); return []; }
+  return (data || []).map(d => ({ ...d, idNumber: d.id_number }));
+};
 
 export const personnelService = {
   add: async (data) => {
-    return addDoc(collection(db, "personnel"), {
-      name: data.name,
-      role: data.role,        // "Driver" | "Conductor" | "Both"
-      phone: data.phone || "",
-      idNumber: data.idNumber || "",
-      status: data.status || "Active",
-      notes: data.notes || "",
-      createdAt: serverTimestamp()
-    });
+    const { data: inserted, error } = await supabase
+      .from('personnel')
+      .insert({
+        name: data.name,
+        role: data.role,
+        phone: data.phone || "",
+        id_number: data.idNumber || "",
+        status: data.status || "Active",
+        notes: data.notes || "",
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return { ...inserted, idNumber: inserted.id_number };
   },
+  
   update: async (id, data) => {
-    return updateDoc(doc(db, "personnel", id), {
-      name: data.name,
-      role: data.role,
-      phone: data.phone || "",
-      idNumber: data.idNumber || "",
-      status: data.status || "Active",
-      notes: data.notes || ""
-    });
+    const { error } = await supabase
+      .from('personnel')
+      .update({
+        name: data.name,
+        role: data.role,
+        phone: data.phone || "",
+        id_number: data.idNumber || "",
+        status: data.status || "Active",
+        notes: data.notes || ""
+      })
+      .eq('id', id);
+    if (error) throw error;
   },
-  delete: async (id) => deleteDoc(doc(db, "personnel", id)),
+
+  delete: async (id) => {
+    const { error } = await supabase.from('personnel').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   subscribe: (callback) => {
-    return onSnapshot(collection(db, "personnel"), (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-      callback(docs);
-    }, (err) => {
-      console.error("personnel subscribe error:", err.code, err.message);
-    });
+    const channelId = `personnel-${Math.random().toString(36).slice(2)}`;
+    let mounted = true;
+
+    fetchPersonnel().then(data => { if (mounted) callback(data); });
+
+    const channel = supabase
+      .channel(channelId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'personnel' }, async () => {
+        const data = await fetchPersonnel();
+        if (mounted) callback(data);
+      })
+      .subscribe();
+      
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   }
 };

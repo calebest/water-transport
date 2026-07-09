@@ -1,143 +1,129 @@
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  runTransaction,
-  serverTimestamp,
-  updateDoc,
-} from "firebase/firestore";
-import { db } from "../firebase";
+import { supabase } from "./supabase";
 
-const toMillis = (value) => {
-  if (!value) return 0;
-  if (typeof value.toMillis === "function") return value.toMillis();
-  if (typeof value.toDate === "function") return value.toDate().getTime();
-  return 0;
-};
-
-const toNumber = (value) => Number(value || 0);
-
-const statusFromLoan = (amount, amountRepaid) => {
-  const balance = Math.max(amount - amountRepaid, 0);
-  const status = balance <= 0 ? "Cleared" : amountRepaid > 0 ? "Partially Paid" : "Outstanding";
-  return { balance, status };
-};
+const fromDB = (obj) => ({
+  ...obj,
+  personnelId: obj.personnel_id,
+  dateBorrowed: obj.date,
+  category: obj.type,
+  purpose: obj.reason,
+  amountRepaid: obj.amount_repaid,
+});
 
 const normaliseLoan = (data, existing = {}) => {
-  const amount = toNumber(data.amount ?? existing.amount);
-  const amountRepaid = toNumber(data.amountRepaid ?? existing.amountRepaid);
-  const { balance, status } = statusFromLoan(amount, amountRepaid);
+  const amount = Number(data.amount ?? existing.amount ?? 0);
+  const amountRepaid = Number(data.amountRepaid ?? existing.amount_repaid ?? 0);
+  const balance = Math.max(amount - amountRepaid, 0);
+  const status = balance <= 0 ? "Cleared" : amountRepaid > 0 ? "Partially Paid" : "Outstanding";
 
   return {
-    lenderName: (data.lenderName ?? existing.lenderName ?? "").trim(),
-    purpose: (data.purpose ?? existing.purpose ?? "").trim(),
-    category: data.category ?? existing.category ?? "Other",
+    personnel_id: data.personnelId ?? existing.personnel_id,
     amount,
-    amountRepaid,
-    balance,
+    date: data.dateBorrowed ?? existing.date,
+    type: data.category ?? existing.type ?? "Other",
+    reason: (data.purpose ?? existing.reason ?? "").trim(),
     status,
-    dateBorrowed: data.dateBorrowed ?? existing.dateBorrowed ?? "",
-    dueDate: data.dueDate ?? existing.dueDate ?? "",
-    notes: (data.notes ?? existing.notes ?? "").trim(),
+    amount_repaid: amountRepaid,
+    balance,
   };
+};
+
+const fetchLoans = async () => {
+  const { data, error } = await supabase.from('loans').select('*').order('date', { ascending: false });
+  if (error) { console.error("loans fetch error:", error.message); return []; }
+  return (data || []).map(fromDB);
 };
 
 export const loanService = {
   add: async (data) => {
     const loan = normaliseLoan({ ...data, amountRepaid: 0 }, {});
-    return addDoc(collection(db, "loans"), {
-      ...loan,
-      amountRepaid: 0,
-      balance: loan.amount,
-      status: "Outstanding",
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    const { data: inserted, error } = await supabase
+      .from('loans')
+      .insert({ ...loan, amount_repaid: 0, balance: loan.amount, status: "Outstanding" })
+      .select()
+      .single();
+    if (error) throw error;
+    return fromDB(inserted);
   },
 
   update: async (id, data) => {
-    const ref = doc(db, "loans", id);
-    const snap = await runTransaction(db, async (tx) => {
-      const existingSnap = await tx.get(ref);
-      if (!existingSnap.exists()) {
-        throw new Error("Loan not found");
-      }
-      const existing = existingSnap.data();
-      const loan = normaliseLoan(data, existing);
-      tx.update(ref, {
-        ...loan,
-        updatedAt: serverTimestamp(),
-      });
-    });
-    return snap;
+    const { data: existing, error: fetchError } = await supabase.from('loans').select('*').eq('id', id).single();
+    if (fetchError) throw fetchError;
+    const loan = normaliseLoan(data, existing);
+    const { error } = await supabase.from('loans').update(loan).eq('id', id);
+    if (error) throw error;
   },
 
-  delete: async (id) => deleteDoc(doc(db, "loans", id)),
+  delete: async (id) => {
+    const { error } = await supabase.from('loans').delete().eq('id', id);
+    if (error) throw error;
+  },
 
   addRepayment: async (loanId, repaymentData) => {
-    const loanRef = doc(db, "loans", loanId);
-    const repaymentRef = doc(collection(db, "loans", loanId, "repayments"));
-    const amount = toNumber(repaymentData.amount);
+    const amount = Number(repaymentData.amount);
+    if (amount <= 0) throw new Error("Repayment amount must be greater than zero.");
 
-    if (amount <= 0) {
-      throw new Error("Repayment amount must be greater than zero.");
-    }
+    const { data: loan, error: loanError } = await supabase.from('loans').select('*').eq('id', loanId).single();
+    if (loanError) throw loanError;
 
-    await runTransaction(db, async (tx) => {
-      const loanSnap = await tx.get(loanRef);
-      if (!loanSnap.exists()) {
-        throw new Error("Loan not found");
-      }
+    const currentBalance = Math.max(Number(loan.amount) - Number(loan.amount_repaid || 0), 0);
+    if (amount > currentBalance) throw new Error("Repayment cannot exceed the outstanding balance.");
 
-      const loan = loanSnap.data();
-      const currentBalance = Math.max(toNumber(loan.amount) - toNumber(loan.amountRepaid), 0);
-      if (amount > currentBalance) {
-        throw new Error("Repayment cannot exceed the outstanding balance.");
-      }
+    const amountRepaid = Number(loan.amount_repaid || 0) + amount;
+    const balance = Math.max(Number(loan.amount) - amountRepaid, 0);
+    const status = balance <= 0 ? "Cleared" : amountRepaid > 0 ? "Partially Paid" : "Outstanding";
 
-      const amountRepaid = toNumber(loan.amountRepaid) + amount;
-      const { balance, status } = statusFromLoan(toNumber(loan.amount), amountRepaid);
-
-      tx.set(repaymentRef, {
-        amount,
-        date: repaymentData.date || "",
-        method: repaymentData.method || "Cash",
-        notes: (repaymentData.notes || "").trim(),
-        recordedAt: serverTimestamp(),
-      });
-
-      tx.update(loanRef, {
-        amountRepaid,
-        balance,
-        status,
-        updatedAt: serverTimestamp(),
-      });
+    const { error: repError } = await supabase.from('loan_repayments').insert({
+      loan_id: loanId,
+      amount,
+      date: repaymentData.date || new Date().toISOString().slice(0, 10),
+      method: repaymentData.method || "Cash",
+      notes: (repaymentData.notes || "").trim()
     });
+    if (repError) throw repError;
+
+    const { error: updateError } = await supabase.from('loans').update({ amount_repaid: amountRepaid, balance, status }).eq('id', loanId);
+    if (updateError) throw updateError;
   },
 
   subscribe: (callback) => {
-    return onSnapshot(collection(db, "loans"), (snap) => {
-      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => {
-        const dateDiff = (b.dateBorrowed || "").localeCompare(a.dateBorrowed || "");
-        if (dateDiff !== 0) return dateDiff;
-        return toMillis(b.updatedAt) - toMillis(a.updatedAt);
-      });
-      callback(docs);
-    }, (err) => {
-      console.error("loans subscribe error:", err.code, err.message);
-    });
+    const channelId = `loans-${Math.random().toString(36).slice(2)}`;
+    let mounted = true;
+
+    fetchLoans().then(data => { if (mounted) callback(data); });
+
+    const channel = supabase
+      .channel(channelId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, async () => {
+        const data = await fetchLoans();
+        if (mounted) callback(data);
+      })
+      .subscribe();
+      
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   },
 
   subscribeRepayments: (loanId, callback) => {
-    return onSnapshot(collection(db, "loans", loanId, "repayments"), (snap) => {
-      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => toMillis(b.recordedAt) - toMillis(a.recordedAt));
-      callback(docs);
-    }, (err) => {
-      console.error("loan repayments subscribe error:", err.code, err.message);
+    const channelId = `loan-repayments-${loanId}-${Math.random().toString(36).slice(2)}`;
+    let mounted = true;
+
+    supabase.from('loan_repayments').select('*').eq('loan_id', loanId).order('recorded_at', { ascending: false }).then(({ data }) => {
+      if (mounted && data) callback(data);
     });
+
+    const channel = supabase
+      .channel(channelId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'loan_repayments', filter: `loan_id=eq.${loanId}` }, async () => {
+        const { data } = await supabase.from('loan_repayments').select('*').eq('loan_id', loanId).order('recorded_at', { ascending: false });
+        if (mounted && data) callback(data);
+      })
+      .subscribe();
+      
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   },
 };

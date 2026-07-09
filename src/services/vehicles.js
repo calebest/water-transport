@@ -1,33 +1,62 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { supabase } from "./supabase";
+
+const fetchVehicles = async () => {
+  const { data, error } = await supabase.from('vehicles').select('*').order('plate');
+  if (error) { console.error("vehicles fetch error:", error.message); return []; }
+  return (data || []).map(d => ({ ...d, name: d.type, notes: d.capacity }));
+};
 
 export const vehicleService = {
   add: async (data) => {
-    return addDoc(collection(db, "vehicles"), {
-      plate: data.plate,
-      name: data.name,
-      status: data.status || "Active",
-      notes: data.notes || "",
-      createdAt: serverTimestamp()
-    });
+    const { data: inserted, error } = await supabase
+      .from('vehicles')
+      .insert({
+        plate: data.plate,
+        type: data.name,
+        capacity: data.notes || "",
+        status: data.status || "Active",
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return inserted;
   },
+  
   update: async (id, data) => {
-    return updateDoc(doc(db, "vehicles", id), {
-      plate: data.plate,
-      name: data.name,
-      status: data.status || "Active",
-      notes: data.notes || ""
-    });
+    const { error } = await supabase
+      .from('vehicles')
+      .update({
+        plate: data.plate,
+        type: data.name,
+        capacity: data.notes || "",
+        status: data.status || "Active",
+      })
+      .eq('id', id);
+    if (error) throw error;
   },
-  delete: async (id) => deleteDoc(doc(db, "vehicles", id)),
+
+  delete: async (id) => {
+    const { error } = await supabase.from('vehicles').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   subscribe: (callback) => {
-    const q = collection(db, "vehicles");
-    return onSnapshot(q, (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => (a.plate || "").localeCompare(b.plate || ""));
-      callback(docs);
-    }, (err) => {
-      console.error("vehicles subscribe error:", err.code, err.message);
-    });
+    const channelId = `vehicles-${Math.random().toString(36).slice(2)}`;
+    let mounted = true;
+
+    fetchVehicles().then(data => { if (mounted) callback(data); });
+
+    const channel = supabase
+      .channel(channelId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, async () => {
+        const data = await fetchVehicles();
+        if (mounted) callback(data);
+      })
+      .subscribe();
+      
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   }
 };

@@ -24,6 +24,8 @@ import BackupPage from "./pages/Backup";
 import UsersPage from "./pages/Users";
 import VehiclesPage from "./pages/Vehicles";
 import PersonnelPage from "./pages/Personnel";
+import BrokerAccountPage from "./pages/BrokerAccount";
+import PersonnelAccountPage from "./pages/PersonnelAccount";
 import MaintenancePage from "./pages/Maintenance";
 import SettingsPage from "./pages/Settings";
 
@@ -35,6 +37,8 @@ const NAV_ITEMS = [
   { id: "locations", label: "Locations", icon: "📍" },
   { id: "vehicles", label: "Vehicles", icon: "🚚" },
   { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true },
+  { id: "broker-account", label: "Broker Ledger", icon: "🏢", roleAccess: ["admin", "owner", "broker"] },
+  { id: "personnel-account", label: "My Account", icon: "💳", roleAccess: ["admin", "owner", "driver", "conductor"] },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true },
   { id: "loans", label: "Loans", icon: "💸" },
   { id: "earnings", label: "Earnings", icon: "💵", adminOnly: true },
@@ -56,7 +60,7 @@ const getPageFromPath = () => {
 
 const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
 
-function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, loans, earningsConfig }) {
+function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, loans, earningsConfig, refreshTrips }) {
   const { profile, logout, isAdmin, isOwner, isPrivileged } = useAuth();
   const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -103,6 +107,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 
   const navItems = NAV_ITEMS.filter(n => {
     if (n.adminOnly) return isAdmin;
+    if (n.roleAccess) return n.roleAccess.includes(profile?.role);
     return true;
   });
   const activePage = navItems.some(n => n.id === page) ? page : "dashboard";
@@ -123,7 +128,8 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   const handleMarkTripPaid = useCallback(async (trip) => {
     if (!trip) return;
     await tripService.markPaid(trip.id, Number(trip.revenue || 0), "Paid");
-  }, []);
+    if (refreshTrips) refreshTrips();
+  }, [refreshTrips]);
 
   const handleSaveTripEdit = useCallback(async (form) => {
     if (!tripEditTrip) return;
@@ -133,7 +139,8 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
       isPending: tripEditTrip?.approvalStatus === "pending",
       earningsRate: tripEditTrip?.earningsRate ?? tripEditTrip?.earningsAmount ?? earningsConfig?.ratePerTrip,
     });
-  }, [earningsConfig?.ratePerTrip, isAdmin, settings?.directApproval, tripEditTrip]);
+    if (refreshTrips) refreshTrips();
+  }, [earningsConfig?.ratePerTrip, isAdmin, settings?.directApproval, tripEditTrip, refreshTrips]);
 
   useEffect(() => {
     if (page !== activePage) {
@@ -153,10 +160,12 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onGoToTrips={() => navigateToPage("trips")}
         />
       ),
-    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} />,
+    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} />,
     locations: <LocationsPage locations={locations} />,
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
+    "broker-account": <BrokerAccountPage isAdmin={isAdmin} />,
+    "personnel-account": <PersonnelAccountPage isAdmin={isAdmin} personnelId={profile?.personnelId} personnelList={personnel} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} />,
     loans: <LoansPage loans={loans} onOpenTripReview={openTripReview} />,
@@ -317,6 +326,12 @@ function AppInner() {
   const [loans, setLoans] = useState([]);
   const [earningsConfig, setEarningsConfig] = useState({ ratePerTrip: 200, dailyCommissionAmount: 200, commissionStatus: "Enabled" });
 
+  // Manual refresh — called right after add/delete/approve so UI updates instantly
+  const refreshTrips = useCallback(async () => {
+    const data = await tripService.fetchAll();
+    setRawTrips(data);
+  }, []);
+
   useEffect(() => {
     if (!user) {
       setRawTrips([]);
@@ -331,7 +346,7 @@ function AppInner() {
       return;
     }
 
-    const unsubTrips = tripService.subscribe(setRawTrips);
+    const unsubTrips = tripService.subscribe(setRawTrips, refreshTrips);
     const unsubLocs = locationService.subscribe(setLocations);
     const unsubVehs = vehicleService.subscribe(setRawVehicles);
     const unsubPersonnel = personnelService.subscribe(setPersonnel);
@@ -352,7 +367,7 @@ function AppInner() {
       if (unsubLoans) unsubLoans();
       if (unsubEarnings) unsubEarnings();
     };
-  }, [user]);
+  }, [user, refreshTrips]);
 
   // Data Isolation for non-admins
   const trips = useMemo(() => {
@@ -379,7 +394,7 @@ function AppInner() {
   );
 
   if (!user) return <LoginPage />;
-  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} loans={loans} earningsConfig={earningsConfig} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} loans={loans} earningsConfig={earningsConfig} refreshTrips={refreshTrips} />;
 }
 
 export default function App() {

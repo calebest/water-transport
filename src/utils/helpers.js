@@ -5,11 +5,10 @@ export const today = () => new Date().toISOString().slice(0, 10);
 
 export const getWeekRange = () => {
   const d = new Date();
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const mon = new Date(d.setDate(diff));
-  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-  return [mon.toISOString().slice(0, 10), sun.toISOString().slice(0, 10)];
+  const day = d.getDay(); // 0 = Sunday, 6 = Saturday
+  const sun = new Date(d); sun.setDate(d.getDate() - day);
+  const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+  return [sun.toISOString().slice(0, 10), sat.toISOString().slice(0, 10)];
 };
 
 export const getMonthRange = () => {

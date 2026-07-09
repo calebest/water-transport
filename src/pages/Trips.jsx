@@ -16,7 +16,7 @@ const APPROVAL_BADGE = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function TripsPage({ trips, locations, vehicles, personnel = [], settings, earningsConfig, onOpenTripReview }) {
+export default function TripsPage({ trips, locations, vehicles, personnel = [], settings, earningsConfig, onOpenTripReview, refreshTrips }) {
   const { isAdmin, isOwner, isPrivileged, canAddTrips, userId } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editTrip, setEditTrip] = useState(null);
@@ -88,21 +88,34 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const handleAdd  = (form) => tripService.add(form, { userId, isAdmin, directApproval: settings?.directApproval, earningsRate: earningsConfig?.ratePerTrip });
-  const handleEdit = (form) => tripService.update(editTrip.id, form, { 
-    isAdmin, 
-    directApproval: settings?.directApproval,
-    isPending: editTrip?.approvalStatus === "pending",
-    earningsRate: editTrip?.earningsRate ?? editTrip?.earningsAmount ?? earningsConfig?.ratePerTrip,
-  });
+  const handleAdd = async (form) => {
+    await tripService.add(form, { userId, isAdmin, directApproval: settings?.directApproval, earningsRate: earningsConfig?.ratePerTrip });
+    if (refreshTrips) refreshTrips();
+  };
+
+  const handleEdit = async (form) => {
+    await tripService.update(editTrip.id, form, { 
+      isAdmin, 
+      directApproval: settings?.directApproval,
+      isPending: editTrip?.approvalStatus === "pending",
+      earningsRate: editTrip?.earningsRate ?? editTrip?.earningsAmount ?? earningsConfig?.ratePerTrip,
+    });
+    if (refreshTrips) refreshTrips();
+  };
 
   const handleApprove = async (trip) => {
-    try { await tripService.approve(trip.id, trip, { earningsRate: earningsConfig?.ratePerTrip }); }
+    try { 
+      await tripService.approve(trip.id, trip, { earningsRate: earningsConfig?.ratePerTrip }); 
+      if (refreshTrips) refreshTrips();
+    }
     catch (e) { alert(e.message); }
   };
 
   const handleReject = async (trip) => {
-    try { await tripService.reject(trip.id, trip); }
+    try { 
+      await tripService.reject(trip.id, trip); 
+      if (refreshTrips) refreshTrips();
+    }
     catch (e) { alert(e.message); }
   };
 
@@ -113,6 +126,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
         : newStatus === "Pending" ? 0
         : Number(trip.amountPaid || 0);
       await tripService.markPaid(trip.id, amountPaid, newStatus);
+      if (refreshTrips) refreshTrips();
     }
     catch (e) { alert(e.message); }
     finally { setMarkingPaid(null); }
@@ -120,7 +134,11 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
 
   const handleDel = async () => {
     setDeleting(true);
-    try { await tripService.delete(delTrip.id); setDelTrip(null); }
+    try { 
+      await tripService.delete(delTrip.id); 
+      setDelTrip(null); 
+      if (refreshTrips) refreshTrips();
+    }
     catch (e) { alert(e.message); }
     finally { setDeleting(false); }
   };

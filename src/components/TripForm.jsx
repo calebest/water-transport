@@ -13,6 +13,19 @@ import {
 import { locationService } from "../services/locations";
 import { useAuth } from "../contexts/AuthContext";
 
+const PayerSelect = ({ value, onChange }) => (
+  <select 
+    className="h-full bg-slate-50/50 border-l border-slate-200 px-1 py-2 text-[10px] sm:text-xs font-bold text-slate-500 outline-none rounded-r-lg cursor-pointer hover:bg-slate-100 transition-colors"
+    value={value || "Company"}
+    onChange={e => onChange(e.target.value)}
+  >
+    <option value="Company">🏢 Co.</option>
+    <option value="Broker">🤝 Brok.</option>
+    <option value="Driver">🚗 Driv.</option>
+    <option value="Conductor">🎟️ Cond.</option>
+  </select>
+);
+
 const EMPTY_FORM = {
   date: today(), lorry: "KBZ", tripNumber: "",
   location: "",
@@ -25,7 +38,9 @@ const EMPTY_FORM = {
   odometerEnd: "",
   expenses: {
     water: "", diesel: "", petrol: "", police: "", driver: "", conductor: "", repairs: "",
-    custom: []   // [{ id, label, amount }]
+    custom: [],   // [{ id, label, amount, paidBy }]
+    _payers: {},
+    _defaultPayer: "Company"
   },
   deductions: {
     loanRecovery: "", advanceRecovery: "", other: ""
@@ -40,7 +55,9 @@ const normaliseExpenses = (exp = {}) => ({
   police: exp.police ?? "",
   repairs: exp.repairs ?? "",
   petrol: exp.petrol ?? exp.fuel ?? "",
-  custom: (exp.custom || []).map((c, i) => ({ id: Date.now() + i, label: c.label || "", amount: c.amount ?? "" }))
+  _payers: exp._payers || {},
+  _defaultPayer: exp._defaultPayer || "Company",
+  custom: (exp.custom || []).map((c, i) => ({ id: Date.now() + i, label: c.label || "", amount: c.amount ?? "", paidBy: c.paidBy || exp._defaultPayer || "Company" }))
 });
 
 const normaliseDeductions = (deductions = {}) => ({
@@ -77,6 +94,8 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
   const [saving, setSaving] = useState(false);
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setFixed = (k, v) => setForm(f => ({ ...f, expenses: { ...f.expenses, [k]: v } }));
+  const setPayer = (k, v) => setForm(f => ({ ...f, expenses: { ...f.expenses, _payers: { ...(f.expenses._payers || {}), [k]: v } } }));
+  const setDefaultPayer = (v) => setForm(f => ({ ...f, expenses: { ...f.expenses, _defaultPayer: v } }));
   const setDeduction = (k, v) => setForm(f => ({ ...f, deductions: { ...f.deductions, [k]: v } }));
 
   // Keep driver/conductor locked if user has a linked profile
@@ -140,7 +159,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       ...f,
       expenses: {
         ...f.expenses,
-        custom: [...(f.expenses.custom || []), { id: Date.now(), label: "", amount: "" }]
+        custom: [...(f.expenses.custom || []), { id: Date.now(), label: "", amount: "", paidBy: f.expenses._defaultPayer || "Company" }]
       }
     }));
   };
@@ -178,9 +197,10 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     if (badCustom) {
       alert("Each custom expense needs both a name and an amount."); return;
     }
-    const cleanCustom = (form.expenses.custom || []).map(({ label, amount }) => ({
+    const cleanCustom = (form.expenses.custom || []).map(({ label, amount, paidBy }) => ({
       label: label.trim(),
-      amount: Number(amount)
+      amount: Number(amount),
+      paidBy: paidBy || form.expenses._defaultPayer || "Company"
     }));
     const payload = {
       ...form,
@@ -358,14 +378,32 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       </div>
 
       <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Operating Expenses</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Operating Expenses</p>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Default Payer:</span>
+            <select 
+              className="bg-slate-100 border border-slate-200 px-2 py-1 text-xs font-bold text-slate-600 outline-none rounded-lg cursor-pointer hover:bg-slate-200 transition-colors"
+              value={form.expenses._defaultPayer || "Company"}
+              onChange={e => setDefaultPayer(e.target.value)}
+            >
+              <option value="Company">🏢 Company</option>
+              <option value="Broker">🤝 Broker</option>
+              <option value="Driver">🚗 Driver</option>
+              <option value="Conductor">🎟️ Conductor</option>
+            </select>
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-3 mobile-form-grid">
           {FIXED_EXPENSE_KEYS.map(k => (
             <div key={k}>
               <label className="block text-xs font-semibold text-slate-500 mb-1">{EXPENSE_LABELS[k] || k}</label>
-              <input type="number" className={inp} placeholder="0"
-                value={form.expenses[k]}
-                onChange={e => setFixed(k, e.target.value)} />
+              <div className="flex items-center rounded-lg border border-slate-200 focus-within:ring-1 focus-within:ring-emerald-500 focus-within:border-emerald-500 bg-white h-[38px] overflow-hidden">
+                <input type="number" className="w-full bg-transparent px-3 py-2 text-sm outline-none placeholder:text-slate-300" placeholder="0"
+                  value={form.expenses[k]}
+                  onChange={e => setFixed(k, e.target.value)} />
+                <PayerSelect value={form.expenses._payers?.[k] || form.expenses._defaultPayer || "Company"} onChange={v => setPayer(k, v)} />
+              </div>
             </div>
           ))}
         </div>
@@ -404,6 +442,9 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
                   value={c.amount}
                   onChange={e => updateCustomField(c.id, "amount", e.target.value)}
                 />
+                <div className="h-[38px] border border-slate-200 rounded-lg overflow-hidden flex-shrink-0">
+                  <PayerSelect value={c.paidBy || form.expenses._defaultPayer || "Company"} onChange={v => updateCustomField(c.id, "paidBy", v)} />
+                </div>
                 <button
                   type="button"
                   onClick={() => removeCustomField(c.id)}

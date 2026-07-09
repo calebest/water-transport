@@ -1,40 +1,65 @@
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { supabase } from "./supabase";
 
-const toMillis = (value) => {
-  if (!value) return 0;
-  if (typeof value.toMillis === "function") return value.toMillis();
-  if (typeof value.toDate === "function") return value.toDate().getTime();
-  return 0;
+const fetchComplaints = async () => {
+  const { data, error } = await supabase.from('complaints').select('*').order('created_at', { ascending: false });
+  if (error) { console.error("complaints fetch error:", error.message); return []; }
+  return (data || []).map(d => ({ ...d, reportedBy: d.reported_by, createdAt: d.created_at }));
 };
 
 export const complaintService = {
   add: async (data) => {
-    return addDoc(collection(db, "complaints"), {
-      ...data,
-      status: data.status || "open",
-      createdAt: serverTimestamp(),
-    });
+    const { data: inserted, error } = await supabase
+      .from('complaints')
+      .insert({
+        date: data.date,
+        subject: data.subject,
+        description: data.description,
+        severity: data.severity || "low",
+        status: data.status || "open",
+        reported_by: data.reportedBy
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return { ...inserted, reportedBy: inserted.reported_by, createdAt: inserted.created_at };
   },
 
   update: async (id, data) => {
-    return updateDoc(doc(db, "complaints", id), {
-      ...data,
-      reviewedAt: serverTimestamp(),
-    });
+    const { error } = await supabase
+      .from('complaints')
+      .update({
+        date: data.date,
+        subject: data.subject,
+        description: data.description,
+        severity: data.severity,
+        status: data.status,
+      })
+      .eq('id', id);
+    if (error) throw error;
   },
 
   delete: async (id) => {
-    return deleteDoc(doc(db, "complaints", id));
+    const { error } = await supabase.from('complaints').delete().eq('id', id);
+    if (error) throw error;
   },
 
   subscribe: (callback) => {
-    return onSnapshot(collection(db, "complaints"), (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
-      callback(docs);
-    }, (err) => {
-      console.error("complaints subscribe error:", err.code, err.message);
-    });
+    const channelId = `complaints-${Math.random().toString(36).slice(2)}`;
+    let mounted = true;
+
+    fetchComplaints().then(data => { if (mounted) callback(data); });
+
+    const channel = supabase
+      .channel(channelId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, async () => {
+        const data = await fetchComplaints();
+        if (mounted) callback(data);
+      })
+      .subscribe();
+      
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   }
 };

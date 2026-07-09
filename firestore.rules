@@ -36,10 +36,29 @@ service cloud.firestore {
       return isAdmin() || isDriver() || isConductor();
     }
 
+    function isBroker() {
+      return role() == "broker";
+    }
+
     match /trips/{tripId} {
       allow read: if isAuthed();
       allow create, update: if isAuthed() && isStaff();
       allow delete: if isAuthed() && isAdmin();
+    }
+
+    match /broker_ledger/{entryId} {
+      allow read: if isAuthed() && (isPrivileged() || isBroker());
+      allow create, update, delete: if isAuthed() && (isAdmin() || isOwner());
+    }
+
+    match /personnel_ledger/{entryId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && (isAdmin() || isOwner());
+    }
+
+    match /settlements/{settlementId} {
+      allow read: if isAuthed() && (isPrivileged() || isBroker());
+      allow create, update, delete: if isAuthed() && (isAdmin() || isOwner());
     }
 
     match /locations/{locationId} {

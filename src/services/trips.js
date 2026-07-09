@@ -1,6 +1,5 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
-import { calcDeductions, calcOperatingExpenses, calcProfit } from "../utils/helpers";
+import { supabase } from "./supabase";
+import { calcDeductions, calcOperatingExpenses, calcProfit, OPERATING_EXPENSE_KEYS, splitCustomExpenses } from "../utils/helpers";
 
 const calcFields = (data) => {
   const revenue = Number(data.revenue || 0);
@@ -21,7 +20,6 @@ const calcFields = (data) => {
     if (amountPaid >= revenue) status = "Paid";
     else if (amountPaid <= 0) status = "Pending";
   } else {
-    // Fallback for old data logic
     amountPaid = data.amountPaid !== undefined && data.amountPaid !== "" ? Number(data.amountPaid) : revenue;
     status = amountPaid >= revenue ? "Paid" : (amountPaid > 0 ? "Partial" : "Pending");
   }
@@ -39,45 +37,163 @@ const calcFields = (data) => {
   };
 };
 
-const applyEarningsSnapshot = (data) => {
+const applyEarningsSnapshot = (data, earningsRate) => {
   const next = { ...data };
   if (next.status === "Paid") {
-    if (!next.paidAt) next.paidAt = serverTimestamp();
+    if (!next.paidAt) next.paidAt = new Date().toISOString();
+  }
+  if (earningsRate !== undefined && earningsRate !== null) {
+    next.earningsRate = earningsRate;
+    next.earningsAmount = earningsRate;
   }
   return next;
 };
 
+const syncLedgers = async (tripId, data, isApproved) => {
+  await supabase.from('broker_ledger').delete().eq('trip_id', tripId);
+  await supabase.from('personnel_ledger').delete().eq('trip_id', tripId);
+
+  if (!isApproved) return;
+
+  const fields = calcFields(data);
+  const date = data.date || new Date().toISOString().slice(0, 10);
+
+  if (fields.revenue > 0) {
+    await supabase.from('broker_ledger').insert({ trip_id: tripId, date, type: "revenue", amount: fields.revenue, notes: `Trip ${data.tripNumber || ""}` });
+  }
+
+  // Calculate expense payers
+  const payerTotals = { Broker: 0, Driver: 0, Conductor: 0, Company: 0 };
+  const exp = data.expenses || {};
+  const defaultPayer = exp._defaultPayer || "Company";
+  const payersObj = exp._payers || {};
+
+  OPERATING_EXPENSE_KEYS.forEach(k => {
+    const value = k === "petrol" ? (exp.petrol ?? exp.fuel) : exp[k];
+    const amt = Number(value || 0);
+    const payer = payersObj[k] || defaultPayer;
+    if (amt > 0) payerTotals[payer] = (payerTotals[payer] || 0) + amt;
+  });
+
+  splitCustomExpenses(exp.custom || []).operating.forEach(c => {
+    const amt = Number(c.amount || 0);
+    const payer = c.paidBy || defaultPayer;
+    if (amt > 0) payerTotals[payer] = (payerTotals[payer] || 0) + amt;
+  });
+
+  if (payerTotals.Broker > 0) {
+    await supabase.from('broker_ledger').insert({ trip_id: tripId, date, type: "expense_paid", amount: payerTotals.Broker, notes: `Trip ${data.tripNumber || ""} Expenses Paid` });
+  }
+
+  if (payerTotals.Driver > 0 && data.driverId) {
+    await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.driverId, date, type: "earning", amount: payerTotals.Driver, notes: `Trip ${data.tripNumber || ""} Expenses Reimbursed` });
+  }
+
+  if (payerTotals.Conductor > 0 && data.conductorId) {
+    await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.conductorId, date, type: "earning", amount: payerTotals.Conductor, notes: `Trip ${data.tripNumber || ""} Expenses Reimbursed` });
+  }
+
+  if (data.driverId && data.earningsAmount > 0) {
+    await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.driverId, date, type: "earning", amount: data.earningsAmount, notes: `Trip ${data.tripNumber || ""} Earnings` });
+  }
+
+  if (data.conductorId && data.earningsAmount > 0) {
+    await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.conductorId, date, type: "earning", amount: data.earningsAmount, notes: `Trip ${data.tripNumber || ""} Earnings` });
+  }
+};
+
+// Strip internal UI-state fields from expenses before persisting
+const cleanExpenses = (exp = {}) => {
+  const { _payers, _defaultPayer, ...rest } = exp;
+  return rest;
+};
+
+const toDB = (obj) => {
+  const result = { ...obj };
+
+  // Clean expenses object - strip internal UI fields
+  if (result.expenses) {
+    result.expenses = cleanExpenses(result.expenses);
+  }
+
+  const mapping = {
+    driverId: 'driver_id', conductorId: 'conductor_id', odometerStart: 'odometer_start',
+    odometerEnd: 'odometer_end', approvalStatus: 'approval_status', submittedBy: 'created_by',
+    paidAt: 'paid_at', earningsRate: 'earnings_rate', earningsAmount: 'earnings_amount',
+    amountPaid: 'amount_paid', tripNumber: 'trip_number'
+  };
+  for (const [jsKey, dbKey] of Object.entries(mapping)) {
+    if (jsKey in result) {
+      result[dbKey] = result[jsKey];
+      delete result[jsKey];
+    }
+  }
+
+  // Remove any fields not in the trips table schema
+  const stripKeys = [
+    "totalExpenses", "profit", "operatingExpenses", "operatingProfit",
+    "totalDeductions", "netPayable", "pendingEdits", "pending_edits"
+  ];
+  stripKeys.forEach(k => delete result[k]);
+
+  return result;
+};
+
+const fromDB = (obj) => {
+  const result = { ...obj };
+  const mapping = {
+    driver_id: 'driverId', conductor_id: 'conductorId', odometer_start: 'odometerStart',
+    odometer_end: 'odometerEnd', approval_status: 'approvalStatus', created_by: 'submittedBy',
+    paid_at: 'paidAt', earnings_rate: 'earningsRate', earnings_amount: 'earningsAmount',
+    amount_paid: 'amountPaid', trip_number: 'tripNumber', pending_edits: 'pendingEdits'
+  };
+  for (const [dbKey, jsKey] of Object.entries(mapping)) {
+    if (dbKey in result) {
+      result[jsKey] = result[dbKey];
+      delete result[dbKey];
+    }
+  }
+  return result;
+};
+
+const fetchTrips = async () => {
+  const { data, error } = await supabase.from('trips').select('*').order('date', { ascending: false });
+  if (error) { console.error("trips fetch error:", error.message); return []; }
+  return (data || []).map(fromDB);
+};
+
 export const tripService = {
-  /**
-   * Add a new trip.
-   * - Admin or DirectApproval: instantly approved.
-   * - Driver/Conductor: saved as "pending" — requires admin approval.
-   */
   add: async (data, { userId = null, isAdmin = false, directApproval = false, earningsRate = null } = {}) => {
     const fields = calcFields(data);
-    return addDoc(collection(db, "trips"), applyEarningsSnapshot({
+    const isApproved = isAdmin || directApproval;
+    
+    let tripData = applyEarningsSnapshot({
       ...data,
       ...fields,
       driverId: data.driverId || null,
       conductorId: data.conductorId || null,
       odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
       odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
-      approvalStatus: (isAdmin || directApproval) ? "approved" : "pending",
+      approvalStatus: isApproved ? "approved" : "pending",
       submittedBy: userId,
-      pendingEdits: null,
-      createdAt: serverTimestamp(),
-    }, earningsRate));
+    }, earningsRate);
+
+    const { data: inserted, error } = await supabase
+      .from('trips')
+      .insert(toDB(tripData))
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    await syncLedgers(inserted.id, tripData, isApproved);
+    return { id: inserted.id };
   },
 
-  /**
-   * Update a trip.
-   * - Admin or DirectApproval: applies directly and marks as approved.
-   * - Driver/Conductor: saves changes as pendingEdits — requires admin approval.
-   */
   update: async (id, data, { isAdmin = false, directApproval = false, isPending = false, earningsRate = null } = {}) => {
     if (isAdmin || directApproval) {
       const fields = calcFields(data);
-      return updateDoc(doc(db, "trips", id), applyEarningsSnapshot({
+      const tripData = applyEarningsSnapshot({
         ...data,
         ...fields,
         driverId: data.driverId || null,
@@ -86,36 +202,35 @@ export const tripService = {
         odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
         approvalStatus: "approved",
         pendingEdits: null,
-      }, earningsRate));
+      }, earningsRate);
+
+      const { error } = await supabase.from('trips').update(toDB(tripData)).eq('id', id);
+      if (error) throw error;
+      await syncLedgers(id, tripData, true);
     } else if (isPending) {
-      // Direct update for drivers/conductors editing their own pending (unapproved) trips
       const fields = calcFields(data);
-      return updateDoc(doc(db, "trips", id), applyEarningsSnapshot({
+      const tripData = applyEarningsSnapshot({
         ...data,
         ...fields,
         driverId: data.driverId || null,
         conductorId: data.conductorId || null,
         odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
         odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
-      }, earningsRate));
-    } else {
-      // Store full form data as a pending edit; original is preserved.
-      return updateDoc(doc(db, "trips", id), {
-        pendingEdits: data,
-        approvalStatus: "pending_edit",
-      });
+      }, earningsRate);
+
+      const { error } = await supabase.from('trips').update({
+        pending_edits: toDB(tripData),
+        approval_status: "pending_edit"
+      }).eq('id', id);
+      if (error) throw error;
     }
   },
 
-  /**
-   * Admin approves a trip or a pending edit.
-   */
   approve: async (id, trip, { earningsRate = null } = {}) => {
     if (trip.pendingEdits) {
-      // Apply the pending edits with fresh calculations.
       const data = trip.pendingEdits;
       const fields = calcFields(data);
-      return updateDoc(doc(db, "trips", id), applyEarningsSnapshot({
+      const tripData = applyEarningsSnapshot({
         ...data,
         ...fields,
         driverId: data.driverId || null,
@@ -124,51 +239,77 @@ export const tripService = {
         odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
         approvalStatus: "approved",
         pendingEdits: null,
-      }, earningsRate ?? trip.earningsRate ?? trip.earningsAmount));
+      }, earningsRate ?? trip.earningsRate ?? trip.earningsAmount);
+
+      const { error } = await supabase.from('trips').update(toDB(tripData)).eq('id', id);
+      if (error) throw error;
+      await syncLedgers(id, tripData, true);
     } else {
-      // Approve a new trip submission.
-      return updateDoc(doc(db, "trips", id), applyEarningsSnapshot({
+      const tripData = applyEarningsSnapshot({
         approvalStatus: "approved",
-      }, earningsRate ?? trip.earningsRate ?? trip.earningsAmount));
+      }, earningsRate ?? trip.earningsRate ?? trip.earningsAmount);
+      
+      const { error } = await supabase.from('trips').update(toDB(tripData)).eq('id', id);
+      if (error) throw error;
+      await syncLedgers(id, { ...trip, ...tripData }, true);
     }
   },
 
-  /**
-   * Admin rejects a trip submission or discards a pending edit.
-   * - New pending trip → removed entirely.
-   * - Pending edit → discarded, original trip restored to approved.
-   */
   reject: async (id, trip) => {
     if (trip.approvalStatus === "pending_edit") {
-      return updateDoc(doc(db, "trips", id), {
-        approvalStatus: "approved",
-        pendingEdits: null,
-      });
+      const { error } = await supabase.from('trips').update({
+        approval_status: "approved",
+        pending_edits: null,
+      }).eq('id', id);
+      if (error) throw error;
     } else {
-      return deleteDoc(doc(db, "trips", id));
+      const { error } = await supabase.from('trips').delete().eq('id', id);
+      if (error) throw error;
+      await syncLedgers(id, trip, false);
     }
   },
 
-  delete: async (id) => deleteDoc(doc(db, "trips", id)),
+  delete: async (id) => {
+    const { error } = await supabase.from('trips').delete().eq('id', id);
+    if (error) throw error;
+    await syncLedgers(id, {}, false);
+  },
 
   markPaid: async (id, amountPaid, status) => {
     const isPaid = status === "Paid";
-    return updateDoc(doc(db, "trips", id), {
-      amountPaid: Number(amountPaid),
+    const { error } = await supabase.from('trips').update({
+      amount_paid: Number(amountPaid),
       status,
-      earningsRate: null,
-      earningsAmount: 0,
-      paidAt: isPaid ? serverTimestamp() : null,
-    });
+      earnings_rate: null,
+      earnings_amount: 0,
+      paid_at: isPaid ? new Date().toISOString() : null,
+    }).eq('id', id);
+    if (error) throw error;
   },
 
+  fetchAll: async () => fetchTrips(),
+
   subscribe: (callback) => {
-    return onSnapshot(collection(db, "trips"), (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-      callback(docs);
-    }, (err) => {
-      console.error("trips subscribe error:", err.code, err.message);
-    });
+    const channelId = `trips-${Math.random().toString(36).slice(2)}`;
+    let mounted = true;
+
+    const refresh = async () => {
+      const data = await fetchTrips();
+      if (mounted) callback(data);
+    };
+
+    refresh();
+
+    const channel = supabase
+      .channel(channelId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, refresh)
+      .subscribe();
+
+    const unsubscribe = () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+
+    return unsubscribe;
   }
 };

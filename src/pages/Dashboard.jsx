@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { getTripFinancials, isPaidTrip, today, getWeekRange, getMonthRange, filterByRange, summarize, fmt } from "../utils/helpers";
 import { StatCard, Badge } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
+import { financeService } from "../services/finance";
 
 const dayDiff = (dateValue) => {
   if (!dateValue) return 0;
@@ -15,6 +16,23 @@ const dayDiff = (dateValue) => {
 export default function DashboardPage({ trips, vehicles = [], earningsConfig = { ratePerTrip: 200 }, onOpenTripReview, onMarkTripPaid, onGoToTrips }) {
   const { profile, isAdmin, isOwner } = useAuth();
   const [pendingOpen, setPendingOpen] = useState(true);
+  const [brokerLedger, setBrokerLedger] = useState([]);
+  const [personnelLedger, setPersonnelLedger] = useState([]);
+
+  useEffect(() => {
+    let unsub1, unsub2;
+    if (isAdmin || isOwner) {
+      unsub1 = financeService.subscribeBrokerLedger(setBrokerLedger);
+      unsub2 = financeService.subscribeAllPersonnelLedger(setPersonnelLedger);
+    } else if (profile?.personnelId) {
+      unsub2 = financeService.subscribePersonnelLedger(profile.personnelId, setPersonnelLedger);
+    }
+    return () => {
+      if (unsub1) unsub1();
+      if (unsub2) unsub2();
+    };
+  }, [isAdmin, isOwner, profile?.personnelId]);
+
   const todayStr = today();
   const [weekStart, weekEnd] = getWeekRange();
   const [monthStart, monthEnd] = getMonthRange();
@@ -66,10 +84,17 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
 
   const approvalPendingTrips = trips.filter(t => t.approvalStatus === "pending" || t.approvalStatus === "pending_edit");
   const paymentPendingTrips = trips.filter(t => !isPaidTrip(t) && t.approvalStatus !== "rejected");
-  const unpaidTrips = trips.filter(t => !isPaidTrip(t) && t.approvalStatus === "approved" && t.revenue > 0);
-  const outstandingBalance = unpaidTrips.reduce((acc, t) => acc + ((t.revenue || 0) - (t.amountPaid || 0)), 0);
-  const pendingOutstanding = paymentPendingTrips.reduce((acc, t) => acc + ((t.revenue || 0) - (t.amountPaid || 0)), 0);
   const dailyCommissionAmount = Number(earningsConfig?.dailyCommissionAmount ?? earningsConfig?.ratePerTrip ?? 200);
+
+  const brokerBalance = brokerLedger.reduce((sum, e) => {
+    if (e.type === "revenue") return sum + Number(e.amount);
+    if (e.type === "expense_paid" || e.type === "remittance") return sum - Number(e.amount);
+    return sum;
+  }, 0);
+  const brokerRemitted = brokerLedger.filter(e => e.type === "remittance").reduce((sum, e) => sum + Number(e.amount), 0);
+  
+  const pendingPersonnel = personnelLedger.reduce((sum, e) => sum + (e.type === "earning" ? Number(e.amount) : -Number(e.amount)), 0);
+  const totalLiabilities = brokerBalance + pendingPersonnel;
 
   return (
     <div className="space-y-6">
@@ -80,7 +105,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
         </div>
       </div>
 
-      {((isAdmin || isOwner) && (approvalPendingTrips.length > 0 || outstandingBalance > 0)) && (
+      {((isAdmin || isOwner) && (approvalPendingTrips.length > 0 || brokerBalance > 0)) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {approvalPendingTrips.length > 0 && (
             <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex min-w-0 items-center gap-4">
@@ -91,12 +116,12 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
                 </div>
               </div>
           )}
-          {outstandingBalance > 0 && (
+          {brokerBalance > 0 && (
             <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex min-w-0 items-center gap-4">
               <div className="h-10 w-10 bg-rose-200 text-rose-700 rounded-full flex items-center justify-center text-xl">💸</div>
               <div className="min-w-0">
-                <p className="font-bold text-rose-900">KES {fmt(outstandingBalance)} Outstanding</p>
-                <p className="text-xs text-rose-700">From {unpaidTrips.length} unpaid trips</p>
+                <p className="font-bold text-rose-900">KES {fmt(brokerBalance)} Broker Balance</p>
+                <p className="text-xs text-rose-700">Awaiting settlement from broker</p>
               </div>
             </div>
           )}
@@ -107,6 +132,14 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
       {(isAdmin || isOwner) ? (
         <>
           <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Overall Finances</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact mb-6">
+              <StatCard label="Broker Outstanding" value={fmt(brokerBalance)} icon="💸" color={brokerBalance > 0 ? "red" : "slate"} />
+              <StatCard label="Amount Remitted" value={fmt(brokerRemitted)} icon="🏦" color="green" />
+              <StatCard label="Pending Personnel" value={fmt(pendingPersonnel)} icon="💳" color="amber" />
+              <StatCard label="Total Liabilities" value={fmt(totalLiabilities)} icon="⚖️" color={totalLiabilities > 0 ? "amber" : "slate"} />
+            </div>
+
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Today — {todayStr}</p>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
               <StatCard label="Revenue" value={fmt(todaySummary.revenue)} icon="💰" color="blue" />
@@ -143,7 +176,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
                     <h3 className="font-black text-amber-900">Pending Trips</h3>
                     <Badge color="amber">{paymentPendingTrips.length}</Badge>
                   </div>
-                  <p className="mt-1 text-sm text-amber-700">KES {fmt(pendingOutstanding)} outstanding and waiting to be settled.</p>
+                  <p className="mt-1 text-sm text-amber-700">Remaining trip settlements.</p>
                 </div>
                 <span className="text-amber-500 text-sm font-bold">{pendingOpen ? "Hide" : "Show"}</span>
               </button>
@@ -186,8 +219,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
                     })}
                   </div>
                   <div className="rounded-xl bg-amber-100 px-4 py-3">
-                    <p className="text-sm font-bold text-amber-900">Outstanding total: {fmt(pendingOutstanding)}</p>
-                    <p className="mt-1 text-xs text-amber-700">Daily commission setting: {fmt(dailyCommissionAmount)} per paid vehicle day.</p>
+                    <p className="text-sm font-bold text-amber-900">Daily commission setting: {fmt(dailyCommissionAmount)} per paid vehicle day.</p>
                   </div>
                   <button
                     type="button"
@@ -271,9 +303,10 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
       ) : (
         /* DRIVER VIEW */
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 mobile-card-rail mobile-card-rail--compact">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <StatCard label="My Outstanding Balance" value={fmt(pendingPersonnel)} icon="💸" color={pendingPersonnel > 0 ? "amber" : "slate"} />
             <StatCard label="Trips Today" value={todaySummary.count} icon="🚛" color="blue" />
-            <StatCard label="Trips This Week" value={weekSummary.count} icon="📅" color="amber" />
+            <StatCard label="Trips This Week" value={weekSummary.count} icon="📅" color="green" />
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-4">Your Recent Trips</h3>

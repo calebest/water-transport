@@ -1,21 +1,27 @@
 export function StatCard({ label, value, icon, color = "green", sub }) {
-  const colors = {
-    green: "from-emerald-500 to-teal-600",
-    red: "from-rose-500 to-red-600",
-    blue: "from-blue-500 to-indigo-600",
-    amber: "from-amber-500 to-orange-500",
-    slate: "from-slate-600 to-slate-800",
+  const colorMap = {
+    green: { icon: "bg-emerald-100 text-emerald-600", glow: "bg-emerald-400" },
+    red: { icon: "bg-rose-100 text-rose-600", glow: "bg-rose-400" },
+    blue: { icon: "bg-blue-100 text-blue-600", glow: "bg-blue-400" },
+    amber: { icon: "bg-amber-100 text-amber-600", glow: "bg-amber-400" },
+    slate: { icon: "bg-slate-100 text-slate-600", glow: "bg-slate-400" },
   };
+  
+  const theme = colorMap[color] || colorMap.green;
+  
   return (
-    <div className={`responsive-card rounded-2xl bg-gradient-to-br ${colors[color]} p-5 text-white shadow-lg`}>
-      <div className="flex min-w-0 items-start justify-between gap-3">
+    <div className="group relative overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:-translate-y-0.5">
+      <div className="flex min-w-0 items-start justify-between gap-3 relative z-10">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-widest opacity-80">{label}</p>
-          <p className="mt-1 break-words text-2xl font-bold">{value}</p>
-          {sub && <p className="mt-1 text-xs opacity-70">{sub}</p>}
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
+          <p className="mt-1.5 break-words text-2xl font-black tracking-tight text-slate-800">{value}</p>
+          {sub && <p className="mt-1 text-xs font-medium text-slate-400">{sub}</p>}
         </div>
-        <span className="shrink-0 text-3xl opacity-30">{icon}</span>
+        <div className={`shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl text-2xl transition-transform group-hover:scale-110 ${theme.icon}`}>
+          {icon}
+        </div>
       </div>
+      <div className={`absolute -right-6 -top-6 h-24 w-24 rounded-full blur-3xl opacity-10 transition-opacity group-hover:opacity-20 ${theme.glow}`} />
     </div>
   );
 }
