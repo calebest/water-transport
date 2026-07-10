@@ -1,21 +1,29 @@
 export const fmt = (n) => `KES ${Number(n || 0).toLocaleString("en-KE", { minimumFractionDigits: 0 })}`;
 export const fmtN = (n) => Number(n || 0).toLocaleString("en-KE");
 
-export const today = () => new Date().toISOString().slice(0, 10);
+// Format a Date object as YYYY-MM-DD in LOCAL time (not UTC)
+const localDate = (d = new Date()) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+export const today = () => localDate();
 
 export const getWeekRange = () => {
   const d = new Date();
-  const day = d.getDay(); // 0 = Sunday, 6 = Saturday
-  const sun = new Date(d); sun.setDate(d.getDate() - day);
+  const dayOfWeek = d.getDay(); // 0 = Sunday, 6 = Saturday
+  const sun = new Date(d); sun.setDate(d.getDate() - dayOfWeek);
   const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
-  return [sun.toISOString().slice(0, 10), sat.toISOString().slice(0, 10)];
+  return [localDate(sun), localDate(sat)];
 };
 
 export const getMonthRange = () => {
   const d = new Date();
-  const first = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-  return [first, last];
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return [localDate(first), localDate(last)];
 };
 
 export const filterByRange = (trips, start, end) =>

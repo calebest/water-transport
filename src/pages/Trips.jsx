@@ -16,7 +16,7 @@ const APPROVAL_BADGE = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function TripsPage({ trips, locations, vehicles, personnel = [], settings, earningsConfig, onOpenTripReview, refreshTrips }) {
+export default function TripsPage({ trips, locations, vehicles, personnel = [], brokers = [], settings, earningsConfig, onOpenTripReview, refreshTrips }) {
   const { isAdmin, isOwner, isPrivileged, canAddTrips, userId } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editTrip, setEditTrip] = useState(null);
@@ -223,11 +223,11 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       {/* Modals */}
       <Modal open={addOpen} onClose={() => setAddOpen(false)}
         title={isAdmin ? "Add New Trip" : "Submit Trip for Approval"} wide>
-        <TripForm locations={locations} personnel={personnel} vehicles={vehicles} onSave={handleAdd} onCancel={() => setAddOpen(false)} />
+        <TripForm locations={locations} personnel={personnel} vehicles={vehicles} brokers={brokers} onSave={handleAdd} onCancel={() => setAddOpen(false)} />
       </Modal>
       <Modal open={!!editTrip} onClose={() => setEditTrip(null)}
         title={isAdmin ? "Edit Trip" : "Propose Trip Edit (requires approval)"} wide>
-        {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} initial={editTrip} onSave={handleEdit} onCancel={() => setEditTrip(null)} />}
+        {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} brokers={brokers} initial={editTrip} onSave={handleEdit} onCancel={() => setEditTrip(null)} />}
       </Modal>
       <Modal open={!!delTrip} onClose={() => setDelTrip(null)} title="Delete Trip">
         {delTrip && (

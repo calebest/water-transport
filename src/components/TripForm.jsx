@@ -34,6 +34,7 @@ const EMPTY_FORM = {
   amountPaid: "",
   driverId: "",
   conductorId: "",
+  brokerId: "",
   odometerStart: "",
   odometerEnd: "",
   expenses: {
@@ -66,7 +67,7 @@ const normaliseDeductions = (deductions = {}) => ({
   other: deductions.other ?? "",
 });
 
-export default function TripForm({ initial, locations = [], personnel = [], vehicles = [], onSave, onCancel }) {
+export default function TripForm({ initial, locations = [], personnel = [], vehicles = [], brokers = [], onSave, onCancel }) {
   const { isDriver, isConductor, personnelId } = useAuth();
   const [form, setForm] = useState(() => {
     if (!initial) {
@@ -85,6 +86,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       amountPaid: initial.amountPaid || "",
       driverId: initial.driverId || "",
       conductorId: initial.conductorId || "",
+      brokerId: initial.brokerId || "",
       odometerStart: initial.odometerStart || "",
       odometerEnd: initial.odometerEnd || "",
       expenses: normaliseExpenses(initial.expenses),
@@ -321,6 +323,18 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
               </select>
             </div>
           </>
+        )}
+
+        {brokers.length > 0 && (
+          <div className="col-span-2">
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Broker</label>
+            <select className={inp} value={form.brokerId} onChange={e => setField("brokerId", e.target.value)}>
+              <option value="">— No Broker —</option>
+              {brokers.filter(b => b.status === "Active").map(b => (
+                <option key={b.id} value={b.id}>{b.name}{b.company ? ` (${b.company})` : ""}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         <div>

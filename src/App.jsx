@@ -9,6 +9,7 @@ import { settingsService } from "./services/settings";
 import { complaintService } from "./services/complaints";
 import { loanService } from "./services/loans";
 import { earningsService } from "./services/earnings";
+import { brokerService } from "./services/brokers";
 import { Badge, Modal } from "./components/ui";
 import TripReviewModal from "./components/TripReviewModal";
 import TripForm from "./components/TripForm";
@@ -28,6 +29,7 @@ import BrokerAccountPage from "./pages/BrokerAccount";
 import PersonnelAccountPage from "./pages/PersonnelAccount";
 import MaintenancePage from "./pages/Maintenance";
 import SettingsPage from "./pages/Settings";
+import BrokersPage from "./pages/Brokers";
 
 import "./App.css";
 
@@ -38,6 +40,7 @@ const NAV_ITEMS = [
   { id: "vehicles", label: "Vehicles", icon: "🚚" },
   { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true },
   { id: "broker-account", label: "Broker Ledger", icon: "🏢", roleAccess: ["admin", "owner", "broker"] },
+  { id: "brokers", label: "Brokers", icon: "🤝", adminOnly: true },
   { id: "personnel-account", label: "My Account", icon: "💳", roleAccess: ["admin", "owner", "driver", "conductor"] },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true },
   { id: "loans", label: "Loans", icon: "💸" },
@@ -60,8 +63,8 @@ const getPageFromPath = () => {
 
 const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
 
-function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, loans, earningsConfig, refreshTrips }) {
-  const { profile, logout, isAdmin, isOwner, isPrivileged } = useAuth();
+function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, loans, earningsConfig, brokers = [], refreshTrips }) {
+  const { user, profile, logout, isAdmin, isOwner, isPrivileged, personnelId } = useAuth();
   const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [reviewTrip, setReviewTrip] = useState(null);
@@ -160,19 +163,20 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onGoToTrips={() => navigateToPage("trips")}
         />
       ),
-    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} />,
+    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} earningsConfig={earningsConfig} brokers={brokers} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} />,
     locations: <LocationsPage locations={locations} />,
-    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} />,
+    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} brokers={brokers} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
-    "broker-account": <BrokerAccountPage isAdmin={isAdmin} />,
-    "personnel-account": <PersonnelAccountPage isAdmin={isAdmin} personnelId={profile?.personnelId} personnelList={personnel} />,
+    "broker-account": <BrokerAccountPage isAdmin={isAdmin} brokers={brokers} />,
+    "personnel-account": <PersonnelAccountPage isAdmin={isAdmin} personnelId={personnelId} personnelList={personnel} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} />,
     loans: <LoansPage loans={loans} onOpenTripReview={openTripReview} />,
     earnings: <EarningsPage trips={trips} vehicles={vehicles} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} onMarkTripPaid={handleMarkTripPaid} />,
     backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} loans={loans} complaints={complaints} settings={settings} earningsConfig={earningsConfig} />,
     settings: <SettingsPage settings={settings} />,
-    users: <UsersPage personnel={personnel} />
+    users: <UsersPage personnel={personnel} />,
+    brokers: <BrokersPage brokers={brokers} />
   };
 
   return (
@@ -218,6 +222,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-700 truncate">{profile?.name}</p>
+              <p className="text-[10px] text-slate-400 truncate mb-1">{user?.email}</p>
               <Badge color={isAdmin ? "green" : isOwner ? "blue" : "slate"}>{profile?.role}</Badge>
             </div>
           </div>
@@ -267,6 +272,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onClose={() => setReviewTrip(null)}
           onMarkPaid={isAdmin ? handleMarkTripPaid : undefined}
           onEditTrip={isAdmin ? (trip) => openTripReview(trip, true) : undefined}
+          brokers={brokers}
         />
 
         <Modal open={!!tripEditTrip} onClose={() => setTripEditTrip(null)} title="Edit Trip" wide>
@@ -275,6 +281,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
               initial={tripEditTrip}
               locations={locations}
               personnel={personnel}
+              brokers={brokers}
               vehicles={vehicles}
               onSave={handleSaveTripEdit}
               onCancel={() => setTripEditTrip(null)}
@@ -325,6 +332,7 @@ function AppInner() {
   const [complaints, setComplaints] = useState([]);
   const [loans, setLoans] = useState([]);
   const [earningsConfig, setEarningsConfig] = useState({ ratePerTrip: 200, dailyCommissionAmount: 200, commissionStatus: "Enabled" });
+  const [brokers, setBrokers] = useState([]);
 
   // Manual refresh — called right after add/delete/approve so UI updates instantly
   const refreshTrips = useCallback(async () => {
@@ -343,6 +351,7 @@ function AppInner() {
       setComplaints([]);
       setLoans([]);
       setEarningsConfig({ ratePerTrip: 200, dailyCommissionAmount: 200, commissionStatus: "Enabled" });
+      setBrokers([]);
       return;
     }
 
@@ -355,6 +364,7 @@ function AppInner() {
     const unsubComplaints = complaintService.subscribe(setComplaints);
     const unsubLoans = loanService.subscribe(setLoans);
     const unsubEarnings = earningsService.subscribeConfig(setEarningsConfig);
+    const unsubBrokers = brokerService.subscribeBrokers(setBrokers);
     
     return () => {
       unsubTrips();
@@ -366,6 +376,7 @@ function AppInner() {
       if (unsubComplaints) unsubComplaints();
       if (unsubLoans) unsubLoans();
       if (unsubEarnings) unsubEarnings();
+      if (unsubBrokers) unsubBrokers();
     };
   }, [user, refreshTrips]);
 
@@ -394,7 +405,7 @@ function AppInner() {
   );
 
   if (!user) return <LoginPage />;
-  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} loans={loans} earningsConfig={earningsConfig} refreshTrips={refreshTrips} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} loans={loans} earningsConfig={earningsConfig} brokers={brokers} refreshTrips={refreshTrips} />;
 }
 
 export default function App() {

@@ -18,6 +18,7 @@ export default function TripReviewModal({
   onMarkPaid,
   onEditTrip,
   ratePerTrip = 200,
+  brokers = [],
 }) {
   const [currentTrip, setCurrentTrip] = useState(trip);
   const [activeTab, setActiveTab] = useState("overview");
@@ -116,6 +117,12 @@ export default function TripReviewModal({
               <div className="max-w-[14rem] rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">Location</p>
                 <p className="mt-1 break-words text-sm font-bold">{currentTrip.location || "N/A"}</p>
+              </div>
+              <div className="max-w-[14rem] rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">Broker</p>
+                <p className="mt-1 break-words text-sm font-bold">
+                  {brokers.find(b => b.id === currentTrip.brokerId)?.name || "—"}
+                </p>
               </div>
             </div>
           </div>

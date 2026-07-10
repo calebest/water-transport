@@ -59,7 +59,7 @@ const syncLedgers = async (tripId, data, isApproved) => {
   const date = data.date || new Date().toISOString().slice(0, 10);
 
   if (fields.revenue > 0) {
-    await supabase.from('broker_ledger').insert({ trip_id: tripId, date, type: "revenue", amount: fields.revenue, notes: `Trip ${data.tripNumber || ""}` });
+    await supabase.from('broker_ledger').insert({ trip_id: tripId, broker_id: data.brokerId || null, date, type: "revenue", amount: fields.revenue, notes: `Trip ${data.tripNumber || ""}` });
   }
 
   // Calculate expense payers
@@ -82,7 +82,7 @@ const syncLedgers = async (tripId, data, isApproved) => {
   });
 
   if (payerTotals.Broker > 0) {
-    await supabase.from('broker_ledger').insert({ trip_id: tripId, date, type: "expense_paid", amount: payerTotals.Broker, notes: `Trip ${data.tripNumber || ""} Expenses Paid` });
+    await supabase.from('broker_ledger').insert({ trip_id: tripId, broker_id: data.brokerId || null, date, type: "expense_paid", amount: payerTotals.Broker, notes: `Trip ${data.tripNumber || ""} Expenses Paid` });
   }
 
   if (payerTotals.Driver > 0 && data.driverId) {
@@ -120,7 +120,7 @@ const toDB = (obj) => {
     driverId: 'driver_id', conductorId: 'conductor_id', odometerStart: 'odometer_start',
     odometerEnd: 'odometer_end', approvalStatus: 'approval_status', submittedBy: 'created_by',
     paidAt: 'paid_at', earningsRate: 'earnings_rate', earningsAmount: 'earnings_amount',
-    amountPaid: 'amount_paid', tripNumber: 'trip_number'
+    amountPaid: 'amount_paid', tripNumber: 'trip_number', brokerId: 'broker_id'
   };
   for (const [jsKey, dbKey] of Object.entries(mapping)) {
     if (jsKey in result) {
@@ -145,7 +145,8 @@ const fromDB = (obj) => {
     driver_id: 'driverId', conductor_id: 'conductorId', odometer_start: 'odometerStart',
     odometer_end: 'odometerEnd', approval_status: 'approvalStatus', created_by: 'submittedBy',
     paid_at: 'paidAt', earnings_rate: 'earningsRate', earnings_amount: 'earningsAmount',
-    amount_paid: 'amountPaid', trip_number: 'tripNumber', pending_edits: 'pendingEdits'
+    amount_paid: 'amountPaid', trip_number: 'tripNumber', pending_edits: 'pendingEdits',
+    broker_id: 'brokerId'
   };
   for (const [dbKey, jsKey] of Object.entries(mapping)) {
     if (dbKey in result) {
@@ -170,6 +171,7 @@ export const tripService = {
     let tripData = applyEarningsSnapshot({
       ...data,
       ...fields,
+      brokerId: data.brokerId || null,
       driverId: data.driverId || null,
       conductorId: data.conductorId || null,
       odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
@@ -196,6 +198,7 @@ export const tripService = {
       const tripData = applyEarningsSnapshot({
         ...data,
         ...fields,
+        brokerId: data.brokerId || null,
         driverId: data.driverId || null,
         conductorId: data.conductorId || null,
         odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
@@ -212,6 +215,7 @@ export const tripService = {
       const tripData = applyEarningsSnapshot({
         ...data,
         ...fields,
+        brokerId: data.brokerId || null,
         driverId: data.driverId || null,
         conductorId: data.conductorId || null,
         odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
@@ -233,6 +237,7 @@ export const tripService = {
       const tripData = applyEarningsSnapshot({
         ...data,
         ...fields,
+        brokerId: data.brokerId || null,
         driverId: data.driverId || null,
         conductorId: data.conductorId || null,
         odometerStart: data.odometerStart ? Number(data.odometerStart) : null,

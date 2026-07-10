@@ -8,10 +8,12 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ amount: "", date: today(), notes: "" });
 
-  const activePersonnelId = isAdmin && personnelList.length > 0 ? (personnelId || personnelList[0]?.id) : personnelId;
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState("");
 
-  // We only show one personnel at a time here. 
-  // Admin might want to select which personnel to view, but for now we assume it gets passed the ID.
+  const activePersonnelId = isAdmin && personnelList.length > 0 
+    ? (selectedPersonnelId || personnelId || personnelList[0]?.id) 
+    : personnelId;
+
   const personnel = useMemo(() => personnelList.find(p => p.id === activePersonnelId) || {}, [personnelList, activePersonnelId]);
 
   useEffect(() => {
@@ -60,15 +62,30 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800">My Account: {personnel.name || "Personnel"}</h2>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-2xl font-black text-slate-800">
+            {isAdmin ? "Personnel Ledger" : `My Account: ${personnel.name || "Personnel"}`}
+          </h2>
           <p className="text-slate-500 text-sm mt-1">Earnings and payment history.</p>
         </div>
-        {isAdmin && (
-          <button onClick={() => setModalOpen(true)} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-blue-700">
-            Log Payment
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {isAdmin && personnelList.length > 0 && (
+            <select
+              value={activePersonnelId || ""}
+              onChange={e => setSelectedPersonnelId(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-sm min-w-[160px]"
+            >
+              {personnelList.map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
+              ))}
+            </select>
+          )}
+          {isAdmin && activePersonnelId && (
+            <button onClick={() => setModalOpen(true)} className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-lg hover:bg-blue-700 transition-colors">
+              Log Payment
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

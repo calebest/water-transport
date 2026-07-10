@@ -7,7 +7,7 @@ import { fmt, summarize } from "../utils/helpers";
 import { TripGroup } from "./Trips";
 import TripForm from "../components/TripForm";
 
-export default function VehiclesPage({ vehicles, trips, locations, personnel, earningsConfig, onOpenTripReview }) {
+export default function VehiclesPage({ vehicles, trips, locations, personnel, brokers = [], earningsConfig, onOpenTripReview }) {
   const { isAdmin } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editVeh, setEditVeh] = useState(null);
@@ -100,7 +100,7 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel, ea
         </div>
 
         <Modal open={!!editTrip} onClose={() => setEditTrip(null)} title="Edit Trip" wide>
-          {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} initial={editTrip} onSave={handleEditTrip} onCancel={() => setEditTrip(null)} />}
+          {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} brokers={brokers} initial={editTrip} onSave={handleEditTrip} onCancel={() => setEditTrip(null)} />}
         </Modal>
         <Modal open={!!delTrip} onClose={() => setDelTrip(null)} title="Delete Trip">
           {delTrip && (

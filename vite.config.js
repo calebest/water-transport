@@ -27,13 +27,13 @@ export default defineConfig({
       workbox: {
         // Cache all app shell assets
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        // Network-first for Firebase API (always try fresh data, fall back to cache)
+        // Network-first for Supabase API (always try fresh data, fall back to cache)
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'firebase-cache',
+              cacheName: 'supabase-cache',
               expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 },
               networkTimeoutSeconds: 5,
             },

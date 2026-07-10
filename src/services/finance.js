@@ -3,7 +3,8 @@ import { supabase } from "./supabase";
 export const financeService = {
   // --- BROKER LEDGER & SETTLEMENTS ---
 
-  makeBrokerSettlement: async (amount, { date, method, notes, userId } = {}) => {
+  makeBrokerSettlement: async (brokerId, amount, { date, method, notes, userId } = {}) => {
+    if (!brokerId) throw new Error("Broker ID is required");
     let remainingAmount = Number(amount);
     if (isNaN(remainingAmount) || remainingAmount <= 0) throw new Error("Invalid settlement amount");
 
@@ -13,6 +14,7 @@ export const financeService = {
     const { data: unpaidTripsRaw, error: tripsError } = await supabase
       .from('trips')
       .select('*')
+      .eq('broker_id', brokerId)
       .eq('approval_status', 'approved')
       .neq('status', 'Paid');
       
@@ -72,6 +74,7 @@ export const financeService = {
       notes: notes || "",
       linked_trips: linkedTrips,
       created_by: userId,
+      broker_id: brokerId,
     }).select().single();
 
     if (settlementError) throw settlementError;
@@ -84,6 +87,7 @@ export const financeService = {
       type: "remittance",
       amount: Number(amount),
       notes: notes || `Settlement via ${method || "Cash"}`,
+      broker_id: brokerId,
     });
 
     if (ledgerError) throw ledgerError;
@@ -91,8 +95,12 @@ export const financeService = {
     return settlementId;
   },
 
-  subscribeBrokerLedger: (callback) => {
-    supabase.from('broker_ledger').select('*').then(({ data, error }) => {
+  subscribeBrokerLedger: (brokerId, callback) => {
+    if (!brokerId) {
+        callback([]);
+        return () => {};
+    }
+    supabase.from('broker_ledger').select('*').eq('broker_id', brokerId).then(({ data, error }) => {
       if (!error && data) {
         data.sort((a, b) => {
           const dateCompare = (a.date || "").localeCompare(b.date || "");
@@ -106,9 +114,9 @@ export const financeService = {
     });
 
     const channel = supabase
-      .channel('public:broker_ledger')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'broker_ledger' }, async () => {
-        const { data } = await supabase.from('broker_ledger').select('*');
+      .channel(`public:broker_ledger:${brokerId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'broker_ledger', filter: `broker_id=eq.${brokerId}` }, async () => {
+        const { data } = await supabase.from('broker_ledger').select('*').eq('broker_id', brokerId);
         if (data) {
           data.sort((a, b) => {
             const dateCompare = (a.date || "").localeCompare(b.date || "");
