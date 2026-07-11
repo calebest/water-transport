@@ -80,19 +80,6 @@ export function AuthProvider({ children }) {
     if (error) throw error;
   };
 
-  const signup = async (email, password, name) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: name,
-        }
-      }
-    });
-    if (error) throw error;
-  };
-
   const logout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -109,7 +96,7 @@ export function AuthProvider({ children }) {
   const personnelId = profile?.personnel_id || null; // Supabase uses snake_case typically
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, signup, logout, isAdmin, isOwner, isPrivileged, isDriver, isConductor, canAddTrips, userId, personnelId }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, logout, isAdmin, isOwner, isPrivileged, isDriver, isConductor, canAddTrips, userId, personnelId }}>
       {children}
     </AuthContext.Provider>
   );

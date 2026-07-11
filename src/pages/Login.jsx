@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
-export default function LoginPage({ onSwitchToSignup }) {
+export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
@@ -68,15 +68,7 @@ export default function LoginPage({ onSwitchToSignup }) {
             className="w-full rounded-xl bg-emerald-600 py-3 font-bold text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 disabled:opacity-60 transition-all">
             {loading ? "Signing in…" : "Sign In →"}
           </button>
-          <div className="pt-2 text-center">
-            <button
-              type="button"
-              onClick={onSwitchToSignup}
-              className="text-xs font-semibold text-slate-500 hover:text-emerald-600 transition-colors"
-            >
-              Don&apos;t have an account? Sign up
-            </button>
-          </div>
+          <p className="text-xs text-center text-slate-400 pt-2">Contact your administrator to get access</p>
         </div>
       </div>
     </div>
