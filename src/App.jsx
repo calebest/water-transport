@@ -15,6 +15,7 @@ import TripReviewModal from "./components/TripReviewModal";
 import TripForm from "./components/TripForm";
 
 import LoginPage from "./pages/Login";
+import SignupPage from "./pages/Signup";
 import DashboardPage from "./pages/Dashboard";
 import TripsPage from "./pages/Trips";
 import LocationsPage from "./pages/Locations";
@@ -323,6 +324,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 
 function AppInner() {
   const { user, loading, isPrivileged, personnelId } = useAuth();
+  const [showSignup, setShowSignup] = useState(false);
   const [rawTrips, setRawTrips] = useState([]);
   const [locations, setLocations] = useState([]);
   const [rawVehicles, setRawVehicles] = useState([]);
@@ -404,7 +406,9 @@ function AppInner() {
     </div>
   );
 
-  if (!user) return <LoginPage />;
+  if (!user) return showSignup
+    ? <SignupPage onSwitchToLogin={() => setShowSignup(false)} />
+    : <LoginPage onSwitchToSignup={() => setShowSignup(true)} />;
   return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} loans={loans} earningsConfig={earningsConfig} brokers={brokers} refreshTrips={refreshTrips} />;
 }
 

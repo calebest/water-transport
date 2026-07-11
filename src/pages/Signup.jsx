@@ -1,19 +1,25 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
-export default function LoginPage({ onSwitchToSignup }) {
-  const { login } = useAuth();
+export default function SignupPage({ onSwitchToLogin }) {
+  const { signup } = useAuth();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email || !pass) { setErr("Please fill in all fields."); return; }
+  const handleSignup = async () => {
+    if (!name || !email || !pass) { setErr("Please fill in all fields."); return; }
+    if (pass.length < 6) { setErr("Password must be at least 6 characters."); return; }
     setLoading(true); setErr("");
-    try { await login(email, pass); }
-    catch (e) { setErr(e.code === "auth/invalid-credential" ? "Invalid email or password." : e.message); }
+    try { 
+      await signup(email, pass, name); 
+      // Supabase will automatically log them in or send confirmation email
+      // If email confirmation is off, they will be logged in immediately.
+    }
+    catch (e) { setErr(e.message); }
     finally { setLoading(false); }
   };
 
@@ -30,20 +36,26 @@ export default function LoginPage({ onSwitchToSignup }) {
           <p className="text-emerald-400 text-sm mt-1 font-medium">Fleet Management System</p>
         </div>
         <div className="bg-white rounded-3xl shadow-2xl p-8 space-y-4">
-          <h2 className="text-xl font-bold text-slate-800">Sign In</h2>
+          <h2 className="text-xl font-bold text-slate-800">Create Account</h2>
           {err && <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700">{err}</div>}
           <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Full Name</label>
+            <input className={inp} type="text" placeholder="John Doe"
+              value={name} onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSignup()} />
+          </div>
+          <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">Email</label>
-            <input className={inp} type="email" placeholder="admin@company.com"
+            <input className={inp} type="email" placeholder="you@example.com"
               value={email} onChange={e => setEmail(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleLogin()} />
+              onKeyDown={e => e.key === "Enter" && handleSignup()} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">Password</label>
             <div className="relative">
               <input className={inp} type={showPass ? "text" : "password"} placeholder="••••••••"
                 value={pass} onChange={e => setPass(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleLogin()} />
+                onKeyDown={e => e.key === "Enter" && handleSignup()} />
               <button
                 type="button"
                 onClick={() => setShowPass(v => !v)}
@@ -64,17 +76,18 @@ export default function LoginPage({ onSwitchToSignup }) {
               </button>
             </div>
           </div>
-          <button onClick={handleLogin} disabled={loading}
-            className="w-full rounded-xl bg-emerald-600 py-3 font-bold text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 disabled:opacity-60 transition-all">
-            {loading ? "Signing in…" : "Sign In →"}
+          <button onClick={handleSignup} disabled={loading}
+            className="w-full rounded-xl bg-emerald-600 py-3 font-bold text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 disabled:opacity-60 transition-all mt-2">
+            {loading ? "Creating Account…" : "Sign Up →"}
           </button>
+          
           <div className="pt-2 text-center">
-            <button
-              type="button"
-              onClick={onSwitchToSignup}
+            <button 
+              type="button" 
+              onClick={onSwitchToLogin}
               className="text-xs font-semibold text-slate-500 hover:text-emerald-600 transition-colors"
             >
-              Don&apos;t have an account? Sign up
+              Already have an account? Sign in
             </button>
           </div>
         </div>
