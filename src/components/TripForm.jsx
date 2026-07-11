@@ -300,7 +300,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
                 disabled={!!(isDriver && personnelId)}
               >
                 <option value="">— None —</option>
-                {personnel.filter(p => p.role === "Driver" || p.role === "Both").map(p => (
+                {personnel.filter(p => p.role === "Driver" || p.role === "Both" || p.id === form.driverId).map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -317,7 +317,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
                 disabled={!!(isConductor && personnelId)}
               >
                 <option value="">— None —</option>
-                {personnel.filter(p => p.role === "Conductor" || p.role === "Both").map(p => (
+                {personnel.filter(p => p.role === "Conductor" || p.role === "Both" || p.id === form.conductorId).map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -330,7 +330,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
             <label className="block text-xs font-semibold text-slate-500 mb-1">Broker</label>
             <select className={inp} value={form.brokerId} onChange={e => setField("brokerId", e.target.value)}>
               <option value="">— No Broker —</option>
-              {brokers.filter(b => b.status === "Active").map(b => (
+              {brokers.filter(b => b.status === "Active" || b.id === form.brokerId).map(b => (
                 <option key={b.id} value={b.id}>{b.name}{b.company ? ` (${b.company})` : ""}</option>
               ))}
             </select>

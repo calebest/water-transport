@@ -62,35 +62,33 @@ const syncLedgers = async (tripId, data, isApproved) => {
     await supabase.from('broker_ledger').insert({ trip_id: tripId, broker_id: data.brokerId || null, date, type: "revenue", amount: fields.revenue, notes: `Trip ${data.tripNumber || ""}` });
   }
 
-  // Calculate expense payers
-  const payerTotals = { Broker: 0, Driver: 0, Conductor: 0, Company: 0 };
   const exp = data.expenses || {};
   const defaultPayer = exp._defaultPayer || "Company";
   const payersObj = exp._payers || {};
 
-  OPERATING_EXPENSE_KEYS.forEach(k => {
+  const processExpense = async (label, amount, payer) => {
+    const amt = Number(amount || 0);
+    if (amt <= 0) return;
+    
+    if (payer === 'Broker' && data.brokerId) {
+      await supabase.from('broker_ledger').insert({ trip_id: tripId, broker_id: data.brokerId, date, type: "expense_paid", amount: amt, notes: `Trip ${data.tripNumber || ""} - ${label} Paid` });
+    } else if (payer === 'Driver' && data.driverId) {
+      await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.driverId, date, type: "earning", amount: amt, notes: `Trip ${data.tripNumber || ""} - ${label} Reimbursed` });
+    } else if (payer === 'Conductor' && data.conductorId) {
+      await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.conductorId, date, type: "earning", amount: amt, notes: `Trip ${data.tripNumber || ""} - ${label} Reimbursed` });
+    }
+  };
+
+  for (const k of OPERATING_EXPENSE_KEYS) {
     const value = k === "petrol" ? (exp.petrol ?? exp.fuel) : exp[k];
-    const amt = Number(value || 0);
     const payer = payersObj[k] || defaultPayer;
-    if (amt > 0) payerTotals[payer] = (payerTotals[payer] || 0) + amt;
-  });
+    const label = k.charAt(0).toUpperCase() + k.slice(1);
+    await processExpense(label, value, payer);
+  }
 
-  splitCustomExpenses(exp.custom || []).operating.forEach(c => {
-    const amt = Number(c.amount || 0);
+  for (const c of splitCustomExpenses(exp.custom || []).operating) {
     const payer = c.paidBy || defaultPayer;
-    if (amt > 0) payerTotals[payer] = (payerTotals[payer] || 0) + amt;
-  });
-
-  if (payerTotals.Broker > 0) {
-    await supabase.from('broker_ledger').insert({ trip_id: tripId, broker_id: data.brokerId || null, date, type: "expense_paid", amount: payerTotals.Broker, notes: `Trip ${data.tripNumber || ""} Expenses Paid` });
-  }
-
-  if (payerTotals.Driver > 0 && data.driverId) {
-    await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.driverId, date, type: "earning", amount: payerTotals.Driver, notes: `Trip ${data.tripNumber || ""} Expenses Reimbursed` });
-  }
-
-  if (payerTotals.Conductor > 0 && data.conductorId) {
-    await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.conductorId, date, type: "earning", amount: payerTotals.Conductor, notes: `Trip ${data.tripNumber || ""} Expenses Reimbursed` });
+    await processExpense(c.label || "Custom", c.amount, payer);
   }
 
   if (data.driverId && data.earningsAmount > 0) {
@@ -102,19 +100,8 @@ const syncLedgers = async (tripId, data, isApproved) => {
   }
 };
 
-// Strip internal UI-state fields from expenses before persisting
-const cleanExpenses = (exp = {}) => {
-  const { _payers, _defaultPayer, ...rest } = exp;
-  return rest;
-};
-
 const toDB = (obj) => {
   const result = { ...obj };
-
-  // Clean expenses object - strip internal UI fields
-  if (result.expenses) {
-    result.expenses = cleanExpenses(result.expenses);
-  }
 
   const mapping = {
     driverId: 'driver_id', conductorId: 'conductor_id', odometerStart: 'odometer_start',
