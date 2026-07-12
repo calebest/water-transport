@@ -34,29 +34,29 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in duration-500">
         
         {/* Header / Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-tr from-emerald-600 to-emerald-400 shadow-[0_0_50px_rgba(16,185,129,0.3)] mb-6 ring-4 ring-white/10">
-            <span className="text-5xl">🚛</span>
+        <div className="text-center mb-6">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-tr from-emerald-600 to-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)] mb-4 ring-2 ring-white/10">
+            <span className="text-3xl">🚛</span>
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tight drop-shadow-md">Water Transport</h1>
-          <p className="text-emerald-400 text-sm mt-2 font-bold tracking-widest uppercase drop-shadow-sm">Fleet Management</p>
+          <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-md">Water Transport</h1>
+          <p className="text-emerald-400 text-xs mt-1.5 font-bold tracking-widest uppercase drop-shadow-sm">Fleet Management</p>
         </div>
 
         {/* Glassmorphic Login Card */}
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 sm:p-10">
-          <h2 className="text-2xl font-bold text-white mb-6">Welcome Back</h2>
+        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-8">
+          <h2 className="text-xl font-bold text-white mb-5">Welcome Back</h2>
           
           {err && (
-            <div className="mb-6 rounded-xl bg-rose-500/20 border border-rose-500/50 px-4 py-3 text-sm text-rose-200 backdrop-blur-sm flex items-center gap-2">
+            <div className="mb-5 rounded-xl bg-rose-500/20 border border-rose-500/50 px-4 py-2.5 text-sm text-rose-200 backdrop-blur-sm flex items-center gap-2">
               <span>⚠️</span> {err}
             </div>
           )}
           
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div>
-              <label className="block text-[11px] font-bold tracking-widest text-slate-300 uppercase mb-2">Email Address</label>
+              <label className="block text-[10px] font-bold tracking-widest text-slate-300 uppercase mb-1.5">Email Address</label>
               <input 
-                className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3.5 text-white placeholder-slate-400 focus:bg-white/10 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all shadow-inner" 
+                className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-white placeholder-slate-400 focus:bg-white/10 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all shadow-inner" 
                 type="email" 
                 placeholder="admin@company.com"
                 value={email} onChange={e => setEmail(e.target.value)}
@@ -65,10 +65,10 @@ export default function LoginPage() {
             </div>
             
             <div>
-              <label className="block text-[11px] font-bold tracking-widest text-slate-300 uppercase mb-2">Password</label>
+              <label className="block text-[10px] font-bold tracking-widest text-slate-300 uppercase mb-1.5">Password</label>
               <div className="relative">
                 <input 
-                  className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3.5 text-white placeholder-slate-400 focus:bg-white/10 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 pr-12 transition-all shadow-inner" 
+                  className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-white placeholder-slate-400 focus:bg-white/10 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 pr-12 transition-all shadow-inner" 
                   type={showPass ? "text" : "password"} 
                   placeholder="••••••••"
                   value={pass} onChange={e => setPass(e.target.value)}
@@ -97,13 +97,13 @@ export default function LoginPage() {
           </div>
 
           <button onClick={handleLogin} disabled={loading}
-            className="w-full mt-8 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-3.5 font-bold text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]">
+            className="w-full mt-6 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-3 font-bold text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]">
             {loading ? "Authenticating…" : "Sign In →"}
           </button>
           
-          <div className="mt-8 text-center">
-            <p className="text-xs font-semibold text-slate-400 tracking-wider">
-              DESIGNED BY <span className="text-emerald-400">CYBER VISION LAB</span>
+          <div className="mt-6 text-center">
+            <p className="text-[10px] font-semibold text-slate-400 tracking-wider uppercase">
+              Designed by <span className="text-emerald-400">Cyber Vision Lab</span>
             </p>
           </div>
         </div>
