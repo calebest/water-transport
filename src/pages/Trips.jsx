@@ -74,16 +74,24 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       groups[t.date].push(t);
     });
 
-    return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(date => ({
-      date,
-      trips: groups[date],
-      // Admin summary excludes unapproved submissions; owner sees the full log breakdown.
-      summary: summarize(
-        isAdmin
-          ? groups[date].filter(t => !t.approvalStatus || t.approvalStatus === "approved" || t.approvalStatus === "pending_edit")
-          : groups[date]
-      ),
-    }));
+    return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(date => {
+      // Sort trips within this date group by trip number numerically
+      const sorted = groups[date].slice().sort((a, b) => {
+        const numA = parseInt(String(a.tripNumber || "0").replace(/\D/g, ""), 10) || 0;
+        const numB = parseInt(String(b.tripNumber || "0").replace(/\D/g, ""), 10) || 0;
+        return numA - numB;
+      });
+      return {
+        date,
+        trips: sorted,
+        // Admin summary excludes unapproved submissions; owner sees the full log breakdown.
+        summary: summarize(
+          isAdmin
+            ? sorted.filter(t => !t.approvalStatus || t.approvalStatus === "approved" || t.approvalStatus === "pending_edit")
+            : sorted
+        ),
+      };
+    });
   }, [visibleTrips, filterLorry, filterDate, search, isAdmin]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
