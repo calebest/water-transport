@@ -57,12 +57,14 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       } else {
         if (!tripMap.has(entry.trip_id)) {
           const tripName = entry.notes.split(' - ')[0].replace(' Expenses Paid', '');
+          const location = entry.trips?.location || "";
           const newGroup = {
             isGroup: true,
             id: entry.trip_id,
             trip_id: entry.trip_id,
             date: entry.date,
             notes: tripName,
+            location,
             revenue: 0,
             expenses: 0,
             items: [],
@@ -155,7 +157,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="Outstanding Balance" value={fmt(currentBalance)} icon="💸" color={currentBalance > 0 ? "red" : "slate"} />
         <StatCard label="Total Revenue (Trips)" value={fmt(totalRevenue)} icon="💰" color="blue" />
         <StatCard label="Expenses Paid by Broker" value={fmt(totalExpenses)} icon="📉" color="amber" />
@@ -222,7 +224,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
                         {row.date}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge color="purple">Trip Summary</Badge>
+                        <Badge color="purple">{row.location ? row.location : "Trip Summary"}</Badge>
                       </td>
                       <td className="px-4 py-3 font-semibold text-slate-800 flex items-center gap-2">
                         {row.notes} 

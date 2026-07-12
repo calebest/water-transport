@@ -14,7 +14,7 @@ export function StatCard({ label, value, icon, color = "green", sub }) {
       <div className="flex min-w-0 items-start justify-between gap-3 relative z-10">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest truncate">{label}</p>
-          <p className="mt-1.5 truncate text-xl md:text-2xl font-black tracking-tight text-slate-800" title={value}>{value}</p>
+          <p className="mt-1.5 text-xl md:text-2xl font-black tracking-tight text-slate-800">{value}</p>
           {sub && <p className="mt-1 text-xs font-medium text-slate-400 truncate">{sub}</p>}
         </div>
         <div className={`shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl text-2xl transition-transform group-hover:scale-110 ${theme.icon}`}>

@@ -131,7 +131,7 @@ export const financeService = {
         callback([]);
         return () => {};
     }
-    supabase.from('broker_ledger').select('*').eq('broker_id', brokerId).then(({ data, error }) => {
+    supabase.from('broker_ledger').select('*, trips(location)').eq('broker_id', brokerId).then(({ data, error }) => {
       if (!error && data) {
         data.sort((a, b) => {
           const dateCompare = (a.date || "").localeCompare(b.date || "");
@@ -147,7 +147,7 @@ export const financeService = {
     const channel = supabase
       .channel(`public:broker_ledger:${brokerId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'broker_ledger', filter: `broker_id=eq.${brokerId}` }, async () => {
-        const { data } = await supabase.from('broker_ledger').select('*').eq('broker_id', brokerId);
+        const { data } = await supabase.from('broker_ledger').select('*, trips(location)').eq('broker_id', brokerId);
         if (data) {
           data.sort((a, b) => {
             const dateCompare = (a.date || "").localeCompare(b.date || "");
