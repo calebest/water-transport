@@ -8,6 +8,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
   const [ledger, setLedger] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [expandedTrips, setExpandedTrips] = useState(new Set());
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ amount: "", method: "Cash", date: today(), notes: "" });
 
   const toggleTrip = (id) => {
@@ -299,7 +300,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
           </div>
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={() => setModalOpen(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
-            <button type="submit" className="flex-1 rounded-xl bg-emerald-600 py-2.5 font-bold text-white hover:bg-emerald-700">Apply Payment</button>
+            <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-emerald-600 py-2.5 font-bold text-white hover:bg-emerald-700 disabled:opacity-50">{saving ? "Applying..." : "Apply Payment"}</button>
           </div>
         </form>
       </Modal>
