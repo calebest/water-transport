@@ -49,7 +49,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       if (entry.type === "revenue") { tr += amt; cb += amt; }
       else if (entry.type === "expense_paid") { te += amt; cb -= amt; }
       else if (entry.type === "remittance") { trm += amt; cb -= amt; }
-      
+
       entry.runningBalance = cb;
 
       if (entry.type === "remittance" || !entry.trip_id) {
@@ -75,7 +75,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         }
         const group = tripMap.get(entry.trip_id);
         group.items.push(entry);
-        
+
         if (entry.type === "revenue") group.revenue += amt;
         if (entry.type === "expense_paid") group.expenses += amt;
         group.runningBalance = cb;
@@ -157,7 +157,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <StatCard label="Outstanding Balance" value={fmt(currentBalance)} icon="💸" color={currentBalance > 0 ? "red" : "slate"} />
         <StatCard label="Total Revenue (Trips)" value={fmt(totalRevenue)} icon="💰" color="blue" />
         <StatCard label="Expenses Paid by Broker" value={fmt(totalExpenses)} icon="📉" color="amber" />
@@ -166,21 +166,21 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
 
       {/* Ledger Table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="font-bold text-slate-800">
+        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/50">
+          <h3 className="text-sm sm:text-base font-bold text-slate-800">
             Ledger History — <span className="text-emerald-600">{activeBroker?.name || "..."}</span>
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-400">
+          <table className="w-full text-left text-xs sm:text-sm text-slate-600">
+            <thead className="bg-slate-50 text-[10px] sm:text-xs uppercase text-slate-400">
               <tr>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Notes / Trip</th>
-                <th className="px-4 py-3 text-right">Debit (-)</th>
-                <th className="px-4 py-3 text-right">Credit (+)</th>
-                <th className="px-4 py-3 text-right">Balance</th>
+                <th className="px-3 sm:px-4 py-2 sm:py-3">Date</th>
+                <th className="px-3 sm:px-4 py-2 sm:py-3">Type</th>
+                <th className="px-3 sm:px-4 py-2 sm:py-3">Notes / Trip</th>
+                <th className="px-3 sm:px-4 py-2 sm:py-3 text-right">Debit (-)</th>
+                <th className="px-3 sm:px-4 py-2 sm:py-3 text-right">Credit (+)</th>
+                <th className="px-3 sm:px-4 py-2 sm:py-3 text-right">Balance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -188,13 +188,13 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
                 if (!row.isGroup) {
                   return (
                     <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap font-medium">{row.date}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap font-medium">{row.date}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3">
                         <Badge color={row.type === "revenue" ? "blue" : row.type === "expense_paid" ? "amber" : "green"}>
                           {row.type === "revenue" ? "Trip Revenue" : row.type === "expense_paid" ? "Expense Paid" : "Settlement"}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 truncate max-w-[200px]">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 truncate max-w-[200px]">
                         {row.notes}
                         {row.type === "remittance" && row.settlement_id && (
                           <button onClick={() => handleDeleteSettlement(row.settlement_id)} className="ml-3 text-rose-400 hover:text-rose-600 font-bold text-xs" title="Undo / Delete this Settlement">
@@ -202,13 +202,13 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
                           </button>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-rose-500 font-semibold">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-rose-500 font-semibold">
                         {row.type !== "revenue" ? fmt(row.amount) : "—"}
                       </td>
-                      <td className="px-4 py-3 text-right text-emerald-600 font-semibold">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-emerald-600 font-semibold">
                         {row.type === "revenue" ? fmt(row.amount) : "—"}
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
                     </tr>
                   );
                 }
@@ -216,41 +216,41 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
                 const isExpanded = expandedTrips.has(row.trip_id);
                 return (
                   <React.Fragment key={row.trip_id}>
-                    <tr 
-                      onClick={() => toggleTrip(row.trip_id)} 
+                    <tr
+                      onClick={() => toggleTrip(row.trip_id)}
                       className="hover:bg-slate-100 transition-colors cursor-pointer border-b border-slate-100 group bg-slate-50/30"
                     >
-                      <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-700">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap font-medium text-slate-700">
                         {row.date}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3">
                         <Badge color="purple">{row.location ? row.location : "Trip Summary"}</Badge>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-800 flex items-center gap-2">
-                        {row.notes} 
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 font-semibold text-slate-800 flex items-center gap-2">
+                        {row.notes}
                         <span className={`text-xs text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
                       </td>
-                      <td className="px-4 py-3 text-right text-rose-500 font-semibold">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-rose-500 font-semibold">
                         {row.expenses > 0 ? fmt(row.expenses) : "—"}
                       </td>
-                      <td className="px-4 py-3 text-right text-emerald-600 font-semibold">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-emerald-600 font-semibold">
                         {row.revenue > 0 ? fmt(row.revenue) : "—"}
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
                     </tr>
-                    
+
                     {isExpanded && row.items.map(item => (
-                      <tr key={item.id} className="bg-slate-50/80 text-xs border-b border-slate-50 last:border-b-0">
-                        <td className="px-4 py-2 pl-8 text-slate-400">{item.date}</td>
-                        <td className="px-4 py-2">
+                      <tr key={item.id} className="bg-slate-50/80 text-[11px] sm:text-xs border-b border-slate-50 last:border-b-0">
+                        <td className="px-3 sm:px-4 py-2 pl-6 sm:pl-8 text-slate-400">{item.date}</td>
+                        <td className="px-3 sm:px-4 py-2">
                           <span className={`px-2 py-0.5 rounded-md ${item.type === "revenue" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
                             {item.type === "revenue" ? "Revenue" : "Expense"}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-slate-600 truncate max-w-[200px]">{item.notes}</td>
-                        <td className="px-4 py-2 text-right text-rose-400">{item.type !== "revenue" ? fmt(item.amount) : "—"}</td>
-                        <td className="px-4 py-2 text-right text-emerald-500">{item.type === "revenue" ? fmt(item.amount) : "—"}</td>
-                        <td className="px-4 py-2 text-right text-slate-400">...</td>
+                        <td className="px-3 sm:px-4 py-2 text-slate-600 truncate max-w-[200px]">{item.notes}</td>
+                        <td className="px-3 sm:px-4 py-2 text-right text-rose-400">{item.type !== "revenue" ? fmt(item.amount) : "—"}</td>
+                        <td className="px-3 sm:px-4 py-2 text-right text-emerald-500">{item.type === "revenue" ? fmt(item.amount) : "—"}</td>
+                        <td className="px-3 sm:px-4 py-2 text-right text-slate-400">...</td>
                       </tr>
                     ))}
                   </React.Fragment>
@@ -258,7 +258,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
               })}
               {ledger.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan="6" className="px-4 py-8 text-center text-slate-400 text-sm">
                     No ledger entries for {activeBroker?.name || "this broker"} yet.
                   </td>
                 </tr>
@@ -282,11 +282,11 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
           </div>
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Amount (KES)</label>
-            <input type="number" required min="1" className={inp} value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} />
+            <input type="number" required min="1" className={inp} value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
           </div>
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Payment Date</label>
-            <input type="date" required className={inp} value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+            <input type="date" required className={inp} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
           </div>
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Method</label>
@@ -304,7 +304,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
           </div>
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Notes (Optional)</label>
-            <textarea className={inp} rows="2" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
+            <textarea className={inp} rows="2" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })}></textarea>
           </div>
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={() => setModalOpen(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
