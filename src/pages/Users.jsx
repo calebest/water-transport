@@ -120,16 +120,13 @@ export default function UsersPage({ personnel = [] }) {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc("delete_user", { target_user_id: deleteTarget.id });
-      if (error) {
-        // RPC failed — fall back to deleting just the profile row
-        // (auth account may still exist in Supabase but they can't use the app)
-        const { error: profileErr } = await supabase
-          .from("profiles")
-          .delete()
-          .eq("id", deleteTarget.id);
-        if (profileErr) throw profileErr;
-      }
+      // 1. Try full deletion via RPC (deletes profile + auth.users)
+      await supabase.rpc("delete_user", { target_user_id: deleteTarget.id });
+
+      // 2. Always also explicitly delete the profile row as a guaranteed fallback
+      //    (in case RPC only deleted auth.users without cascade, or the function is missing)
+      await supabase.from("profiles").delete().eq("id", deleteTarget.id);
+
       setDeleteTarget(null);
       fetchProfiles();
     } catch (err) {

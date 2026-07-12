@@ -1,8 +1,10 @@
 -- Run this in Supabase SQL Editor (Database > SQL Editor)
--- Step 1: Grant the postgres role permission to delete from auth.users
+
+-- Step 1: Grant the postgres role permission to delete auth users
 GRANT DELETE ON auth.users TO postgres;
 
--- Step 2: Create (or replace) the delete_user function
+-- Step 2: Create/replace the function
+-- It explicitly deletes the profile first, then the auth user.
 CREATE OR REPLACE FUNCTION delete_user(target_user_id UUID)
 RETURNS void
 LANGUAGE plpgsql
@@ -15,7 +17,10 @@ BEGIN
     RAISE EXCEPTION 'Not authorized: only admins can delete users';
   END IF;
 
-  -- Delete from auth.users (cascades to profiles via FK)
+  -- Step 1: Delete the profile row first (this always works)
+  DELETE FROM public.profiles WHERE id = target_user_id;
+
+  -- Step 2: Delete the auth user (removes login access entirely)
   DELETE FROM auth.users WHERE id = target_user_id;
 END;
 $$;
