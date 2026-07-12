@@ -80,23 +80,26 @@ const syncLedgers = async (tripId, data, isApproved) => {
   };
 
   for (const k of OPERATING_EXPENSE_KEYS) {
-    const value = k === "petrol" ? (exp.petrol ?? exp.fuel) : exp[k];
+    const value = Number((k === "petrol" ? (exp.petrol ?? exp.fuel) : exp[k]) || 0);
     const payer = payersObj[k] || defaultPayer;
     const label = k.charAt(0).toUpperCase() + k.slice(1);
-    await processExpense(label, value, payer);
+    
+    if (value > 0) {
+      // Direct mappings: Driver expense goes to Driver Earnings, Conductor to Conductor
+      if (k === 'driver' && data.driverId) {
+        await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.driverId, date, type: "earning", amount: value, notes: `Trip ${data.tripNumber || ""} - Driver Earnings` });
+      } else if (k === 'conductor' && data.conductorId) {
+        await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.conductorId, date, type: "earning", amount: value, notes: `Trip ${data.tripNumber || ""} - Conductor Earnings` });
+      } else {
+        // Normal reimbursement logic for everything else
+        await processExpense(label, value, payer);
+      }
+    }
   }
 
   for (const c of splitCustomExpenses(exp.custom || []).operating) {
     const payer = c.paidBy || defaultPayer;
     await processExpense(c.label || "Custom", c.amount, payer);
-  }
-
-  if (data.driverId && data.earningsAmount > 0) {
-    await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.driverId, date, type: "earning", amount: data.earningsAmount, notes: `Trip ${data.tripNumber || ""} Earnings` });
-  }
-
-  if (data.conductorId && data.earningsAmount > 0) {
-    await supabase.from('personnel_ledger').insert({ trip_id: tripId, personnel_id: data.conductorId, date, type: "earning", amount: data.earningsAmount, notes: `Trip ${data.tripNumber || ""} Earnings` });
   }
 };
 
