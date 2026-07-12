@@ -38,7 +38,17 @@ export default function LoginPage() {
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-tr from-emerald-600 to-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)] mb-4 ring-2 ring-white/10">
             <span className="text-3xl">🚛</span>
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight drop-shadow-md">Mount Kenya Water Distributors</h1>
+          <div className="space-y-1">
+            <p className="text-[11px] font-bold tracking-[0.3em] text-emerald-400/80 uppercase">Est. Mount Kenya</p>
+            <h1 className="text-4xl font-black text-white tracking-tight drop-shadow-lg leading-none">
+              WATER
+            </h1>
+            <div className="flex items-center gap-2">
+              <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/60 to-transparent"></div>
+              <span className="text-[10px] font-bold tracking-[0.25em] text-slate-300 uppercase">Distributors</span>
+              <div className="h-px flex-1 bg-gradient-to-l from-emerald-500/60 to-transparent"></div>
+            </div>
+          </div>
         </div>
 
         {/* Glassmorphic Login Card */}
