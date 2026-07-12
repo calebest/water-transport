@@ -131,15 +131,23 @@ export const financeService = {
         callback([]);
         return () => {};
     }
-    supabase.from('broker_ledger').select('*, trips(location)').eq('broker_id', brokerId).then(({ data, error }) => {
+    
+    const sortLedger = (a, b) => {
+      const dateCompare = (a.date || "").localeCompare(b.date || "");
+      if (dateCompare !== 0) return dateCompare;
+      
+      const numA = parseInt(String(a.trips?.trip_number || a.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.trips?.trip_number || b.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      if (numA !== numB) return numA - numB;
+
+      if (a.type === "remittance" && b.type !== "remittance") return 1;
+      if (a.type !== "remittance" && b.type === "remittance") return -1;
+      return 0;
+    };
+
+    supabase.from('broker_ledger').select('*, trips(location, trip_number)').eq('broker_id', brokerId).then(({ data, error }) => {
       if (!error && data) {
-        data.sort((a, b) => {
-          const dateCompare = (a.date || "").localeCompare(b.date || "");
-          if (dateCompare !== 0) return dateCompare;
-          if (a.type === "remittance" && b.type !== "remittance") return 1;
-          if (a.type !== "remittance" && b.type === "remittance") return -1;
-          return 0;
-        });
+        data.sort(sortLedger);
         callback(data);
       }
     });
@@ -147,15 +155,9 @@ export const financeService = {
     const channel = supabase
       .channel(`public:broker_ledger:${brokerId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'broker_ledger', filter: `broker_id=eq.${brokerId}` }, async () => {
-        const { data } = await supabase.from('broker_ledger').select('*, trips(location)').eq('broker_id', brokerId);
+        const { data } = await supabase.from('broker_ledger').select('*, trips(location, trip_number)').eq('broker_id', brokerId);
         if (data) {
-          data.sort((a, b) => {
-            const dateCompare = (a.date || "").localeCompare(b.date || "");
-            if (dateCompare !== 0) return dateCompare;
-            if (a.type === "remittance" && b.type !== "remittance") return 1;
-            if (a.type !== "remittance" && b.type === "remittance") return -1;
-            return 0;
-          });
+          data.sort(sortLedger);
           callback(data);
         }
       })
@@ -183,15 +185,22 @@ export const financeService = {
   },
 
   subscribePersonnelLedger: (personnelId, callback) => {
-    supabase.from('personnel_ledger').select('*').eq('personnel_id', personnelId).then(({ data, error }) => {
+    const sortLedger = (a, b) => {
+      const dateCompare = (a.date || "").localeCompare(b.date || "");
+      if (dateCompare !== 0) return dateCompare;
+      
+      const numA = parseInt(String(a.trips?.trip_number || a.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.trips?.trip_number || b.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      if (numA !== numB) return numA - numB;
+
+      if (a.type === "payment" && b.type !== "payment") return 1;
+      if (a.type !== "payment" && b.type === "payment") return -1;
+      return 0;
+    };
+
+    supabase.from('personnel_ledger').select('*, trips(trip_number)').eq('personnel_id', personnelId).then(({ data, error }) => {
       if (!error && data) {
-        data.sort((a, b) => {
-          const dateCompare = (a.date || "").localeCompare(b.date || "");
-          if (dateCompare !== 0) return dateCompare;
-          if (a.type === "payment" && b.type !== "payment") return 1;
-          if (a.type !== "payment" && b.type === "payment") return -1;
-          return 0;
-        });
+        data.sort(sortLedger);
         callback(data);
       }
     });
@@ -199,15 +208,9 @@ export const financeService = {
     const channel = supabase
       .channel(`public:personnel_ledger:personnel_id=eq.${personnelId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'personnel_ledger', filter: `personnel_id=eq.${personnelId}` }, async () => {
-        const { data } = await supabase.from('personnel_ledger').select('*').eq('personnel_id', personnelId);
+        const { data } = await supabase.from('personnel_ledger').select('*, trips(trip_number)').eq('personnel_id', personnelId);
         if (data) {
-          data.sort((a, b) => {
-            const dateCompare = (a.date || "").localeCompare(b.date || "");
-            if (dateCompare !== 0) return dateCompare;
-            if (a.type === "payment" && b.type !== "payment") return 1;
-            if (a.type !== "payment" && b.type === "payment") return -1;
-            return 0;
-          });
+          data.sort(sortLedger);
           callback(data);
         }
       })
@@ -217,15 +220,34 @@ export const financeService = {
   },
 
   subscribeAllPersonnelLedger: (callback) => {
-    supabase.from('personnel_ledger').select('*').then(({ data, error }) => {
-      if (!error && data) callback(data);
+    const sortLedger = (a, b) => {
+      const dateCompare = (a.date || "").localeCompare(b.date || "");
+      if (dateCompare !== 0) return dateCompare;
+      
+      const numA = parseInt(String(a.trips?.trip_number || a.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.trips?.trip_number || b.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      if (numA !== numB) return numA - numB;
+
+      if (a.type === "payment" && b.type !== "payment") return 1;
+      if (a.type !== "payment" && b.type === "payment") return -1;
+      return 0;
+    };
+
+    supabase.from('personnel_ledger').select('*, trips(trip_number)').then(({ data, error }) => {
+      if (!error && data) {
+        data.sort(sortLedger);
+        callback(data);
+      }
     });
 
     const channel = supabase
       .channel('public:personnel_ledger')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'personnel_ledger' }, async () => {
-        const { data } = await supabase.from('personnel_ledger').select('*');
-        if (data) callback(data);
+        const { data } = await supabase.from('personnel_ledger').select('*, trips(trip_number)');
+        if (data) {
+          data.sort(sortLedger);
+          callback(data);
+        }
       })
       .subscribe();
       
