@@ -176,14 +176,22 @@ export default function PersonnelPage({ personnel, trips }) {
       <Modal open={!!editPerson} onClose={() => setEditPerson(null)} title="Edit Person">
         {editPerson && <PersonnelForm initial={editPerson} onSave={d => personnelService.update(editPerson.id, d)} onCancel={() => setEditPerson(null)} />}
       </Modal>
-      <Modal open={!!delPerson} onClose={() => setDelPerson(null)} title="Remove Person">
+      <Modal open={!!delPerson} onClose={() => setDelPerson(null)} title="Delete Person">
         {delPerson && (
           <div className="space-y-4">
-            <p className="text-slate-600">Remove <strong>{delPerson.name}</strong> from the system? This will not affect existing trip records.</p>
+            <div className="rounded-xl bg-rose-50 border border-rose-200 p-4">
+              <p className="text-sm font-bold text-rose-700 mb-1">⚠️ This action is permanent and cannot be undone.</p>
+              <p className="text-sm text-rose-600">Deleting <strong>{delPerson.name}</strong> will:</p>
+              <ul className="text-sm text-rose-600 list-disc list-inside mt-1 space-y-0.5">
+                <li>Remove all their ledger earnings & payment history</li>
+                <li>Remove any loans linked to them</li>
+                <li>Unlink them from historical trip records (trips remain, driver/conductor will show as blank)</li>
+              </ul>
+            </div>
             <div className="flex gap-3">
               <button onClick={() => setDelPerson(null)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
               <button onClick={async () => { await personnelService.delete(delPerson.id); setDelPerson(null); }}
-                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700">Remove</button>
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700">Delete Permanently</button>
             </div>
           </div>
         )}
