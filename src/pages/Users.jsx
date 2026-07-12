@@ -120,18 +120,15 @@ export default function UsersPage({ personnel = [] }) {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      // Try RPC first (if delete_user function exists in Supabase)
       const { error } = await supabase.rpc("delete_user", { target_user_id: deleteTarget.id });
       if (error) {
-        // Fallback: soft-delete by clearing the profile
+        // RPC failed — fall back to deleting just the profile row
+        // (auth account may still exist in Supabase but they can't use the app)
         const { error: profileErr } = await supabase
           .from("profiles")
           .delete()
           .eq("id", deleteTarget.id);
         if (profileErr) throw profileErr;
-        alert(
-          "Profile removed. The auth account still exists — delete it in Supabase Dashboard > Authentication if needed."
-        );
       }
       setDeleteTarget(null);
       fetchProfiles();
