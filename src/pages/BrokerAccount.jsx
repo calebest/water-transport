@@ -84,14 +84,26 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
   const handleSettle = async (e) => {
     e.preventDefault();
     if (Number(form.amount) <= 0) return alert("Amount must be positive");
+    setSaving(true);
     try {
       await financeService.makeBrokerSettlement(activeBrokerId, form.amount, {
         date: form.date, method: form.method, notes: form.notes
       });
       setModalOpen(false);
       setForm({ amount: "", method: "Cash", date: today(), notes: "" });
-    } catch (err) {
-      alert("Error: " + err.message);
+    } catch (e) {
+      alert("Error: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteSettlement = async (settlementId) => {
+    if (!confirm("Are you sure you want to delete this settlement? This will reverse the paid status of all associated trips and revert their balances. This action cannot be undone.")) return;
+    try {
+      await financeService.deleteBrokerSettlement(settlementId);
+    } catch (e) {
+      alert("Error deleting settlement: " + e.message);
     }
   };
 
@@ -179,7 +191,14 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
                           {row.type === "revenue" ? "Trip Revenue" : row.type === "expense_paid" ? "Expense Paid" : "Settlement"}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 truncate max-w-[200px]">{row.notes}</td>
+                      <td className="px-4 py-3 truncate max-w-[200px]">
+                        {row.notes}
+                        {row.type === "remittance" && row.settlement_id && (
+                          <button onClick={() => handleDeleteSettlement(row.settlement_id)} className="ml-3 text-rose-400 hover:text-rose-600 font-bold text-xs" title="Undo / Delete this Settlement">
+                            Undo
+                          </button>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right text-rose-500 font-semibold">
                         {row.type !== "revenue" ? fmt(row.amount) : "—"}
                       </td>
@@ -248,6 +267,10 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
 
       {/* Settlement Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={`Record Settlement — ${activeBroker?.name || ""}`}>
+        <div className="mb-4 p-4 rounded-xl bg-blue-50 border border-blue-100 text-sm text-blue-800">
+          <p className="font-bold mb-1">What is a Settlement?</p>
+          <p>This is used when a broker pays you the money they collected from trips. Recording a settlement automatically distributes the payment across their oldest unpaid trips and marks them as Paid. If you make a mistake, you can click "Undo" next to the settlement in the ledger.</p>
+        </div>
         <form onSubmit={handleSettle} className="space-y-4">
           <div className="rounded-lg bg-amber-50 p-4 border border-amber-100 mb-4">
             <p className="text-sm text-amber-800">

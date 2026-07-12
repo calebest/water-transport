@@ -95,6 +95,37 @@ export const financeService = {
     return settlementId;
   },
 
+  deleteBrokerSettlement: async (settlementId) => {
+    // 1. Fetch the settlement to see which trips were affected
+    const { data: settlement, error: fetchError } = await supabase
+      .from('settlements')
+      .select('*')
+      .eq('id', settlementId)
+      .single();
+    if (fetchError) throw fetchError;
+
+    const linkedTrips = settlement.linked_trips || [];
+
+    // 2. Reverse the payments on those trips
+    for (const link of linkedTrips) {
+      const { data: trip } = await supabase.from('trips').select('amount_paid, revenue').eq('id', link.tripId).single();
+      if (!trip) continue;
+      
+      const newAmountPaid = Math.max(0, Number(trip.amount_paid || 0) - Number(link.applied || 0));
+      const newStatus = newAmountPaid <= 0 ? "Pending" : (newAmountPaid >= Number(trip.revenue) ? "Paid" : "Partial");
+      
+      await supabase.from('trips').update({
+        amount_paid: newAmountPaid,
+        status: newStatus,
+        paid_at: newStatus === "Paid" ? new Date().toISOString() : null
+      }).eq('id', link.tripId);
+    }
+
+    // 3. Delete the settlement record (broker_ledger entry cascades automatically)
+    const { error: delError } = await supabase.from('settlements').delete().eq('id', settlementId);
+    if (delError) throw delError;
+  },
+
   subscribeBrokerLedger: (brokerId, callback) => {
     if (!brokerId) {
         callback([]);
