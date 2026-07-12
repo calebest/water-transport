@@ -8,15 +8,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
   const [ledger, setLedger] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [expandedTrips, setExpandedTrips] = useState(new Set());
-  const [expandedDates, setExpandedDates] = useState(new Set());
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ amount: "", method: "Cash", date: today(), notes: "Payment via Cash" });
-
-  const toggleDate = (date) => setExpandedDates(prev => {
-    const next = new Set(prev);
-    if (next.has(date)) next.delete(date); else next.add(date);
-    return next;
-  });
 
   const toggleTrip = (id) => {
     setExpandedTrips(prev => {
@@ -46,10 +39,12 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
 
   const activeBroker = useMemo(() => brokers.find(b => b.id === activeBrokerId), [brokers, activeBrokerId]);
 
-  const { totalRevenue, totalExpenses, totalRemitted, currentBalance, dateGroups } = useMemo(() => {
+  const { totalRevenue, totalExpenses, totalRemitted, currentBalance, groupedLedger } = useMemo(() => {
     let tr = 0, te = 0, trm = 0, cb = 0;
+    const groups = [];
+    const tripMap = new Map();
 
-    // Build date-keyed groups
+    ledger.forEach(entry => {
       const amt = Number(entry.amount || 0);
       if (entry.type === "revenue") { tr += amt; cb += amt; }
       else if (entry.type === "expense_paid") { te += amt; cb -= amt; }
@@ -86,77 +81,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         group.runningBalance = cb;
       }
     });
-    // Build date-keyed groups
-    const dateMap = new Map();
-    const getDateGroup = (date) => {
-      if (!dateMap.has(date)) dateMap.set(date, { date, revenue: 0, expenses: 0, remitted: 0, rows: [] });
-      return dateMap.get(date);
-    };
-
-    const tripMap = new Map();
-
-    const sortedLedger = [...ledger].sort((a, b) => {
-      const dc = (a.date || "").localeCompare(b.date || "");
-      if (dc !== 0) return dc;
-      if (a.type === "remittance" && b.type !== "remittance") return 1;
-      if (a.type !== "remittance" && b.type === "remittance") return -1;
-      return 0;
-    });
-
-    sortedLedger.forEach(entry => {
-      const amt = Number(entry.amount || 0);
-      if (entry.type === "revenue") { tr += amt; cb += amt; }
-      else if (entry.type === "expense_paid") { te += amt; cb -= amt; }
-      else if (entry.type === "remittance") { trm += amt; cb -= amt; }
-      entry.runningBalance = cb;
-
-      const dg = getDateGroup(entry.date);
-      if (entry.type === "revenue") dg.revenue += amt;
-      if (entry.type === "expense_paid") dg.expenses += amt;
-      if (entry.type === "remittance") dg.remitted += amt;
-
-      if (entry.type === "remittance" || !entry.trip_id) {
-        dg.rows.push({ isGroup: false, ...entry });
-      } else {
-        if (!tripMap.has(entry.trip_id)) {
-          const tripName = entry.notes.split(' - ')[0].replace(' Expenses Paid', '');
-          const location = entry.trips?.location || "";
-          const newGroup = { isGroup: true, id: entry.trip_id, trip_id: entry.trip_id,
-            date: entry.date, notes: tripName, location, revenue: 0, expenses: 0, items: [], runningBalance: 0 };
-          tripMap.set(entry.trip_id, newGroup);
-          dg.rows.push(newGroup);
-        }
-        const group = tripMap.get(entry.trip_id);
-        group.items.push(entry);
-        if (entry.type === "revenue") group.revenue += amt;
-        if (entry.type === "expense_paid") group.expenses += amt;
-        group.runningBalance = cb;
-      }
-    });
-
-    // Sort rows within each date: trips by number, remittances last
-    dateMap.forEach(dg => {
-      dg.rows.sort((a, b) => {
-        if (a.isGroup && !b.isGroup) return -1;
-        if (!a.isGroup && b.isGroup) return 1;
-        const nA = parseInt(String(a.notes || "0").replace(/\D/g, ""), 10) || 0;
-        const nB = parseInt(String(b.notes || "0").replace(/\D/g, ""), 10) || 0;
-        return nA - nB;
-      });
-    });
-
-    // Sorted date groups: newest first
-    const dateGroups = [...dateMap.values()].sort((a, b) => b.date.localeCompare(a.date));
-
-    return { totalRevenue: tr, totalExpenses: te, totalRemitted: trm, currentBalance: cb, dateGroups };
+    return { totalRevenue: tr, totalExpenses: te, totalRemitted: trm, currentBalance: cb, groupedLedger: groups.reverse() };
   }, [ledger]);
-
-  // Auto-expand the first (newest) date when broker changes
-  useEffect(() => {
-    if (dateGroups && dateGroups.length > 0) {
-      setExpandedDates(new Set([dateGroups[0].date]));
-    }
-  }, [activeBrokerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSettle = async (e) => {
     e.preventDefault();
@@ -238,109 +164,108 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         <StatCard label="Total Remitted" value={fmt(totalRemitted)} icon="🏦" color="green" />
       </div>
 
-      {/* Ledger History — Date-grouped collapsible */}
-      <div className="space-y-3">
-        <div className="px-1">
-          <h3 className="font-bold text-slate-800 text-lg">Ledger History — <span className="text-emerald-600">{activeBroker?.name || "..."}</span></h3>
+      {/* Ledger Table */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+          <h3 className="font-bold text-slate-800">
+            Ledger History — <span className="text-emerald-600">{activeBroker?.name || "..."}</span>
+          </h3>
         </div>
-        {ledger.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm py-12 text-center text-slate-400">
-            No ledger entries for {activeBroker?.name || "this broker"} yet.
-          </div>
-        ) : dateGroups.map(dg => {
-          const isOpen = expandedDates.has(dg.date);
-          return (
-            <div key={dg.date} className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-              {/* Date header */}
-              <div
-                onClick={() => toggleDate(dg.date)}
-                className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-slate-400">{isOpen ? "▼" : "▶"}</span>
-                  <h4 className="font-bold text-slate-800 text-base">{dg.date}</h4>
-                  <Badge color="slate">{dg.rows.length} entries</Badge>
-                </div>
-                <div className="flex items-center gap-4 text-sm font-medium flex-wrap">
-                  {dg.revenue > 0 && <span className="text-blue-600">Rev: {fmt(dg.revenue)}</span>}
-                  {dg.expenses > 0 && <span className="text-rose-500">Exp: {fmt(dg.expenses)}</span>}
-                  {dg.remitted > 0 && <span className="text-emerald-600">Paid: {fmt(dg.remitted)}</span>}
-                </div>
-              </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-400">
+              <tr>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Notes / Trip</th>
+                <th className="px-4 py-3 text-right">Debit (-)</th>
+                <th className="px-4 py-3 text-right">Credit (+)</th>
+                <th className="px-4 py-3 text-right">Balance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {groupedLedger.map((row, idx) => {
+                if (!row.isGroup) {
+                  return (
+                    <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap font-medium">{row.date}</td>
+                      <td className="px-4 py-3">
+                        <Badge color={row.type === "revenue" ? "blue" : row.type === "expense_paid" ? "amber" : "green"}>
+                          {row.type === "revenue" ? "Trip Revenue" : row.type === "expense_paid" ? "Expense Paid" : "Settlement"}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 truncate max-w-[200px]">
+                        {row.notes}
+                        {row.type === "remittance" && row.settlement_id && (
+                          <button onClick={() => handleDeleteSettlement(row.settlement_id)} className="ml-3 text-rose-400 hover:text-rose-600 font-bold text-xs" title="Undo / Delete this Settlement">
+                            Undo
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-rose-500 font-semibold">
+                        {row.type !== "revenue" ? fmt(row.amount) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-emerald-600 font-semibold">
+                        {row.type === "revenue" ? fmt(row.amount) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
+                    </tr>
+                  );
+                }
 
-              {isOpen && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-slate-600">
-                    <thead className="bg-slate-50/50 text-xs uppercase text-slate-400">
-                      <tr>
-                        <th className="px-4 py-2">Type / Trip</th>
-                        <th className="px-4 py-2">Notes</th>
-                        <th className="px-4 py-2 text-right">Debit (−)</th>
-                        <th className="px-4 py-2 text-right">Credit (+)</th>
-                        <th className="px-4 py-2 text-right">Balance</th>
+                const isExpanded = expandedTrips.has(row.trip_id);
+                return (
+                  <React.Fragment key={row.trip_id}>
+                    <tr 
+                      onClick={() => toggleTrip(row.trip_id)} 
+                      className="hover:bg-slate-100 transition-colors cursor-pointer border-b border-slate-100 group bg-slate-50/30"
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-700">
+                        {row.date}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge color="purple">{row.location ? row.location : "Trip Summary"}</Badge>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-slate-800 flex items-center gap-2">
+                        {row.notes} 
+                        <span className={`text-xs text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-rose-500 font-semibold">
+                        {row.expenses > 0 ? fmt(row.expenses) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-emerald-600 font-semibold">
+                        {row.revenue > 0 ? fmt(row.revenue) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
+                    </tr>
+                    
+                    {isExpanded && row.items.map(item => (
+                      <tr key={item.id} className="bg-slate-50/80 text-xs border-b border-slate-50 last:border-b-0">
+                        <td className="px-4 py-2 pl-8 text-slate-400">{item.date}</td>
+                        <td className="px-4 py-2">
+                          <span className={`px-2 py-0.5 rounded-md ${item.type === "revenue" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                            {item.type === "revenue" ? "Revenue" : "Expense"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-slate-600 truncate max-w-[200px]">{item.notes}</td>
+                        <td className="px-4 py-2 text-right text-rose-400">{item.type !== "revenue" ? fmt(item.amount) : "—"}</td>
+                        <td className="px-4 py-2 text-right text-emerald-500">{item.type === "revenue" ? fmt(item.amount) : "—"}</td>
+                        <td className="px-4 py-2 text-right text-slate-400">...</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {dg.rows.map((row, idx) => {
-                        if (!row.isGroup) {
-                          return (
-                            <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3">
-                                <Badge color={row.type === "revenue" ? "blue" : row.type === "expense_paid" ? "amber" : "green"}>
-                                  {row.type === "revenue" ? "Trip Revenue" : row.type === "expense_paid" ? "Expense Paid" : "Settlement"}
-                                </Badge>
-                              </td>
-                              <td className="px-4 py-3 max-w-[200px]">
-                                {row.notes}
-                                {row.type === "remittance" && row.settlement_id && (
-                                  <button onClick={() => handleDeleteSettlement(row.settlement_id)} className="ml-3 text-rose-400 hover:text-rose-600 font-bold text-xs" title="Undo / Delete this Settlement">Undo</button>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right text-rose-500 font-semibold">{row.type !== "revenue" ? fmt(row.amount) : "—"}</td>
-                              <td className="px-4 py-3 text-right text-emerald-600 font-semibold">{row.type === "revenue" ? fmt(row.amount) : "—"}</td>
-                              <td className="px-4 py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
-                            </tr>
-                          );
-                        }
-
-                        const isExpanded = expandedTrips.has(row.trip_id);
-                        return (
-                          <React.Fragment key={row.trip_id}>
-                            <tr onClick={() => toggleTrip(row.trip_id)} className="hover:bg-slate-100 transition-colors cursor-pointer group bg-slate-50/40">
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  <Badge color="purple">{row.location || "Trip"}</Badge>
-                                  <span className={`text-xs text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 font-semibold text-slate-800">{row.notes}</td>
-                              <td className="px-4 py-3 text-right text-rose-500 font-semibold">{row.expenses > 0 ? fmt(row.expenses) : "—"}</td>
-                              <td className="px-4 py-3 text-right text-emerald-600 font-semibold">{row.revenue > 0 ? fmt(row.revenue) : "—"}</td>
-                              <td className="px-4 py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
-                            </tr>
-                            {isExpanded && row.items.map(item => (
-                              <tr key={item.id} className="bg-slate-50/80 text-xs border-b border-slate-50">
-                                <td className="px-4 py-2 pl-8">
-                                  <span className={`px-2 py-0.5 rounded-md ${item.type === "revenue" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
-                                    {item.type === "revenue" ? "Revenue" : "Expense"}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-2 text-slate-600 truncate max-w-[200px]">{item.notes}</td>
-                                <td className="px-4 py-2 text-right text-rose-400">{item.type !== "revenue" ? fmt(item.amount) : "—"}</td>
-                                <td className="px-4 py-2 text-right text-emerald-500">{item.type === "revenue" ? fmt(item.amount) : "—"}</td>
-                                <td className="px-4 py-2 text-right text-slate-400">—</td>
-                              </tr>
-                            ))}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+              {ledger.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-4 py-8 text-center text-slate-400">
+                    No ledger entries for {activeBroker?.name || "this broker"} yet.
+                  </td>
+                </tr>
               )}
-            </div>
-          );
-        })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Settlement Modal */}
