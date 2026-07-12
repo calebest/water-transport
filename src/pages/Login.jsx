@@ -20,6 +20,7 @@ export default function LoginPage() {
 
   const inp = "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100 pr-11";
 
+  return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-900">
       {/* Background Image with slight scale for premium feel */}
       <div 
