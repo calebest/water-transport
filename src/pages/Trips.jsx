@@ -402,8 +402,8 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
           <span className="text-blue-600">Rev: {fmt(group.summary.revenue)}</span>
           <span className="text-rose-500">Op Exp: {fmt(group.summary.operatingExpenses)}</span>
           <span className="text-amber-600">Ded: {fmt(group.summary.deductions)}</span>
-          <span className={`font-bold ${group.summary.netProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-            Net: {fmt(group.summary.netProfit)}
+          <span className={`font-bold ${group.summary.operatingProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+            Op Profit: {fmt(group.summary.operatingProfit)}
           </span>
         </div>
       </div>
