@@ -114,7 +114,7 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
               onChange={e => setSelectedPersonnelId(e.target.value)}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-sm min-w-[160px]"
             >
-              {personnelList.map(p => (
+              {personnelList.filter(p => p.status !== "Inactive" || p.id === activePersonnelId).map(p => (
                 <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
               ))}
             </select>
