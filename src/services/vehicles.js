@@ -21,7 +21,7 @@ export const vehicleService = {
     if (error) throw error;
     return inserted;
   },
-  
+
   update: async (id, data) => {
     const { error } = await supabase
       .from('vehicles')
@@ -44,18 +44,27 @@ export const vehicleService = {
     const channelId = `vehicles-${Math.random().toString(36).slice(2)}`;
     let mounted = true;
 
-    fetchVehicles().then(data => { if (mounted) callback(data); });
+    const refresh = async () => {
+      const data = await fetchVehicles();
+      if (mounted) callback(data);
+    };
+
+    refresh();
 
     const channel = supabase
       .channel(channelId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, async () => {
-        const data = await fetchVehicles();
-        if (mounted) callback(data);
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, refresh)
       .subscribe();
-      
+
+    const handleMutation = () => {
+      refresh();
+    };
+
+    window.addEventListener('db_mutated', handleMutation);
+
     return () => {
       mounted = false;
+      window.removeEventListener('db_mutated', handleMutation);
       supabase.removeChannel(channel);
     };
   }

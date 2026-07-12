@@ -1,5 +1,9 @@
 import { supabase } from "./supabase";
 
+const refreshLocations = (callback, data) => {
+  if (typeof callback === 'function') callback(data);
+};
+
 const fetchLocations = async () => {
   const { data, error } = await supabase.from('locations').select('*').order('name');
   if (error) { console.error("locations fetch error:", error.message); return []; }
@@ -19,7 +23,7 @@ export const locationService = {
     if (error) throw error;
     return inserted;
   },
-  
+
   update: async (id, data) => {
     const { error } = await supabase
       .from('locations')
@@ -40,18 +44,27 @@ export const locationService = {
     const channelId = `locations-${Math.random().toString(36).slice(2)}`;
     let mounted = true;
 
-    fetchLocations().then(data => { if (mounted) callback(data); });
+    const refresh = async () => {
+      const data = await fetchLocations();
+      if (mounted) refreshLocations(callback, data);
+    };
+
+    refresh();
 
     const channel = supabase
       .channel(channelId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, async () => {
-        const data = await fetchLocations();
-        if (mounted) callback(data);
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, refresh)
       .subscribe();
-      
+
+    const handleMutation = () => {
+      refresh();
+    };
+
+    window.addEventListener('db_mutated', handleMutation);
+
     return () => {
       mounted = false;
+      window.removeEventListener('db_mutated', handleMutation);
       supabase.removeChannel(channel);
     };
   }
