@@ -39,7 +39,7 @@ export default function LoginPage() {
             <span className="text-3xl">🚛</span>
           </div>
           <div className="space-y-1">
-            <p className="text-[11px] font-bold tracking-[0.3em] text-emerald-400/80 uppercase">Est. Mount Kenya</p>
+            <p className="text-[11px] font-bold tracking-[0.3em] text-emerald-400/80 uppercase">Mount Kenya</p>
             <h1 className="text-4xl font-black text-white tracking-tight drop-shadow-lg leading-none">
               WATER
             </h1>
