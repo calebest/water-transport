@@ -6,18 +6,18 @@ export function StatCard({ label, value, icon, color = "green", sub }) {
     amber: { icon: "bg-amber-100 text-amber-600", glow: "bg-amber-400" },
     slate: { icon: "bg-slate-100 text-slate-600", glow: "bg-slate-400" },
   };
-  
+
   const theme = colorMap[color] || colorMap.green;
-  
+
   return (
-    <div className="group relative overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:-translate-y-0.5">
-      <div className="flex min-w-0 items-start justify-between gap-3 relative z-10">
+    <div className="group relative overflow-hidden rounded-2xl bg-white p-3.5 sm:p-5 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:-translate-y-0.5">
+      <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-3 relative z-10">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest truncate">{label}</p>
-          <p className="mt-1.5 text-xl md:text-2xl font-black tracking-tight text-slate-800">{value}</p>
-          {sub && <p className="mt-1 text-xs font-medium text-slate-400 truncate">{sub}</p>}
+          <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-widest truncate">{label}</p>
+          <p className="mt-1.5 text-base sm:text-xl md:text-2xl font-black tracking-tight text-slate-800 break-words leading-tight">{value}</p>
+          {sub && <p className="mt-1 text-[10px] sm:text-xs font-medium text-slate-400 truncate">{sub}</p>}
         </div>
-        <div className={`shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl text-2xl transition-transform group-hover:scale-110 ${theme.icon}`}>
+        <div className={`shrink-0 flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-2xl text-lg sm:text-2xl transition-transform group-hover:scale-110 ${theme.icon}`}>
           {icon}
         </div>
       </div>
