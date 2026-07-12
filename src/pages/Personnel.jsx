@@ -13,10 +13,11 @@ export default function PersonnelPage({ personnel, trips }) {
   const [delPerson, setDelPerson] = useState(null);
   const [selected, setSelected] = useState(null);
   const [filterRole, setFilterRole] = useState("All");
+  const [showInactive, setShowInactive] = useState(false);
 
   const filtered = useMemo(() =>
-    personnel.filter(p => filterRole === "All" || p.role === filterRole || p.role === "Both"),
-    [personnel, filterRole]
+    personnel.filter(p => (filterRole === "All" || p.role === filterRole || p.role === "Both") && (showInactive || p.status !== "Inactive")),
+    [personnel, filterRole, showInactive]
   );
 
   // Person profile view
@@ -118,13 +119,17 @@ export default function PersonnelPage({ personnel, trips }) {
         )}
       </div>
 
-      <div className="flex gap-2 mobile-control-rail">
+      <div className="flex flex-wrap gap-2 items-center mobile-control-rail">
         {["All", ...ROLES].map(r => (
           <button key={r} onClick={() => setFilterRole(r)}
             className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${filterRole === r ? "bg-emerald-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
             {r}
           </button>
         ))}
+        <button onClick={() => setShowInactive(v => !v)}
+          className={`ml-auto rounded-lg px-3 py-1.5 text-xs font-bold border transition-colors ${showInactive ? "bg-slate-700 text-white border-slate-700" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}>
+          {showInactive ? "👁 Hiding Inactive" : "👁 Show Inactive"}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -149,6 +154,16 @@ export default function PersonnelPage({ personnel, trips }) {
                 </div>
                 {isAdmin && (
                   <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => personnelService.update(p.id, { ...p, status: p.status === "Active" ? "Inactive" : "Active" })}
+                      title={p.status === "Active" ? "Mark as Inactive (hides from dropdowns)" : "Mark as Active"}
+                      className={`rounded-lg px-2 py-1 text-[10px] font-bold border transition-colors ${
+                        p.status === "Active"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
+                          : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+                      }`}>
+                      {p.status === "Active" ? "✓ Active" : "⊘ Inactive"}
+                    </button>
                     <button onClick={() => setEditPerson(p)} className="text-blue-500 hover:text-blue-700 p-1" title="Edit Person">✏️</button>
                     <button onClick={() => setDelPerson(p)} className="text-rose-500 hover:text-rose-700 p-1" title="Delete Person">🗑️</button>
                   </div>
