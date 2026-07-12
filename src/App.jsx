@@ -195,7 +195,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center text-xl shadow">🚛</div>
             <div>
-              <p className="text-sm font-black text-slate-800 leading-tight">Mount Kenya Water<br/><span className="text-emerald-600 text-[10px]">Distributors</span></p>
+              <p className="text-xs font-black text-slate-800 leading-tight">Mount Kenya Water Distributors</p>
               <p className="text-xs text-slate-400">Manager</p>
             </div>
           </div>
@@ -244,7 +244,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             <div className="min-w-0">
               <span className="text-xl">🚛</span>
               <div className="min-w-0">
-                <p className="truncate text-sm font-black leading-tight text-slate-800">Mount Kenya Water</p>
+                <p className="truncate text-xs font-black leading-tight text-slate-800">Mount Kenya Water Distributors</p>
                 <p className="truncate text-[11px] text-slate-500">{activeNavItem?.label || "Dashboard"}</p>
               </div>
             </div>
