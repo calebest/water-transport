@@ -81,7 +81,19 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         group.runningBalance = cb;
       }
     });
-    return { totalRevenue: tr, totalExpenses: te, totalRemitted: trm, currentBalance: cb, groupedLedger: groups.reverse() };
+    // Sort: newest date first, then trip number ascending within same date, remittances last within a date
+    const sorted = groups.sort((a, b) => {
+      const dateCompare = (b.date || "").localeCompare(a.date || "");
+      if (dateCompare !== 0) return dateCompare;
+      // remittances/non-trip go after trip groups on the same date
+      if (a.isGroup && !b.isGroup) return -1;
+      if (!a.isGroup && b.isGroup) return 1;
+      // both trip groups — sort by trip number numerically
+      const numA = parseInt(String(a.notes || "0").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.notes || "0").replace(/\D/g, ""), 10) || 0;
+      return numA - numB;
+    });
+    return { totalRevenue: tr, totalExpenses: te, totalRemitted: trm, currentBalance: cb, groupedLedger: sorted };
   }, [ledger]);
 
   const handleSettle = async (e) => {
