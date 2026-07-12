@@ -156,12 +156,20 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Outstanding Balance" value={fmt(currentBalance)} icon="💸" color={currentBalance > 0 ? "red" : "slate"} />
-        <StatCard label="Total Revenue (Trips)" value={fmt(totalRevenue)} icon="💰" color="blue" />
-        <StatCard label="Expenses Paid by Broker" value={fmt(totalExpenses)} icon="📉" color="amber" />
-        <StatCard label="Total Remitted" value={fmt(totalRemitted)} icon="🏦" color="green" />
+      {/* Stats - Horizontal Scroll on Mobile, Grid on Desktop */}
+      <div className="flex overflow-x-auto pb-4 -mb-4 snap-x snap-mandatory gap-3 hide-scrollbar sm:grid sm:grid-cols-2 lg:grid-cols-4">
+        <div className="min-w-[85vw] sm:min-w-0 snap-center">
+          <StatCard label="Outstanding Balance" value={fmt(currentBalance)} icon="💸" color={currentBalance > 0 ? "red" : "slate"} />
+        </div>
+        <div className="min-w-[85vw] sm:min-w-0 snap-center">
+          <StatCard label="Total Revenue (Trips)" value={fmt(totalRevenue)} icon="💰" color="blue" />
+        </div>
+        <div className="min-w-[85vw] sm:min-w-0 snap-center">
+          <StatCard label="Expenses Paid by Broker" value={fmt(totalExpenses)} icon="📉" color="amber" />
+        </div>
+        <div className="min-w-[85vw] sm:min-w-0 snap-center">
+          <StatCard label="Total Remitted" value={fmt(totalRemitted)} icon="🏦" color="green" />
+        </div>
       </div>
 
       {/* Ledger Table */}
