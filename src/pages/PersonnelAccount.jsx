@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { financeService } from "../services/finance";
 import { fmt, today } from "../utils/helpers";
 import { Modal, StatCard, Badge } from "../components/ui";
@@ -7,6 +7,16 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
   const [ledger, setLedger] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ amount: "", date: today(), notes: "" });
+  const [expandedTrips, setExpandedTrips] = useState(new Set());
+
+  const toggleTrip = (id) => {
+    setExpandedTrips(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const [selectedPersonnelId, setSelectedPersonnelId] = useState("");
 
@@ -22,15 +32,44 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
     return () => unsub();
   }, [activePersonnelId]);
 
-  const { totalEarned, totalPaid, currentBalance } = useMemo(() => {
+  const { totalEarned, totalPaid, currentBalance, groupedLedger } = useMemo(() => {
     let te = 0, tp = 0, cb = 0;
+    const groups = [];
+    const tripMap = new Map();
+
     ledger.forEach(entry => {
       const amt = Number(entry.amount || 0);
       if (entry.type === "earning") { te += amt; cb += amt; }
       else if (entry.type === "payment") { tp += amt; cb -= amt; }
+      
       entry.runningBalance = cb;
+
+      if (entry.type === "payment" || !entry.trip_id) {
+        groups.push({ isGroup: false, ...entry });
+      } else {
+        if (!tripMap.has(entry.trip_id)) {
+          const tripName = entry.notes.split(' - ')[0].replace(' Earnings', '').replace(' Expenses Reimbursed', '');
+          const newGroup = {
+            isGroup: true,
+            id: entry.trip_id,
+            trip_id: entry.trip_id,
+            date: entry.date,
+            notes: tripName,
+            earnings: 0,
+            items: [],
+            runningBalance: 0
+          };
+          tripMap.set(entry.trip_id, newGroup);
+          groups.push(newGroup);
+        }
+        const group = tripMap.get(entry.trip_id);
+        group.items.push(entry);
+        
+        if (entry.type === "earning") group.earnings += amt;
+        group.runningBalance = cb;
+      }
     });
-    return { totalEarned: te, totalPaid: tp, currentBalance: cb };
+    return { totalEarned: te, totalPaid: tp, currentBalance: cb, groupedLedger: groups.reverse() };
   }, [ledger]);
 
   const handlePay = async (e) => {
@@ -111,24 +150,69 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {[...ledger].reverse().map((entry, idx) => (
-                <tr key={entry.id || idx} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 whitespace-nowrap font-medium">{entry.date}</td>
-                  <td className="px-4 py-3">
-                    <Badge color={entry.type === "earning" ? "blue" : "green"}>
-                      {entry.type === "earning" ? "Earning" : "Payment"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 truncate max-w-[200px]">{entry.notes}</td>
-                  <td className="px-4 py-3 text-right text-rose-500 font-semibold">
-                    {entry.type === "payment" ? fmt(entry.amount) : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right text-emerald-600 font-semibold">
-                    {entry.type === "earning" ? fmt(entry.amount) : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right font-bold text-slate-800">{fmt(entry.runningBalance)}</td>
-                </tr>
-              ))}
+              {groupedLedger.map((row, idx) => {
+                if (!row.isGroup) {
+                  return (
+                    <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap font-medium">{row.date}</td>
+                      <td className="px-4 py-3">
+                        <Badge color={row.type === "earning" ? "blue" : "green"}>
+                          {row.type === "earning" ? "Earning" : "Payment"}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 truncate max-w-[200px]">{row.notes}</td>
+                      <td className="px-4 py-3 text-right text-rose-500 font-semibold">
+                        {row.type === "payment" ? fmt(row.amount) : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-emerald-600 font-semibold">
+                        {row.type === "earning" ? fmt(row.amount) : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
+                    </tr>
+                  );
+                }
+
+                const isExpanded = expandedTrips.has(row.trip_id);
+                return (
+                  <React.Fragment key={row.trip_id}>
+                    <tr 
+                      onClick={() => toggleTrip(row.trip_id)} 
+                      className="hover:bg-slate-100 transition-colors cursor-pointer border-b border-slate-100 group bg-slate-50/30"
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-700">
+                        {row.date}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge color="purple">Trip Summary</Badge>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-slate-800 flex items-center gap-2">
+                        {row.notes} 
+                        <span className={`text-xs text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-rose-500 font-semibold">—</td>
+                      <td className="px-4 py-3 text-right text-emerald-600 font-semibold">
+                        {row.earnings > 0 ? fmt(row.earnings) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
+                    </tr>
+                    
+                    {isExpanded && row.items.map(item => (
+                      <tr key={item.id} className="bg-slate-50/80 text-xs border-b border-slate-50 last:border-b-0">
+                        <td className="px-4 py-2 pl-8 text-slate-400">{item.date}</td>
+                        <td className="px-4 py-2">
+                          <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">
+                            Earning
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-slate-600 truncate max-w-[200px]">{item.notes}</td>
+                        <td className="px-4 py-2 text-right text-rose-400">—</td>
+                        <td className="px-4 py-2 text-right text-emerald-500">{fmt(item.amount)}</td>
+                        <td className="px-4 py-2 text-right text-slate-400">...</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
               {ledger.length === 0 && (
                 <tr>
                   <td colSpan="6" className="px-4 py-8 text-center text-slate-400">No ledger entries found.</td>
