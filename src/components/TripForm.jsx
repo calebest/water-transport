@@ -300,7 +300,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
                 disabled={!!(isDriver && personnelId)}
               >
                 <option value="">— None —</option>
-                {personnel.filter(p => p.role === "Driver" || p.role === "Both" || p.id === form.driverId).map(p => (
+                {personnel.filter(p => ((p.status !== "Inactive" && (p.role === "Driver" || p.role === "Both")) || p.id === form.driverId)).map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -317,7 +317,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
                 disabled={!!(isConductor && personnelId)}
               >
                 <option value="">— None —</option>
-                {personnel.filter(p => p.role === "Conductor" || p.role === "Both" || p.id === form.conductorId).map(p => (
+                {personnel.filter(p => ((p.status !== "Inactive" && (p.role === "Conductor" || p.role === "Both")) || p.id === form.conductorId)).map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
