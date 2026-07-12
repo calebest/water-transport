@@ -9,7 +9,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [expandedTrips, setExpandedTrips] = useState(new Set());
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ amount: "", method: "Cash", date: today(), notes: "" });
+  const [form, setForm] = useState({ amount: "", method: "Cash", date: today(), notes: "Payment via Cash" });
 
   const toggleTrip = (id) => {
     setExpandedTrips(prev => {
@@ -93,7 +93,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         date: form.date, method: form.method, notes: form.notes
       });
       setModalOpen(false);
-      setForm({ amount: "", method: "Cash", date: today(), notes: "" });
+      setForm({ amount: "", method: "Cash", date: today(), notes: "Payment via Cash" });
     } catch (e) {
       alert("Error: " + e.message);
     } finally {
@@ -156,20 +156,12 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         </div>
       </div>
 
-      {/* Stats - Horizontal Scroll on Mobile, Grid on Desktop */}
-      <div className="flex overflow-x-auto pb-4 -mb-4 snap-x snap-mandatory gap-3 hide-scrollbar sm:grid sm:grid-cols-2 lg:grid-cols-4">
-        <div className="min-w-[85vw] sm:min-w-0 snap-center">
-          <StatCard label="Outstanding Balance" value={fmt(currentBalance)} icon="💸" color={currentBalance > 0 ? "red" : "slate"} />
-        </div>
-        <div className="min-w-[85vw] sm:min-w-0 snap-center">
-          <StatCard label="Total Revenue (Trips)" value={fmt(totalRevenue)} icon="💰" color="blue" />
-        </div>
-        <div className="min-w-[85vw] sm:min-w-0 snap-center">
-          <StatCard label="Expenses Paid by Broker" value={fmt(totalExpenses)} icon="📉" color="amber" />
-        </div>
-        <div className="min-w-[85vw] sm:min-w-0 snap-center">
-          <StatCard label="Total Remitted" value={fmt(totalRemitted)} icon="🏦" color="green" />
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label="Outstanding Balance" value={fmt(currentBalance)} icon="💸" color={currentBalance > 0 ? "red" : "slate"} />
+        <StatCard label="Total Revenue (Trips)" value={fmt(totalRevenue)} icon="💰" color="blue" />
+        <StatCard label="Expenses Paid by Broker" value={fmt(totalExpenses)} icon="📉" color="amber" />
+        <StatCard label="Total Remitted" value={fmt(totalRemitted)} icon="🏦" color="green" />
       </div>
 
       {/* Ledger Table */}
@@ -298,7 +290,13 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
           </div>
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Method</label>
-            <select className={inp} value={form.method} onChange={e => setForm({...form, method: e.target.value})}>
+            <select className={inp} value={form.method} onChange={e => {
+              const newMethod = e.target.value;
+              setForm(prev => {
+                const isDefault = !prev.notes || prev.notes.startsWith("Payment via ") || prev.notes.startsWith("Settlement via ");
+                return { ...prev, method: newMethod, notes: isDefault ? `Payment via ${newMethod}` : prev.notes };
+              });
+            }}>
               <option>Cash</option>
               <option>M-Pesa</option>
               <option>Bank Transfer</option>

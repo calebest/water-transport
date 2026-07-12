@@ -71,7 +71,7 @@ export const financeService = {
       amount: Number(amount),
       date: paymentDate,
       method: method || "Cash",
-      notes: notes || "",
+      notes: notes || `Payment via ${method || "Cash"}`,
       linked_trips: linkedTrips,
       created_by: userId,
       broker_id: brokerId,
@@ -86,7 +86,7 @@ export const financeService = {
       date: paymentDate,
       type: "remittance",
       amount: Number(amount),
-      notes: notes || `Settlement via ${method || "Cash"}`,
+      notes: notes || `Payment via ${method || "Cash"}`,
       broker_id: brokerId,
     });
 
