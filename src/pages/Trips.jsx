@@ -75,8 +75,10 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
     });
 
     return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(date => {
-      // Sort trips within this date group by trip number numerically
+      // Sort trips: first by vehicle plate (A→Z), then by trip number numerically
       const sorted = groups[date].slice().sort((a, b) => {
+        const lorryCompare = (a.lorry || "").localeCompare(b.lorry || "");
+        if (lorryCompare !== 0) return lorryCompare;
         const numA = parseInt(String(a.tripNumber || "0").replace(/\D/g, ""), 10) || 0;
         const numB = parseInt(String(b.tripNumber || "0").replace(/\D/g, ""), 10) || 0;
         return numA - numB;
