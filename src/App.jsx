@@ -316,6 +316,12 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             </button>
           </div>
         </nav>
+
+        {/* Footer */}
+        <footer className="hidden lg:block border-t border-slate-100 px-8 py-3 text-center text-[11px] text-slate-400">
+          Designed by{" "}
+          <span className="font-semibold text-emerald-600">Cyber Vision Lab</span>
+        </footer>
       </div>
     </div>
   );
