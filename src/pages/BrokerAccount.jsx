@@ -48,10 +48,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
 
   const { totalRevenue, totalExpenses, totalRemitted, currentBalance, dateGroups } = useMemo(() => {
     let tr = 0, te = 0, trm = 0, cb = 0;
-    const groups = [];
-    const tripMap = new Map();
 
-    ledger.forEach(entry => {
+    // Build date-keyed groups
       const amt = Number(entry.amount || 0);
       if (entry.type === "revenue") { tr += amt; cb += amt; }
       else if (entry.type === "expense_paid") { te += amt; cb -= amt; }
@@ -153,12 +151,12 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
     return { totalRevenue: tr, totalExpenses: te, totalRemitted: trm, currentBalance: cb, dateGroups };
   }, [ledger]);
 
-  // Auto-expand the first (newest) date on load
+  // Auto-expand the first (newest) date when broker changes
   useEffect(() => {
     if (dateGroups && dateGroups.length > 0) {
       setExpandedDates(new Set([dateGroups[0].date]));
     }
-  }, [activeBrokerId]);
+  }, [activeBrokerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSettle = async (e) => {
     e.preventDefault();
