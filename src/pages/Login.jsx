@@ -38,8 +38,8 @@ export default function LoginPage() {
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-tr from-emerald-600 to-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)] mb-4 ring-2 ring-white/10">
             <span className="text-3xl">🚛</span>
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-md">Water Transport</h1>
-          <p className="text-emerald-400 text-xs mt-1.5 font-bold tracking-widest uppercase drop-shadow-sm">Fleet Management</p>
+          <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-md">Mount Kenya Water</h1>
+          <p className="text-emerald-400 text-xs mt-1.5 font-bold tracking-widest uppercase drop-shadow-sm">Distributors Fleet Management</p>
         </div>
 
         {/* Glassmorphic Login Card */}

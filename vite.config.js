@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
-        name: 'Water Transport Manager',
-        short_name: 'WTM',
-        description: 'Manage trips, vehicles, and personnel for water transport operations',
+        name: 'Mount Kenya Water Distributors',
+        short_name: 'MK Water',
+        description: 'Mount Kenya Water Distributors Fleet Management System',
         theme_color: '#059669',
         background_color: '#f8fafc',
         display: 'standalone',

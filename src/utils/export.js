@@ -81,8 +81,8 @@ export const exportPDF = (trips, title) => {
 
   doc.setFillColor(15, 118, 110);
   doc.rect(0, 0, pageWidth, 28, "F");
-  doc.setFontSize(18); doc.setTextColor(255, 255, 255);
-  doc.text("Water Transport Report", 14, 13);
+  doc.setFontSize(16); doc.setTextColor(255, 255, 255);
+  doc.text("Mount Kenya Water Distributors", 14, 13);
   doc.setFontSize(10);
   doc.text(title, 14, 21);
   doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 21, { align: "right" });
@@ -152,6 +152,16 @@ export const exportPDF = (trips, title) => {
     styles: { fontSize: 7.5, cellPadding: 2, overflow: "linebreak", valign: "top" },
   });
 
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Designed by Cyber Vision Lab | cybervisionlab@gmail.com", pageWidth / 2, pageHeight - 8, { align: "center" });
+  }
+
   doc.save(`${title.replace(/\s+/g, "-")}.pdf`);
 };
 
@@ -159,8 +169,8 @@ export const exportVoucher = (trip) => {
   const doc = new jsPDF({ format: 'a5' }); // A5 size for receipts
   const financials = getTripFinancials(trip);
   
-  doc.setFontSize(18); doc.setTextColor(30, 130, 80);
-  doc.text("WATER TRANSPORT MANAGER", 10, 15);
+  doc.setFontSize(16); doc.setTextColor(30, 130, 80);
+  doc.text("MOUNT KENYA WATER DISTRIBUTORS", 10, 15);
   
   doc.setFontSize(14); doc.setTextColor(60, 60, 60);
   doc.text("TRIP VOUCHER", 10, 25);
@@ -246,6 +256,8 @@ export const exportVoucher = (trip) => {
   // Footer
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(150, 150, 150);
   doc.text("Thank you for your business.", 74, 190, { align: "center" });
+  doc.setFontSize(7);
+  doc.text("Designed by Cyber Vision Lab | cybervisionlab@gmail.com", 74, 198, { align: "center" });
 
   doc.save(`Voucher-${trip.lorry}-${trip.tripNumber}-${trip.date}.pdf`);
 };
@@ -261,7 +273,7 @@ export const generateReportText = (trips, filterVehicle, dateTitle) => {
   };
 
   const lines = [];
-  lines.push(`📊 WATER TRANSPORT REPORT ${filterVehicle !== "All Vehicles" ? `(${filterVehicle})` : ""}`.trim());
+  lines.push(`📊 MOUNT KENYA WATER DISTRIBUTORS REPORT ${filterVehicle !== "All Vehicles" ? `(${filterVehicle})` : ""}`.trim());
   lines.push(`📅 Reporting Period: ${dateTitle}`);
   lines.push("");
   lines.push("━━━━━━━━━━━━━━━━━━━");
@@ -318,7 +330,7 @@ export const handleShareText = async (trips, filterVehicle, dateTitle) => {
   if (navigator.share) {
     try {
       await navigator.share({
-        title: 'Water Transport Report',
+        title: 'Mount Kenya Water Distributors Report',
         text: text
       });
     } catch (err) {
