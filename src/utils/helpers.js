@@ -11,6 +11,37 @@ const localDate = (d = new Date()) => {
 
 export const today = () => localDate();
 
+export const buildLocationName = (parentLocation = "", childLocation = "") => {
+  const parent = String(parentLocation || "").trim();
+  const child = String(childLocation || "").trim();
+  if (!parent) return child;
+  if (!child) return parent;
+  return `${parent} (${child})`;
+};
+
+export const parseLocationName = (value = "") => {
+  const raw = String(value || "").trim();
+  if (!raw) return { raw, parent: "", child: "", display: raw };
+  const match = raw.match(/^(.*?)\s*\((.+)\)$/);
+  if (!match) return { raw, parent: raw, child: "", display: raw };
+  return {
+    raw,
+    parent: match[1].trim(),
+    child: match[2].trim(),
+    display: raw,
+  };
+};
+
+export const locationMatchesFilter = (locationValue = "", filterValue = "") => {
+  if (!filterValue || filterValue === "All Routes") return true;
+  const location = parseLocationName(locationValue);
+  const filter = parseLocationName(filterValue);
+  if (!location.raw || !filter.raw) return false;
+  if (location.display === filter.display) return true;
+  if (filter.child) return false;
+  return location.parent.toLowerCase() === filter.parent.toLowerCase();
+};
+
 export const getWeekRange = () => {
   const d = new Date();
   const dayOfWeek = d.getDay(); // 0 = Sunday, 6 = Saturday

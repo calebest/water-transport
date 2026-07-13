@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { locationService } from "../services/locations";
 import { Modal } from "../components/ui";
-import { fmt } from "../utils/helpers";
+import { buildLocationName, fmt, parseLocationName } from "../utils/helpers";
 
 export default function LocationsPage({ locations }) {
   const { isAdmin } = useAuth();
@@ -97,7 +97,9 @@ export default function LocationsPage({ locations }) {
 }
 
 function LocationForm({ initial, onSave, onCancel }) {
-  const [name, setName] = useState(initial?.name || "");
+  const parsedInitial = parseLocationName(initial?.name || "");
+  const [name, setName] = useState(parsedInitial.child || initial?.name || "");
+  const [parentLocation, setParentLocation] = useState(parsedInitial.parent || "");
   const [revenue, setRevenue] = useState(initial?.revenue || "");
   const [status, setStatus] = useState(initial?.status || "Active");
   const [saving, setSaving] = useState(false);
@@ -109,7 +111,8 @@ function LocationForm({ initial, onSave, onCancel }) {
     }
     setSaving(true);
     try {
-      await onSave({ name: name.trim(), revenue: Number(revenue), status });
+      const fullName = buildLocationName(parentLocation, name.trim());
+      await onSave({ name: fullName, revenue: Number(revenue), status });
       onCancel();
     } catch (e) {
       alert(e.message);
@@ -123,8 +126,12 @@ function LocationForm({ initial, onSave, onCancel }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs font-semibold text-slate-500 mb-1">Location Name *</label>
-        <input className={inp} placeholder="e.g. Mombasa" value={name} onChange={e => setName(e.target.value)} />
+        <label className="block text-xs font-semibold text-slate-500 mb-1">Parent Location (optional)</label>
+        <input className={inp} placeholder="e.g. Nairobi" value={parentLocation} onChange={e => setParentLocation(e.target.value)} />
+      </div>
+      <div>
+        <label className="block text-xs font-semibold text-slate-500 mb-1">Child Location Name *</label>
+        <input className={inp} placeholder="e.g. Westlands" value={name} onChange={e => setName(e.target.value)} />
       </div>
       <div>
         <label className="block text-xs font-semibold text-slate-500 mb-1">Price/Revenue (KES) *</label>

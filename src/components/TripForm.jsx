@@ -8,13 +8,14 @@ import {
   DEDUCTION_KEYS,
   DEDUCTION_LABELS,
   EXPENSE_LABELS,
-  FIXED_EXPENSE_KEYS
+  FIXED_EXPENSE_KEYS,
+  buildLocationName
 } from "../utils/helpers";
 import { locationService } from "../services/locations";
 import { useAuth } from "../contexts/AuthContext";
 
 const PayerSelect = ({ value, onChange }) => (
-  <select 
+  <select
     className="h-full bg-slate-50/50 border-l border-slate-200 px-1 py-2 text-[10px] sm:text-xs font-bold text-slate-500 outline-none rounded-r-lg cursor-pointer hover:bg-slate-100 transition-colors"
     value={value || "Company"}
     onChange={e => onChange(e.target.value)}
@@ -115,6 +116,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
   // New location inline state
   const [showInlineAdd, setShowInlineAdd] = useState(false);
   const [newLocName, setNewLocName] = useState("");
+  const [newParentLocation, setNewParentLocation] = useState("");
   const [newLocRev, setNewLocRev] = useState("");
   const [inlineSaving, setInlineSaving] = useState(false);
 
@@ -140,14 +142,16 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     }
     setInlineSaving(true);
     try {
+      const fullLocationName = buildLocationName(newParentLocation, newLocName.trim());
       await locationService.add({
-        name: newLocName.trim(),
+        name: fullLocationName,
         revenue: Number(newLocRev)
       });
-      setField("location", newLocName.trim());
+      setField("location", fullLocationName);
       setField("revenue", Number(newLocRev));
       setShowInlineAdd(false);
       setNewLocName("");
+      setNewParentLocation("");
       setNewLocRev("");
     } catch (err) {
       alert("Error creating location: " + err.message);
@@ -238,11 +242,11 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Trip # *</label>
-          <input 
-            className={inp} 
-            placeholder="e.g. 001" 
-            value={form.tripNumber} 
-            onChange={e => setField("tripNumber", e.target.value)} 
+          <input
+            className={inp}
+            placeholder="e.g. 001"
+            value={form.tripNumber}
+            onChange={e => setField("tripNumber", e.target.value)}
             onBlur={() => {
               const val = form.tripNumber;
               if (val && !isNaN(val)) {
@@ -253,9 +257,9 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1">Location *</label>
-          <select 
-            className={inp} 
-            value={showInlineAdd ? "ADD_NEW" : (form.location || "")} 
+          <select
+            className={inp}
+            value={showInlineAdd ? "ADD_NEW" : (form.location || "")}
             onChange={handleLocationChange}
           >
             <option value="">Select Location...</option>
@@ -351,36 +355,45 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
             <p className="text-xs font-bold text-emerald-800 uppercase tracking-widest">Create New Location</p>
             <div className="grid grid-cols-2 gap-3 mobile-form-grid">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">Location Name *</label>
-                <input 
-                  className={inp} 
-                  placeholder="e.g. Mombasa" 
-                  value={newLocName} 
-                  onChange={e => setNewLocName(e.target.value)} 
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Parent Location (optional)</label>
+                <input
+                  className={inp}
+                  placeholder="e.g. Nairobi"
+                  value={newParentLocation}
+                  onChange={e => setNewParentLocation(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Child Location Name *</label>
+                <input
+                  className={inp}
+                  placeholder="e.g. Westlands"
+                  value={newLocName}
+                  onChange={e => setNewLocName(e.target.value)}
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Price/Revenue (KES) *</label>
-                <input 
-                  type="number" 
-                  className={inp} 
-                  placeholder="e.g. 15000" 
-                  value={newLocRev} 
-                  onChange={e => setNewLocRev(e.target.value)} 
+                <input
+                  type="number"
+                  className={inp}
+                  placeholder="e.g. 15000"
+                  value={newLocRev}
+                  onChange={e => setNewLocRev(e.target.value)}
                 />
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowInlineAdd(false)}
                 className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
               >
                 Cancel
               </button>
-              <button 
-                type="button" 
-                onClick={handleCreateInlineLocation} 
+              <button
+                type="button"
+                onClick={handleCreateInlineLocation}
                 disabled={inlineSaving}
                 className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
               >
@@ -396,7 +409,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Operating Expenses</p>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Default Payer:</span>
-            <select 
+            <select
               className="bg-slate-100 border border-slate-200 px-2 py-1 text-xs font-bold text-slate-600 outline-none rounded-lg cursor-pointer hover:bg-slate-200 transition-colors"
               value={form.expenses._defaultPayer || "Company"}
               onChange={e => setDefaultPayer(e.target.value)}
