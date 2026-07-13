@@ -10,7 +10,9 @@ import {
   isPaidTrip,
   sumDeductionKey,
   sumExpenseKey,
-  fmt
+  fmt,
+  locationMatchesFilter,
+  parseLocationName
 } from "../utils/helpers";
 import { exportCSV, exportPDF, handleShareText } from "../utils/export";
 import { Badge } from "../components/ui";
@@ -63,6 +65,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
   const [reportType, setReportType] = useState("pending");
   const [filterVehicle, setFilterVehicle] = useState("All Vehicles");
   const [filterRoute, setFilterRoute] = useState("All Routes");
+  const [filterDetailedRoute, setFilterDetailedRoute] = useState("All Detailed Routes");
   const [filterTripStatus, setFilterTripStatus] = useState("All Trip Statuses");
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("All Payment Statuses");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -77,13 +80,24 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
   const [moderatingId, setModeratingId] = useState("");
   const [complaintNote, setComplaintNote] = useState("");
 
+  const resetAllFilters = () => {
+    setFilterVehicle("All Vehicles");
+    setFilterRoute("All Routes");
+    setFilterDetailedRoute("All Detailed Routes");
+    setFilterTripStatus("All Trip Statuses");
+    setFilterPaymentStatus("All Payment Statuses");
+  };
+
   const rangeTrips = useMemo(() => {
     let filtered = trips;
     if (filterVehicle !== "All Vehicles") {
       filtered = filtered.filter(t => t.lorry === filterVehicle);
     }
     if (filterRoute !== "All Routes") {
-      filtered = filtered.filter(t => (t.location || "N/A") === filterRoute);
+      filtered = filtered.filter(t => locationMatchesFilter(t.location, filterRoute));
+    }
+    if (filterDetailedRoute !== "All Detailed Routes") {
+      filtered = filtered.filter(t => (t.location || "N/A") === filterDetailedRoute);
     }
     if (filterTripStatus !== "All Trip Statuses") {
       filtered = filtered.filter(t => (t.approvalStatus || "approved") === filterTripStatus);
@@ -104,7 +118,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
     if (range === "weekly") { const [s, e] = getWeekRange(); return filterByRange(filtered, s, e); }
     if (range === "monthly") { const [s, e] = getMonthRange(); return filterByRange(filtered, s, e); }
     return filterByRange(filtered, customStart, customEnd);
-  }, [trips, range, customStart, customEnd, reportType, filterVehicle, filterRoute, filterTripStatus, filterPaymentStatus]);
+  }, [trips, range, customStart, customEnd, reportType, filterVehicle, filterRoute, filterDetailedRoute, filterTripStatus, filterPaymentStatus]);
 
   const sum = useMemo(() => summarize(rangeTrips), [rangeTrips]);
 
@@ -115,11 +129,31 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
   const { fixed, custom: customLabels } = useMemo(() => collectExpenseKeys(rangeTrips), [rangeTrips]);
   const { fixed: deductionFixed, custom: deductionCustomLabels } = useMemo(() => collectDeductionKeys(rangeTrips), [rangeTrips]);
 
-  const routeOptions = useMemo(() => [...new Set(trips.map(t => t.location || "N/A"))].sort(), [trips]);
+  const routeOptions = useMemo(() => {
+    const options = new Set();
+    trips.forEach(t => {
+      const raw = t.location || "N/A";
+      const parsed = parseLocationName(raw);
+      options.add(parsed.parent || raw);
+    });
+    return [...options].sort((a, b) => a.localeCompare(b));
+  }, [trips]);
+
+  const detailedRouteOptions = useMemo(() => {
+    return [...new Set(trips.map(t => t.location || "N/A"))].sort((a, b) => a.localeCompare(b));
+  }, [trips]);
+
   const routeStats = useMemo(() => {
-    return [...new Set(rangeTrips.map(t => t.location || "N/A"))].sort().map(route => ({
+    const byRoute = {};
+    rangeTrips.forEach(t => {
+      const raw = t.location || "N/A";
+      const route = parseLocationName(raw).parent || raw;
+      if (!byRoute[route]) byRoute[route] = [];
+      byRoute[route].push(t);
+    });
+    return Object.keys(byRoute).sort().map(route => ({
       route,
-      ...summarize(rangeTrips.filter(t => (t.location || "N/A") === route))
+      ...summarize(byRoute[route])
     }));
   }, [rangeTrips]);
   const dailyStats = useMemo(() => {
@@ -160,7 +194,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
     route: "Route",
   }[reportType] || "Financial";
 
-  const title = `${dateTitle} ${reportTypeLabel} Report${filterVehicle !== "All Vehicles" ? ` - ${filterVehicle}` : ""}${filterRoute !== "All Routes" ? ` - ${filterRoute}` : ""}`;
+  const title = `${dateTitle} ${reportTypeLabel} Report${filterVehicle !== "All Vehicles" ? ` - ${filterVehicle}` : ""}${filterRoute !== "All Routes" ? ` - ${filterRoute}` : ""}${filterDetailedRoute !== "All Detailed Routes" ? ` - ${filterDetailedRoute}` : ""}`;
 
   const btnCls = (v) =>
     `px-4 py-2 rounded-xl text-sm font-bold transition-all ${range === v
@@ -269,48 +303,107 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <select
-                value={filterVehicle}
-                onChange={e => setFilterVehicle(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none"
-              >
-                <option value="All Vehicles">All Vehicles</option>
-                {vehicles.map(v => (
-                  <option key={v.id} value={v.plate}>{v.plate} ({v.name})</option>
-                ))}
-              </select>
-              <select value={filterRoute} onChange={e => setFilterRoute(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
-                <option value="All Routes">All Routes</option>
-                {routeOptions.map(route => <option key={route} value={route}>{route}</option>)}
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  value={filterVehicle}
+                  onChange={e => setFilterVehicle(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value="All Vehicles">All Vehicles</option>
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.plate}>{v.plate} ({v.name})</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setFilterVehicle("All Vehicles")}
+                  className="rounded-lg border border-slate-200 px-2 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <select value={filterRoute} onChange={e => setFilterRoute(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+                  <option value="All Routes">All General Routes</option>
+                  {routeOptions.map(route => <option key={route} value={route}>{route}</option>)}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setFilterRoute("All Routes")}
+                  className="rounded-lg border border-slate-200 px-2 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowAdvancedFilters(v => !v)}
-              className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-            >
-              {showAdvancedFilters ? "Hide advanced filters" : "Advanced filters"}
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters(v => !v)}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              >
+                {showAdvancedFilters ? "Hide advanced filters" : "Advanced filters"}
+              </button>
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+              >
+                Reset all filters
+              </button>
+            </div>
 
             {showAdvancedFilters && (
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <select value={filterTripStatus} onChange={e => setFilterTripStatus(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
-                <option value="All Trip Statuses">All Trip Statuses</option>
-                <option value="approved">Approved</option>
-                <option value="pending">Pending Approval</option>
-                <option value="pending_edit">Pending Edit</option>
-                <option value="rejected">Rejected</option>
-              </select>
-              <select value={filterPaymentStatus} onChange={e => setFilterPaymentStatus(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
-                <option value="All Payment Statuses">All Payment Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Partial">Partial</option>
-                <option value="Paid">Paid</option>
-              </select>
+                <div className="flex items-center gap-2">
+                  <select value={filterTripStatus} onChange={e => setFilterTripStatus(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+                    <option value="All Trip Statuses">All Trip Statuses</option>
+                    <option value="approved">Approved</option>
+                    <option value="pending">Pending Approval</option>
+                    <option value="pending_edit">Pending Edit</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setFilterTripStatus("All Trip Statuses")}
+                    className="rounded-lg border border-slate-200 px-2 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select value={filterPaymentStatus} onChange={e => setFilterPaymentStatus(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+                    <option value="All Payment Statuses">All Payment Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Partial">Partial</option>
+                    <option value="Paid">Paid</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setFilterPaymentStatus("All Payment Statuses")}
+                    className="rounded-lg border border-slate-200 px-2 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 sm:col-span-2">
+                  <select value={filterDetailedRoute} onChange={e => setFilterDetailedRoute(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+                    <option value="All Detailed Routes">All Specific Routes</option>
+                    {detailedRouteOptions.map(route => <option key={route} value={route}>{route}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setFilterDetailedRoute("All Detailed Routes")}
+                    className="rounded-lg border border-slate-200 px-2 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -411,58 +504,58 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
           )}
 
           {reportView === "breakdown" && (
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <p className="mb-4 text-sm font-bold text-slate-700">Operating Expense Breakdown</p>
-            {[...fixed.map(k => ({ key: k, isCustom: false })), ...customLabels.map(k => ({ key: k, isCustom: true }))].map(({ key, isCustom }) => {
-              const total = sumExpenseKey(rangeTrips, key, isCustom);
-              const pct = sum.operatingExpenses > 0 ? (total / sum.operatingExpenses * 100).toFixed(1) : 0;
-              return (
-                <div key={key} className="mobile-expense-row mb-2 flex items-center gap-3">
-                  <span className="mobile-expense-label w-24 flex items-center gap-1 text-xs font-semibold capitalize text-slate-500">
-                    {key}
-                    {isCustom && <span className="rounded bg-emerald-100 px-1 text-[9px] font-bold text-emerald-600">custom</span>}
-                  </span>
-                  <div className="mobile-expense-bar h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <p className="mb-4 text-sm font-bold text-slate-700">Operating Expense Breakdown</p>
+              {[...fixed.map(k => ({ key: k, isCustom: false })), ...customLabels.map(k => ({ key: k, isCustom: true }))].map(({ key, isCustom }) => {
+                const total = sumExpenseKey(rangeTrips, key, isCustom);
+                const pct = sum.operatingExpenses > 0 ? (total / sum.operatingExpenses * 100).toFixed(1) : 0;
+                return (
+                  <div key={key} className="mobile-expense-row mb-2 flex items-center gap-3">
+                    <span className="mobile-expense-label w-24 flex items-center gap-1 text-xs font-semibold capitalize text-slate-500">
+                      {key}
+                      {isCustom && <span className="rounded bg-emerald-100 px-1 text-[9px] font-bold text-emerald-600">custom</span>}
+                    </span>
+                    <div className="mobile-expense-bar h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="mobile-expense-total w-28 text-right text-xs font-bold text-slate-700">{fmt(total)}</span>
+                    <span className="mobile-expense-pct w-10 text-right text-xs text-slate-400">{pct}%</span>
                   </div>
-                  <span className="mobile-expense-total w-28 text-right text-xs font-bold text-slate-700">{fmt(total)}</span>
-                  <span className="mobile-expense-pct w-10 text-right text-xs text-slate-400">{pct}%</span>
-                </div>
-              );
-            })}
-            {[...fixed, ...customLabels].length === 0 && (
-              <p className="py-4 text-center text-sm text-slate-400">No expense data in this period</p>
-            )}
-          </div>
+                );
+              })}
+              {[...fixed, ...customLabels].length === 0 && (
+                <p className="py-4 text-center text-sm text-slate-400">No expense data in this period</p>
+              )}
+            </div>
           )}
 
           {reportView === "breakdown" && (
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <p className="mb-4 text-sm font-bold text-slate-700">Deduction Summary</p>
-            {[...deductionFixed.map(k => ({ key: k, isCustom: false })), ...deductionCustomLabels.map(k => ({ key: k, isCustom: true }))].map(({ key, isCustom }) => {
-              const total = sumDeductionKey(rangeTrips, key, isCustom);
-              const pct = sum.deductions > 0 ? (total / sum.deductions * 100).toFixed(1) : 0;
-              return (
-                <div key={key} className="mobile-expense-row mb-2 flex items-center gap-3">
-                  <span className="mobile-expense-label w-32 flex items-center gap-1 text-xs font-semibold capitalize text-slate-500">
-                    {key.replace(/([A-Z])/g, " $1")}
-                    {isCustom && <span className="rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-700">legacy</span>}
-                  </span>
-                  <div className="mobile-expense-bar h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <p className="mb-4 text-sm font-bold text-slate-700">Deduction Summary</p>
+              {[...deductionFixed.map(k => ({ key: k, isCustom: false })), ...deductionCustomLabels.map(k => ({ key: k, isCustom: true }))].map(({ key, isCustom }) => {
+                const total = sumDeductionKey(rangeTrips, key, isCustom);
+                const pct = sum.deductions > 0 ? (total / sum.deductions * 100).toFixed(1) : 0;
+                return (
+                  <div key={key} className="mobile-expense-row mb-2 flex items-center gap-3">
+                    <span className="mobile-expense-label w-32 flex items-center gap-1 text-xs font-semibold capitalize text-slate-500">
+                      {key.replace(/([A-Z])/g, " $1")}
+                      {isCustom && <span className="rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-700">legacy</span>}
+                    </span>
+                    <div className="mobile-expense-bar h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="mobile-expense-total w-28 text-right text-xs font-bold text-slate-700">{fmt(total)}</span>
+                    <span className="mobile-expense-pct w-10 text-right text-xs text-slate-400">{pct}%</span>
                   </div>
-                  <span className="mobile-expense-total w-28 text-right text-xs font-bold text-slate-700">{fmt(total)}</span>
-                  <span className="mobile-expense-pct w-10 text-right text-xs text-slate-400">{pct}%</span>
-                </div>
-              );
-            })}
-            {[...deductionFixed, ...deductionCustomLabels].every((key) => {
-              const isCustom = deductionCustomLabels.includes(key);
-              return sumDeductionKey(rangeTrips, key, isCustom) === 0;
-            }) && (
-              <p className="py-4 text-center text-sm text-slate-400">No deductions in this period</p>
-            )}
-          </div>
+                );
+              })}
+              {[...deductionFixed, ...deductionCustomLabels].every((key) => {
+                const isCustom = deductionCustomLabels.includes(key);
+                return sumDeductionKey(rangeTrips, key, isCustom) === 0;
+              }) && (
+                  <p className="py-4 text-center text-sm text-slate-400">No deductions in this period</p>
+                )}
+            </div>
           )}
 
           {reportView === "trends" && (dailyStats.length > 0 || monthlyStats.length > 0) && (
@@ -538,29 +631,29 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
             <div className="space-y-4">
               {!isOwner && (
                 <div className="grid grid-cols-2 gap-3 mobile-form-grid">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Category</label>
-                  <select
-                    value={complaintCategory}
-                    onChange={e => setComplaintCategory(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                  >
-                    {COMPLAINT_CATEGORIES.map(cat => <option key={cat}>{cat}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Related Vehicle</label>
-                  <select
-                    value={complaintVehicle}
-                    onChange={e => setComplaintVehicle(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                  >
-                    <option value="">None</option>
-                    {vehicles.map(v => (
-                      <option key={v.id} value={v.plate}>{v.plate} ({v.name})</option>
-                    ))}
-                  </select>
-                </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-500">Category</label>
+                    <select
+                      value={complaintCategory}
+                      onChange={e => setComplaintCategory(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                    >
+                      {COMPLAINT_CATEGORIES.map(cat => <option key={cat}>{cat}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-500">Related Vehicle</label>
+                    <select
+                      value={complaintVehicle}
+                      onChange={e => setComplaintVehicle(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                    >
+                      <option value="">None</option>
+                      {vehicles.map(v => (
+                        <option key={v.id} value={v.plate}>{v.plate} ({v.name})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               )}
 
