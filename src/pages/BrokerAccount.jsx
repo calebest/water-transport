@@ -8,6 +8,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
   const [ledger, setLedger] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [expandedTrips, setExpandedTrips] = useState(new Set());
+  const [activeTab, setActiveTab] = useState("ledger");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ amount: "", method: "Cash", date: today(), notes: "Payment via Cash" });
 
@@ -38,6 +39,58 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
   }, [activeBrokerId]);
 
   const activeBroker = useMemo(() => brokers.find(b => b.id === activeBrokerId), [brokers, activeBrokerId]);
+
+  const dateGroups = useMemo(() => {
+    const groups = {};
+    const sortLedger = (a, b) => {
+      const dateCompare = (a.date || "").localeCompare(b.date || "");
+      if (dateCompare !== 0) return dateCompare;
+      const numA = parseInt(String(a.trips?.trip_number || a.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.trips?.trip_number || b.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      if (numA !== numB) return numA - numB;
+      if (a.type === "remittance" && b.type !== "remittance") return 1;
+      if (a.type !== "remittance" && b.type === "remittance") return -1;
+      return 0;
+    };
+
+    const sortedLedger = [...ledger].sort(sortLedger);
+    let runningBalance = 0;
+
+    sortedLedger.forEach(entry => {
+      const date = entry.date || "No Date";
+      if (!groups[date]) {
+        groups[date] = {
+          date,
+          entries: [],
+          totalRevenue: 0,
+          totalExpenses: 0,
+          totalRemitted: 0,
+          netChange: 0,
+          openingBalance: runningBalance,
+          closingBalance: 0,
+        };
+      }
+      const group = groups[date];
+      const amt = Number(entry.amount || 0);
+      if (entry.type === "revenue") {
+        group.totalRevenue += amt;
+        group.netChange += amt;
+        runningBalance += amt;
+      } else if (entry.type === "expense_paid") {
+        group.totalExpenses += amt;
+        group.netChange -= amt;
+        runningBalance -= amt;
+      } else if (entry.type === "remittance") {
+        group.totalRemitted += amt;
+        group.netChange -= amt;
+        runningBalance -= amt;
+      }
+      group.entries.push(entry);
+      group.closingBalance = runningBalance;
+    });
+
+    return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
+  }, [ledger]);
 
   const { totalRevenue, totalExpenses, totalRemitted, currentBalance, groupedLedger } = useMemo(() => {
     let tr = 0, te = 0, trm = 0, cb = 0;
@@ -145,6 +198,22 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
               <option key={b.id} value={b.id}>{b.name}{b.company ? ` — ${b.company}` : ""}</option>
             ))}
           </select>
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("ledger")}
+              className={`rounded-lg px-3 py-1 text-xs font-bold transition ${activeTab === "ledger" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+            >
+              Ledger View
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("date")}
+              className={`rounded-lg px-3 py-1 text-xs font-bold transition ${activeTab === "date" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+            >
+              Date History
+            </button>
+          </div>
           {isAdmin && activeBrokerId && (
             <button
               onClick={() => setModalOpen(true)}
@@ -168,103 +237,165 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/50">
           <h3 className="text-sm sm:text-base font-bold text-slate-800">
-            Ledger History — <span className="text-emerald-600">{activeBroker?.name || "..."}</span>
+            {activeTab === "ledger" ? "Ledger History" : "Date-by-Date History"} — <span className="text-emerald-600">{activeBroker?.name || "..."}</span>
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm text-slate-600">
-            <thead className="bg-slate-50 text-[10px] sm:text-xs uppercase text-slate-400">
-              <tr>
-                <th className="px-3 sm:px-4 py-2 sm:py-3">Date</th>
-                <th className="px-3 sm:px-4 py-2 sm:py-3">Type</th>
-                <th className="px-3 sm:px-4 py-2 sm:py-3">Notes / Trip</th>
-                <th className="px-3 sm:px-4 py-2 sm:py-3 text-right">Debit (-)</th>
-                <th className="px-3 sm:px-4 py-2 sm:py-3 text-right">Credit (+)</th>
-                <th className="px-3 sm:px-4 py-2 sm:py-3 text-right">Balance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {groupedLedger.map((row, idx) => {
-                if (!row.isGroup) {
-                  return (
-                    <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap font-medium">{row.date}</td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3">
-                        <Badge color={row.type === "revenue" ? "blue" : row.type === "expense_paid" ? "amber" : "green"}>
-                          {row.type === "revenue" ? "Trip Revenue" : row.type === "expense_paid" ? "Expense Paid" : "Settlement"}
-                        </Badge>
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 truncate max-w-[200px]">
-                        {row.notes}
-                        {row.type === "remittance" && row.settlement_id && (
-                          <button onClick={() => handleDeleteSettlement(row.settlement_id)} className="ml-3 text-rose-400 hover:text-rose-600 font-bold text-xs" title="Undo / Delete this Settlement">
-                            Undo
-                          </button>
-                        )}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-rose-500 font-semibold">
-                        {row.type !== "revenue" ? fmt(row.amount) : "—"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-emerald-600 font-semibold">
-                        {row.type === "revenue" ? fmt(row.amount) : "—"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
-                    </tr>
-                  );
-                }
-
-                const isExpanded = expandedTrips.has(row.trip_id);
-                return (
-                  <React.Fragment key={row.trip_id}>
-                    <tr
-                      onClick={() => toggleTrip(row.trip_id)}
-                      className="hover:bg-slate-100 transition-colors cursor-pointer border-b border-slate-100 group bg-slate-50/30"
-                    >
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap font-medium text-slate-700">
-                        {row.date}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3">
-                        <Badge color="purple">{row.location ? row.location : "Trip Summary"}</Badge>
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 font-semibold text-slate-800 flex items-center gap-2">
-                        {row.notes}
-                        <span className={`text-xs text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-rose-500 font-semibold">
-                        {row.expenses > 0 ? fmt(row.expenses) : "—"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-emerald-600 font-semibold">
-                        {row.revenue > 0 ? fmt(row.revenue) : "—"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
-                    </tr>
-
-                    {isExpanded && row.items.map(item => (
-                      <tr key={item.id} className="bg-slate-50/80 text-[11px] sm:text-xs border-b border-slate-50 last:border-b-0">
-                        <td className="px-3 sm:px-4 py-2 pl-6 sm:pl-8 text-slate-400">{item.date}</td>
-                        <td className="px-3 sm:px-4 py-2">
-                          <span className={`px-2 py-0.5 rounded-md ${item.type === "revenue" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
-                            {item.type === "revenue" ? "Revenue" : "Expense"}
-                          </span>
-                        </td>
-                        <td className="px-3 sm:px-4 py-2 text-slate-600 truncate max-w-[200px]">{item.notes}</td>
-                        <td className="px-3 sm:px-4 py-2 text-right text-rose-400">{item.type !== "revenue" ? fmt(item.amount) : "—"}</td>
-                        <td className="px-3 sm:px-4 py-2 text-right text-emerald-500">{item.type === "revenue" ? fmt(item.amount) : "—"}</td>
-                        <td className="px-3 sm:px-4 py-2 text-right text-slate-400">...</td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                );
-              })}
-              {ledger.length === 0 && (
+          {activeTab === "ledger" ? (
+            <table className="w-full text-left text-xs sm:text-sm text-slate-600">
+              <thead className="bg-slate-50 text-[10px] sm:text-xs uppercase text-slate-400">
                 <tr>
-                  <td colSpan="6" className="px-4 py-8 text-center text-slate-400 text-sm">
-                    No ledger entries for {activeBroker?.name || "this broker"} yet.
-                  </td>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3">Date</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3">Type</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3">Notes / Trip</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-right">Debit (-)</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-right">Credit (+)</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-right">Balance</th>
                 </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {groupedLedger.map((row, idx) => {
+                  if (!row.isGroup) {
+                    return (
+                      <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap font-medium">{row.date}</td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3">
+                          <Badge color={row.type === "revenue" ? "blue" : row.type === "expense_paid" ? "amber" : "green"}>
+                            {row.type === "revenue" ? "Trip Revenue" : row.type === "expense_paid" ? "Expense Paid" : "Settlement"}
+                          </Badge>
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 truncate max-w-[200px]">
+                          {row.notes}
+                          {row.type === "remittance" && row.settlement_id && (
+                            <button onClick={() => handleDeleteSettlement(row.settlement_id)} className="ml-3 text-rose-400 hover:text-rose-600 font-bold text-xs" title="Undo / Delete this Settlement">
+                              Undo
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-rose-500 font-semibold">
+                          {row.type !== "revenue" ? fmt(row.amount) : "—"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-emerald-600 font-semibold">
+                          {row.type === "revenue" ? fmt(row.amount) : "—"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
+                      </tr>
+                    );
+                  }
+
+                  const isExpanded = expandedTrips.has(row.trip_id);
+                  return (
+                    <React.Fragment key={row.trip_id}>
+                      <tr
+                        onClick={() => toggleTrip(row.trip_id)}
+                        className="hover:bg-slate-100 transition-colors cursor-pointer border-b border-slate-100 group bg-slate-50/30"
+                      >
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap font-medium text-slate-700">
+                          {row.date}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3">
+                          <Badge color="purple">{row.location ? row.location : "Trip Summary"}</Badge>
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 font-semibold text-slate-800 flex items-center gap-2">
+                          {row.notes}
+                          <span className={`text-xs text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-rose-500 font-semibold">
+                          {row.expenses > 0 ? fmt(row.expenses) : "—"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right text-emerald-600 font-semibold">
+                          {row.revenue > 0 ? fmt(row.revenue) : "—"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right font-bold text-slate-800">{fmt(row.runningBalance)}</td>
+                      </tr>
+
+                      {isExpanded && row.items.map(item => (
+                        <tr key={item.id} className="bg-slate-50/80 text-[11px] sm:text-xs border-b border-slate-50 last:border-b-0">
+                          <td className="px-3 sm:px-4 py-2 pl-6 sm:pl-8 text-slate-400">{item.date}</td>
+                          <td className="px-3 sm:px-4 py-2">
+                            <span className={`px-2 py-0.5 rounded-md ${item.type === "revenue" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                              {item.type === "revenue" ? "Revenue" : "Expense"}
+                            </span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-2 text-slate-600 truncate max-w-[200px]">{item.notes}</td>
+                          <td className="px-3 sm:px-4 py-2 text-right text-rose-400">{item.type !== "revenue" ? fmt(item.amount) : "—"}</td>
+                          <td className="px-3 sm:px-4 py-2 text-right text-emerald-500">{item.type === "revenue" ? fmt(item.amount) : "—"}</td>
+                          <td className="px-3 sm:px-4 py-2 text-right text-slate-400">...</td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
+                {ledger.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="px-4 py-8 text-center text-slate-400 text-sm">
+                      No ledger entries for {activeBroker?.name || "this broker"} yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <div className="space-y-6 p-4 sm:p-5">
+              {dateGroups.map(dateGroup => (
+                <div key={dateGroup.date} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{dateGroup.date}</p>
+                      <p className="text-xs text-slate-500">Date total for broker transactions</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-sm font-semibold">
+                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">Opening {fmt(dateGroup.openingBalance)}</span>
+                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">Revenue {fmt(dateGroup.totalRevenue)}</span>
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Expenses {fmt(dateGroup.totalExpenses)}</span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Remitted {fmt(dateGroup.totalRemitted)}</span>
+                      <span className={`rounded-full px-3 py-1 ${dateGroup.netChange >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                        Net {fmt(dateGroup.netChange)}
+                      </span>
+                      <span className="rounded-full bg-slate-900 px-3 py-1 text-white">Closing {fmt(dateGroup.closingBalance)}</span>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs sm:text-sm text-slate-600">
+                      <thead className="bg-white text-[10px] sm:text-xs uppercase text-slate-400 border-b border-slate-200">
+                        <tr>
+                          <th className="px-3 sm:px-4 py-2">Trip / Entry</th>
+                          <th className="px-3 sm:px-4 py-2">Type</th>
+                          <th className="px-3 sm:px-4 py-2 text-right">Debit</th>
+                          <th className="px-3 sm:px-4 py-2 text-right">Credit</th>
+                          <th className="px-3 sm:px-4 py-2">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {dateGroup.entries.map(entry => (
+                          <tr key={entry.id} className="bg-white hover:bg-slate-50 transition-colors">
+                            <td className="px-3 sm:px-4 py-2 font-semibold text-slate-800">
+                              {entry.trip_id ? `Trip ${entry.notes?.split(' - ')[0].replace('Trip ', '')}` : "Settlement"}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2">
+                              <Badge color={entry.type === "revenue" ? "blue" : entry.type === "expense_paid" ? "amber" : "green"}>
+                                {entry.type === "revenue" ? "Revenue" : entry.type === "expense_paid" ? "Expense" : "Settlement"}
+                              </Badge>
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 text-right text-rose-500 font-semibold">
+                              {entry.type !== "revenue" ? fmt(entry.amount) : "—"}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 text-right text-emerald-600 font-semibold">
+                              {entry.type === "revenue" ? fmt(entry.amount) : "—"}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 text-slate-600 truncate max-w-[240px]">{entry.notes}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+              {dateGroups.length === 0 && (
+                <div className="p-8 text-center text-slate-400">No ledger history available yet.</div>
               )}
-            </tbody>
-          </table>
+            </div>
+          )}
         </div>
       </div>
 
