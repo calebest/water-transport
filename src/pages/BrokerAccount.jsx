@@ -337,60 +337,115 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
             </table>
           ) : (
             <div className="space-y-6 p-4 sm:p-5">
-              {dateGroups.map(dateGroup => (
-                <div key={dateGroup.date} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{dateGroup.date}</p>
-                      <p className="text-xs text-slate-500">Date total for broker transactions</p>
+              {dateGroups.map(dateGroup => {
+                // Group entries by trip_id
+                const tripGroups = {};
+                const settlementEntries = [];
+
+                dateGroup.entries.forEach(entry => {
+                  if (entry.type === "remittance") {
+                    settlementEntries.push(entry);
+                  } else if (entry.trip_id) {
+                    if (!tripGroups[entry.trip_id]) {
+                      tripGroups[entry.trip_id] = {
+                        trip_id: entry.trip_id,
+                        trip_number: entry.trips?.trip_number || entry.notes?.match(/Trip (\d+)/)?.[1] || "",
+                        location: entry.trips?.location || "",
+                        entries: [],
+                        totalRevenue: 0,
+                        totalExpenses: 0,
+                      };
+                    }
+                    const amt = Number(entry.amount || 0);
+                    if (entry.type === "revenue") {
+                      tripGroups[entry.trip_id].totalRevenue += amt;
+                    } else if (entry.type === "expense_paid") {
+                      tripGroups[entry.trip_id].totalExpenses += amt;
+                    }
+                    tripGroups[entry.trip_id].entries.push(entry);
+                  }
+                });
+
+                const sortedTrips = Object.values(tripGroups).sort((a, b) => {
+                  const numA = parseInt(String(a.trip_number).replace(/\D/g, ""), 10) || 0;
+                  const numB = parseInt(String(b.trip_number).replace(/\D/g, ""), 10) || 0;
+                  return numA - numB;
+                });
+
+                return (
+                  <div key={dateGroup.date} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{dateGroup.date}</p>
+                        <p className="text-xs text-slate-500">Date total for broker transactions</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-sm font-semibold">
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">Opening {fmt(dateGroup.openingBalance)}</span>
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">Revenue {fmt(dateGroup.totalRevenue)}</span>
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Expenses {fmt(dateGroup.totalExpenses)}</span>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Remitted {fmt(dateGroup.totalRemitted)}</span>
+                        <span className={`rounded-full px-3 py-1 ${dateGroup.netChange >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                          Net {fmt(dateGroup.netChange)}
+                        </span>
+                        <span className="rounded-full bg-slate-900 px-3 py-1 text-white">Closing {fmt(dateGroup.closingBalance)}</span>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 text-sm font-semibold">
-                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">Opening {fmt(dateGroup.openingBalance)}</span>
-                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">Revenue {fmt(dateGroup.totalRevenue)}</span>
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">Expenses {fmt(dateGroup.totalExpenses)}</span>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Remitted {fmt(dateGroup.totalRemitted)}</span>
-                      <span className={`rounded-full px-3 py-1 ${dateGroup.netChange >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                        Net {fmt(dateGroup.netChange)}
-                      </span>
-                      <span className="rounded-full bg-slate-900 px-3 py-1 text-white">Closing {fmt(dateGroup.closingBalance)}</span>
+
+                    <div className="space-y-3">
+                      {/* Trip Groups */}
+                      {sortedTrips.map(trip => (
+                        <div key={trip.trip_id} className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                          <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-200">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-semibold text-slate-800">
+                                Trip {trip.trip_number}
+                                {trip.location && <span className="text-slate-600"> — {trip.location}</span>}
+                              </h4>
+                              <div className="flex gap-3 text-xs font-semibold">
+                                {trip.totalRevenue > 0 && <span className="text-emerald-600">Revenue {fmt(trip.totalRevenue)}</span>}
+                                {trip.totalExpenses > 0 && <span className="text-amber-600">Expenses {fmt(trip.totalExpenses)}</span>}
+                                <span className={trip.totalRevenue - trip.totalExpenses >= 0 ? "text-emerald-600" : "text-rose-600"}>
+                                  Net {fmt(trip.totalRevenue - trip.totalExpenses)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="divide-y divide-slate-100">
+                            {trip.entries.map(entry => (
+                              <div key={entry.id} className="px-4 py-3 flex items-start justify-between hover:bg-slate-50 transition-colors text-sm">
+                                <div className="flex-1">
+                                  <Badge color={entry.type === "revenue" ? "blue" : "amber"} className="mb-1">
+                                    {entry.type === "revenue" ? "Revenue" : "Expense"}
+                                  </Badge>
+                                  <p className="text-xs text-slate-600 mt-1">{entry.notes}</p>
+                                </div>
+                                <div className="text-right ml-4 whitespace-nowrap">
+                                  <p className={`font-semibold ${entry.type === "revenue" ? "text-emerald-600" : "text-rose-500"}`}>
+                                    {entry.type === "revenue" ? `+${fmt(entry.amount)}` : `-${fmt(entry.amount)}`}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Settlement Entries */}
+                      {settlementEntries.map(entry => (
+                        <div key={entry.id} className="rounded-lg border border-emerald-200 bg-emerald-50/40 px-4 py-3 flex items-start justify-between hover:bg-emerald-50 transition-colors text-sm">
+                          <div className="flex-1">
+                            <Badge color="green" className="mb-1">Settlement</Badge>
+                            <p className="text-xs text-slate-600 mt-1">{entry.notes}</p>
+                          </div>
+                          <div className="text-right ml-4 whitespace-nowrap">
+                            <p className="font-semibold text-emerald-600">-{fmt(entry.amount)}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs sm:text-sm text-slate-600">
-                      <thead className="bg-white text-[10px] sm:text-xs uppercase text-slate-400 border-b border-slate-200">
-                        <tr>
-                          <th className="px-3 sm:px-4 py-2">Trip / Entry</th>
-                          <th className="px-3 sm:px-4 py-2">Type</th>
-                          <th className="px-3 sm:px-4 py-2 text-right">Debit</th>
-                          <th className="px-3 sm:px-4 py-2 text-right">Credit</th>
-                          <th className="px-3 sm:px-4 py-2">Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {dateGroup.entries.map(entry => (
-                          <tr key={entry.id} className="bg-white hover:bg-slate-50 transition-colors">
-                            <td className="px-3 sm:px-4 py-2 font-semibold text-slate-800">
-                              {entry.trip_id ? `Trip ${entry.notes?.split(' - ')[0].replace('Trip ', '')}` : "Settlement"}
-                            </td>
-                            <td className="px-3 sm:px-4 py-2">
-                              <Badge color={entry.type === "revenue" ? "blue" : entry.type === "expense_paid" ? "amber" : "green"}>
-                                {entry.type === "revenue" ? "Revenue" : entry.type === "expense_paid" ? "Expense" : "Settlement"}
-                              </Badge>
-                            </td>
-                            <td className="px-3 sm:px-4 py-2 text-right text-rose-500 font-semibold">
-                              {entry.type !== "revenue" ? fmt(entry.amount) : "—"}
-                            </td>
-                            <td className="px-3 sm:px-4 py-2 text-right text-emerald-600 font-semibold">
-                              {entry.type === "revenue" ? fmt(entry.amount) : "—"}
-                            </td>
-                            <td className="px-3 sm:px-4 py-2 text-slate-600 truncate max-w-[240px]">{entry.notes}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {dateGroups.length === 0 && (
                 <div className="p-8 text-center text-slate-400">No ledger history available yet.</div>
               )}
