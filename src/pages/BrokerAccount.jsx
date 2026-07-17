@@ -11,7 +11,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
   const [activeTab, setActiveTab] = useState("ledger");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ amount: "", method: "Cash", date: today(), notes: "Payment via Cash" });
-
+  const [writeOffModalOpen, setWriteOffModalOpen] = useState(false);
+  const [writeOffForm, setWriteOffForm] = useState({ amount: "", date: today(), notes: "Balance Adjustment / Write-Off" });
   const toggleTrip = (id) => {
     setExpandedTrips(prev => {
       const next = new Set(prev);
@@ -48,8 +49,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       const numA = parseInt(String(a.trips?.trip_number || a.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
       const numB = parseInt(String(b.trips?.trip_number || b.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
       if (numA !== numB) return numA - numB;
-      if (a.type === "remittance" && b.type !== "remittance") return 1;
-      if (a.type !== "remittance" && b.type === "remittance") return -1;
+      if ((a.type === "remittance" || a.type === "write_off") && (b.type !== "remittance" && b.type !== "write_off")) return 1;
+      if ((a.type !== "remittance" && a.type !== "write_off") && (b.type === "remittance" || b.type === "write_off")) return -1;
       return 0;
     };
 
@@ -84,6 +85,10 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         group.totalRemitted += amt;
         group.netChange -= amt;
         runningBalance -= amt;
+      } else if (entry.type === "write_off") {
+        group.totalWriteOff = (group.totalWriteOff || 0) + amt;
+        group.netChange -= amt;
+        runningBalance -= amt;
       }
       group.entries.push(entry);
       group.closingBalance = runningBalance;
@@ -92,8 +97,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
     return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
   }, [ledger]);
 
-  const { totalRevenue, totalExpenses, totalRemitted, currentBalance, groupedLedger } = useMemo(() => {
-    let tr = 0, te = 0, trm = 0, cb = 0;
+  const { totalRevenue, totalExpenses, totalRemitted, totalWriteOff, currentBalance, groupedLedger } = useMemo(() => {
+    let tr = 0, te = 0, trm = 0, two = 0, cb = 0;
     const groups = [];
     const tripMap = new Map();
 
@@ -102,10 +107,11 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       if (entry.type === "revenue") { tr += amt; cb += amt; }
       else if (entry.type === "expense_paid") { te += amt; cb -= amt; }
       else if (entry.type === "remittance") { trm += amt; cb -= amt; }
+      else if (entry.type === "write_off") { two += amt; cb -= amt; }
 
       entry.runningBalance = cb;
 
-      if (entry.type === "remittance" || !entry.trip_id) {
+      if (entry.type === "remittance" || entry.type === "write_off" || !entry.trip_id) {
         groups.push({ isGroup: false, ...entry });
       } else {
         if (!tripMap.has(entry.trip_id)) {
@@ -134,7 +140,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         group.runningBalance = cb;
       }
     });
-    return { totalRevenue: tr, totalExpenses: te, totalRemitted: trm, currentBalance: cb, groupedLedger: groups.reverse() };
+    return { totalRevenue: tr, totalExpenses: te, totalRemitted: trm, totalWriteOff: two, currentBalance: cb, groupedLedger: groups.reverse() };
   }, [ledger]);
 
   const handleSettle = async (e) => {
@@ -160,6 +166,23 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       await financeService.deleteBrokerSettlement(settlementId);
     } catch (e) {
       alert("Error deleting settlement: " + e.message);
+    }
+  };
+
+  const handleWriteOff = async (e) => {
+    e.preventDefault();
+    if (Number(writeOffForm.amount) <= 0) return alert("Amount must be positive");
+    setSaving(true);
+    try {
+      await financeService.makeBrokerSettlement(activeBrokerId, writeOffForm.amount, {
+        date: writeOffForm.date, method: "Adjustment", notes: writeOffForm.notes, entryType: "write_off"
+      });
+      setWriteOffModalOpen(false);
+      setWriteOffForm({ amount: "", date: today(), notes: "Balance Adjustment / Write-Off" });
+    } catch (e) {
+      alert("Error: " + e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -215,22 +238,34 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
             </button>
           </div>
           {isAdmin && activeBrokerId && (
-            <button
-              onClick={() => setModalOpen(true)}
-              className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg hover:bg-emerald-700 transition-colors"
-            >
-              Record Settlement
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setWriteOffForm(prev => ({ ...prev, amount: currentBalance > 0 ? currentBalance : "" }));
+                  setWriteOffModalOpen(true);
+                }}
+                className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-slate-700 transition-colors"
+              >
+                Write-Off
+              </button>
+              <button
+                onClick={() => setModalOpen(true)}
+                className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg hover:bg-emerald-700 transition-colors"
+              >
+                Record Settlement
+              </button>
+            </div>
           )}
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
         <StatCard label="Outstanding Balance" value={fmt(currentBalance)} icon="💸" color={currentBalance > 0 ? "red" : "slate"} />
         <StatCard label="Total Revenue (Trips)" value={fmt(totalRevenue)} icon="💰" color="blue" />
         <StatCard label="Expenses Paid by Broker" value={fmt(totalExpenses)} icon="📉" color="amber" />
         <StatCard label="Total Remitted" value={fmt(totalRemitted)} icon="🏦" color="green" />
+        <StatCard label="Total Adjustments" value={fmt(totalWriteOff)} icon="⚖️" color="slate" />
       </div>
 
       {/* Ledger Table */}
@@ -260,13 +295,13 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
                       <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors">
                         <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap font-medium">{row.date}</td>
                         <td className="px-3 sm:px-4 py-2 sm:py-3">
-                          <Badge color={row.type === "revenue" ? "blue" : row.type === "expense_paid" ? "amber" : "green"}>
-                            {row.type === "revenue" ? "Trip Revenue" : row.type === "expense_paid" ? "Expense Paid" : "Settlement"}
+                          <Badge color={row.type === "revenue" ? "blue" : row.type === "expense_paid" ? "amber" : row.type === "write_off" ? "slate" : "green"}>
+                            {row.type === "revenue" ? "Trip Revenue" : row.type === "expense_paid" ? "Expense Paid" : row.type === "write_off" ? "Adjustment" : "Settlement"}
                           </Badge>
                         </td>
                         <td className="px-3 sm:px-4 py-2 sm:py-3 truncate max-w-[200px]">
                           {row.notes}
-                          {row.type === "remittance" && row.settlement_id && (
+                          {(row.type === "remittance" || row.type === "write_off") && row.settlement_id && (
                             <button onClick={() => handleDeleteSettlement(row.settlement_id)} className="ml-3 text-rose-400 hover:text-rose-600 font-bold text-xs" title="Undo / Delete this Settlement">
                               Undo
                             </button>
@@ -343,7 +378,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
                 const settlementEntries = [];
 
                 dateGroup.entries.forEach(entry => {
-                  if (entry.type === "remittance") {
+                  if (entry.type === "remittance" || entry.type === "write_off") {
                     settlementEntries.push(entry);
                   } else if (entry.trip_id) {
                     if (!tripGroups[entry.trip_id]) {
@@ -432,13 +467,15 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
 
                       {/* Settlement Entries */}
                       {settlementEntries.map(entry => (
-                        <div key={entry.id} className="rounded-lg border border-emerald-200 bg-emerald-50/40 px-4 py-3 flex items-start justify-between hover:bg-emerald-50 transition-colors text-sm">
+                        <div key={entry.id} className={`rounded-lg border px-4 py-3 flex items-start justify-between transition-colors text-sm ${entry.type === 'write_off' ? 'border-slate-200 bg-slate-50/40 hover:bg-slate-50' : 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50'}`}>
                           <div className="flex-1">
-                            <Badge color="green" className="mb-1">Settlement</Badge>
+                            <Badge color={entry.type === 'write_off' ? 'slate' : 'green'} className="mb-1">
+                              {entry.type === 'write_off' ? 'Adjustment' : 'Settlement'}
+                            </Badge>
                             <p className="text-xs text-slate-600 mt-1">{entry.notes}</p>
                           </div>
                           <div className="text-right ml-4 whitespace-nowrap">
-                            <p className="font-semibold text-emerald-600">-{fmt(entry.amount)}</p>
+                            <p className={`font-semibold ${entry.type === 'write_off' ? 'text-slate-600' : 'text-emerald-600'}`}>-{fmt(entry.amount)}</p>
                           </div>
                         </div>
                       ))}
@@ -495,6 +532,37 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={() => setModalOpen(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-emerald-600 py-2.5 font-bold text-white hover:bg-emerald-700 disabled:opacity-50">{saving ? "Applying..." : "Apply Payment"}</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Write-Off / Adjustment Modal */}
+      <Modal open={writeOffModalOpen} onClose={() => setWriteOffModalOpen(false)} title={`Write-Off Balance — ${activeBroker?.name || ""}`}>
+        <div className="mb-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800">
+          <p className="font-bold mb-1">What is a Write-Off?</p>
+          <p>Use this to close off old trip balances without recording actual cash received. This will mark the oldest unpaid trips as Paid and reduce the outstanding balance, categorizing it as an Adjustment rather than Remitted Cash.</p>
+        </div>
+        <form onSubmit={handleWriteOff} className="space-y-4">
+          <div className="rounded-lg bg-amber-50 p-4 border border-amber-100 mb-4">
+            <p className="text-sm text-amber-800">
+              <strong>Note:</strong> This will be automatically applied to the oldest unpaid trips for <strong>{activeBroker?.name}</strong> first (FIFO).
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Amount (KES)</label>
+            <input type="number" required min="1" className={inp} value={writeOffForm.amount} onChange={e => setWriteOffForm({ ...writeOffForm, amount: e.target.value })} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Adjustment Date</label>
+            <input type="date" required className={inp} value={writeOffForm.date} onChange={e => setWriteOffForm({ ...writeOffForm, date: e.target.value })} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Notes / Reason</label>
+            <textarea className={inp} rows="2" required value={writeOffForm.notes} onChange={e => setWriteOffForm({ ...writeOffForm, notes: e.target.value })}></textarea>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={() => setWriteOffModalOpen(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-slate-800 py-2.5 font-bold text-white hover:bg-slate-900 disabled:opacity-50">{saving ? "Applying..." : "Confirm Write-Off"}</button>
           </div>
         </form>
       </Modal>
