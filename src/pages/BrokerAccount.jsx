@@ -476,6 +476,11 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
                           </div>
                           <div className="text-right ml-4 whitespace-nowrap">
                             <p className={`font-semibold ${entry.type === 'write_off' ? 'text-slate-600' : 'text-emerald-600'}`}>-{fmt(entry.amount)}</p>
+                            {entry.settlement_id && (
+                              <button onClick={() => handleDeleteSettlement(entry.settlement_id)} className="block w-full text-right mt-1 text-rose-400 hover:text-rose-600 font-bold text-[10px]" title="Undo / Delete this Settlement">
+                                Undo
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
