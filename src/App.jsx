@@ -26,6 +26,7 @@ import UsersPage from "./pages/Users";
 import VehiclesPage from "./pages/Vehicles";
 import PersonnelPage from "./pages/Personnel";
 import BrokerAccountPage from "./pages/BrokerAccount";
+import BrokerReconciliationPage from "./pages/BrokerReconciliation";
 import PersonnelAccountPage from "./pages/PersonnelAccount";
 import MaintenancePage from "./pages/Maintenance";
 import SettingsPage from "./pages/Settings";
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
   { id: "vehicles", label: "Vehicles", icon: "🚚" },
   { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true },
   { id: "broker-account", label: "Broker Ledger", icon: "🏢", roleAccess: ["admin", "owner", "broker"] },
+  { id: "broker-reconcile", label: "Close Period", icon: "✔️", roleAccess: ["admin", "owner"] },
   { id: "brokers", label: "Brokers", icon: "🤝", adminOnly: true },
   { id: "personnel-account", label: "My Account", icon: "💳", roleAccess: ["admin", "owner", "driver", "conductor"] },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true },
@@ -168,6 +170,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} brokers={brokers} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
     "broker-account": <BrokerAccountPage isAdmin={isAdmin} brokers={brokers} />,
+    "broker-reconcile": <BrokerReconciliationPage brokers={brokers} />,
     "personnel-account": <PersonnelAccountPage isAdmin={isAdmin} personnelId={personnelId} personnelList={personnel} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} />,

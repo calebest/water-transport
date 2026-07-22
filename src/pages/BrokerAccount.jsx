@@ -13,6 +13,14 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
   const [form, setForm] = useState({ amount: "", method: "Cash", date: today(), notes: "Payment via Cash" });
   const [writeOffModalOpen, setWriteOffModalOpen] = useState(false);
   const [writeOffForm, setWriteOffForm] = useState({ amount: "", date: today(), notes: "Balance Adjustment / Write-Off" });
+  const [activeLorry, setActiveLorry] = useState("all"); // "all" or a specific lorry plate
+
+  // Reset lorry filter when broker changes
+  useEffect(() => { 
+    setActiveLorry("all"); 
+  }, [activeBrokerId]);
+
+
   const toggleTrip = (id) => {
     setExpandedTrips(prev => {
       const next = new Set(prev);
@@ -41,6 +49,29 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
 
   const activeBroker = useMemo(() => brokers.find(b => b.id === activeBrokerId), [brokers, activeBrokerId]);
 
+  // All unique lorry plates that appear in this broker's ledger
+  const availableLorries = useMemo(() => {
+    const plates = new Set();
+    ledger.forEach(e => {
+      const plate = e.lorry || e.trips?.lorry;
+      if (plate) plates.add(plate);
+    });
+    return Array.from(plates).sort();
+  }, [ledger]);
+
+  // The filtered ledger based on selected vehicle and active status
+  const filteredLedger = useMemo(() => {
+    // Only show entries that are NOT part of a closed statement
+    let result = ledger.filter(e => !e.statement_id);
+    if (activeLorry !== "all") {
+      result = result.filter(e => {
+        const plate = e.lorry || e.trips?.lorry;
+        return plate === activeLorry;
+      });
+    }
+    return result;
+  }, [ledger, activeLorry]);
+
   const dateGroups = useMemo(() => {
     const groups = {};
     const sortLedger = (a, b) => {
@@ -54,10 +85,11 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       return 0;
     };
 
-    const sortedLedger = [...ledger].sort(sortLedger);
+    const sortedLedger = [...filteredLedger].sort(sortLedger);
     let runningBalance = 0;
 
     sortedLedger.forEach(entry => {
+      const amt = Number(entry.amount || 0);
       const date = entry.date || "No Date";
       if (!groups[date]) {
         groups[date] = {
@@ -72,7 +104,6 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         };
       }
       const group = groups[date];
-      const amt = Number(entry.amount || 0);
       if (entry.type === "revenue") {
         group.totalRevenue += amt;
         group.netChange += amt;
@@ -95,19 +126,33 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
     });
 
     return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
-  }, [ledger]);
+  }, [filteredLedger]);
 
   const { totalRevenue, totalExpenses, totalRemitted, totalWriteOff, currentBalance, groupedLedger } = useMemo(() => {
     let tr = 0, te = 0, trm = 0, two = 0, cb = 0;
+    let openingBalance = 0;
     const groups = [];
     const tripMap = new Map();
 
-    ledger.forEach(entry => {
+    // Re-sort chronologically
+    const sortedLedger = [...filteredLedger].sort((a, b) => {
+      const dateCompare = (a.date || "").localeCompare(b.date || "");
+      if (dateCompare !== 0) return dateCompare;
+      const numA = parseInt(String(a.trips?.trip_number || a.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.trips?.trip_number || b.notes?.match(/Trip (\d+)/)?.[1] || "0").replace(/\D/g, ""), 10) || 0;
+      if (numA !== numB) return numA - numB;
+      if ((a.type === "remittance" || a.type === "write_off") && (b.type !== "remittance" && b.type !== "write_off")) return 1;
+      if ((a.type !== "remittance" && a.type !== "write_off") && (b.type === "remittance" || b.type === "write_off")) return -1;
+      return 0;
+    });
+
+    sortedLedger.forEach(entry => {
       const amt = Number(entry.amount || 0);
-      if (entry.type === "revenue") { tr += amt; cb += amt; }
-      else if (entry.type === "expense_paid") { te += amt; cb -= amt; }
-      else if (entry.type === "remittance") { trm += amt; cb -= amt; }
-      else if (entry.type === "write_off") { two += amt; cb -= amt; }
+
+      if (entry.type === "revenue") { cb += amt; tr += amt; }
+      else if (entry.type === "expense_paid") { cb -= amt; te += amt; }
+      else if (entry.type === "remittance") { cb -= amt; trm += amt; }
+      else if (entry.type === "write_off") { cb -= amt; two += amt; }
 
       entry.runningBalance = cb;
 
@@ -140,8 +185,9 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         group.runningBalance = cb;
       }
     });
+
     return { totalRevenue: tr, totalExpenses: te, totalRemitted: trm, totalWriteOff: two, currentBalance: cb, groupedLedger: groups.reverse() };
-  }, [ledger]);
+  }, [filteredLedger]);
 
   const handleSettle = async (e) => {
     e.preventDefault();
@@ -149,7 +195,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
     setSaving(true);
     try {
       await financeService.makeBrokerSettlement(activeBrokerId, form.amount, {
-        date: form.date, method: form.method, notes: form.notes
+        date: form.date, method: form.method, notes: form.notes,
+        lorry: activeLorry !== "all" ? activeLorry : null
       });
       setModalOpen(false);
       setForm({ amount: "", method: "Cash", date: today(), notes: "Payment via Cash" });
@@ -175,7 +222,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
     setSaving(true);
     try {
       await financeService.makeBrokerSettlement(activeBrokerId, writeOffForm.amount, {
-        date: writeOffForm.date, method: "Adjustment", notes: writeOffForm.notes, entryType: "write_off"
+        date: writeOffForm.date, method: "Adjustment", notes: writeOffForm.notes, entryType: "write_off",
+        lorry: activeLorry !== "all" ? activeLorry : null
       });
       setWriteOffModalOpen(false);
       setWriteOffForm({ amount: "", date: today(), notes: "Balance Adjustment / Write-Off" });
@@ -221,6 +269,25 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
               <option key={b.id} value={b.id}>{b.name}{b.company ? ` — ${b.company}` : ""}</option>
             ))}
           </select>
+
+          {/* Vehicle Filter — only show if this broker handles multiple lorries */}
+          {availableLorries.length > 0 && (
+            <select
+              value={activeLorry}
+              onChange={e => setActiveLorry(e.target.value)}
+              className={`rounded-xl border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 shadow-sm min-w-[140px] transition-colors ${
+                activeLorry !== "all"
+                  ? "border-blue-400 bg-blue-50 text-blue-700 focus:ring-blue-100"
+                  : "border-slate-200 bg-white text-slate-700 focus:ring-emerald-100"
+              }`}
+            >
+              <option value="all">🚛 All Vehicles</option>
+              {availableLorries.map(plate => (
+                <option key={plate} value={plate}>{plate}</option>
+              ))}
+            </select>
+          )}
+
           <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
             <button
               type="button"
@@ -260,6 +327,13 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       </div>
 
       {/* Stats */}
+      {activeLorry !== "all" && (
+        <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm">
+          <span className="text-blue-500">🚛</span>
+          <span className="font-semibold text-blue-700">Viewing <strong>{activeLorry}</strong> only — balances and settlements are isolated to this vehicle.</span>
+          <button onClick={() => setActiveLorry("all")} className="ml-auto text-blue-400 hover:text-blue-700 font-bold text-xs">✕ Show All</button>
+        </div>
+      )}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
         <StatCard label="Outstanding Balance" value={fmt(currentBalance)} icon="💸" color={currentBalance > 0 ? "red" : "slate"} />
         <StatCard label="Total Revenue (Trips)" value={fmt(totalRevenue)} icon="💰" color="blue" />
@@ -273,6 +347,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/50">
           <h3 className="text-sm sm:text-base font-bold text-slate-800">
             {activeTab === "ledger" ? "Ledger History" : "Date-by-Date History"} — <span className="text-emerald-600">{activeBroker?.name || "..."}</span>
+            {activeLorry !== "all" && <span className="ml-2 text-xs font-bold rounded-full bg-blue-100 text-blue-700 px-2 py-0.5">{activeLorry}</span>}
           </h3>
         </div>
         <div className="overflow-x-auto">
@@ -497,7 +572,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
       </div>
 
       {/* Settlement Modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={`Record Settlement — ${activeBroker?.name || ""}`}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={`Record Settlement — ${activeBroker?.name || ""}${activeLorry !== "all" ? ` (${activeLorry})` : ""}`}>
         <div className="mb-4 p-4 rounded-xl bg-blue-50 border border-blue-100 text-sm text-blue-800">
           <p className="font-bold mb-1">What is a Settlement?</p>
           <p>This is used when a broker pays you the money they collected from trips. Recording a settlement automatically distributes the payment across their oldest unpaid trips and marks them as Paid. If you make a mistake, you can click "Undo" next to the settlement in the ledger.</p>
@@ -505,7 +580,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         <form onSubmit={handleSettle} className="space-y-4">
           <div className="rounded-lg bg-amber-50 p-4 border border-amber-100 mb-4">
             <p className="text-sm text-amber-800">
-              <strong>Note:</strong> This payment will be automatically applied to the oldest unpaid trips for <strong>{activeBroker?.name}</strong> first (FIFO).
+              <strong>Note:</strong> This payment will be automatically applied to the oldest unpaid trips for <strong>{activeBroker?.name}</strong>
+              {activeLorry !== "all" ? <> — <strong className="text-blue-700">{activeLorry} only</strong> — other vehicles are not affected.</> : <> first (FIFO across all vehicles).</>}
             </p>
           </div>
           <div>

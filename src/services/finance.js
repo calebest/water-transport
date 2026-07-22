@@ -3,20 +3,25 @@ import { supabase } from "./supabase";
 export const financeService = {
   // --- BROKER LEDGER & SETTLEMENTS ---
 
-  makeBrokerSettlement: async (brokerId, amount, { date, method, notes, userId } = {}) => {
+  makeBrokerSettlement: async (brokerId, amount, { date, method, notes, userId, entryType = "remittance", lorry = null, startDate = null } = {}) => {
     if (!brokerId) throw new Error("Broker ID is required");
     let remainingAmount = Number(amount);
     if (isNaN(remainingAmount) || remainingAmount <= 0) throw new Error("Invalid settlement amount");
 
     const paymentDate = date || new Date().toISOString().slice(0, 10);
 
-    // 1. Fetch unpaid approved trips
-    const { data: unpaidTripsRaw, error: tripsError } = await supabase
+    // 1. Fetch unpaid approved trips (optionally filtered by lorry)
+    let query = supabase
       .from('trips')
       .select('*')
       .eq('broker_id', brokerId)
       .eq('approval_status', 'approved')
       .neq('status', 'Paid');
+
+    if (lorry) query = query.eq('lorry', lorry);
+    if (startDate) query = query.gte('date', startDate);
+      
+    const { data: unpaidTripsRaw, error: tripsError } = await query;
       
     if (tripsError) throw tripsError;
     
@@ -27,7 +32,7 @@ export const financeService = {
     const linkedTrips = [];
     const updates = [];
 
-    // 2. Apply payment across trips
+    // 2. Apply payment across trips (FIFO)
     for (const trip of unpaidTrips) {
       if (remainingAmount <= 0) break;
 
@@ -66,7 +71,7 @@ export const financeService = {
       if (updateError) throw updateError;
     }
 
-    // 3. Log settlement
+    // 3. Log settlement (include lorry if provided)
     const { data: settlementData, error: settlementError } = await supabase.from('settlements').insert({
       amount: Number(amount),
       date: paymentDate,
@@ -75,19 +80,21 @@ export const financeService = {
       linked_trips: linkedTrips,
       created_by: userId,
       broker_id: brokerId,
+      lorry: lorry || null,
     }).select().single();
 
     if (settlementError) throw settlementError;
     const settlementId = settlementData.id;
 
-    // 4. Log to broker_ledger
+    // 4. Log to broker_ledger (include lorry if provided)
     const { error: ledgerError } = await supabase.from('broker_ledger').insert({
       settlement_id: settlementId,
       date: paymentDate,
-      type: "remittance",
+      type: entryType,
       amount: Number(amount),
       notes: notes || `Payment via ${method || "Cash"}`,
       broker_id: brokerId,
+      lorry: lorry || null,
     });
 
     if (ledgerError) throw ledgerError;
@@ -126,6 +133,42 @@ export const financeService = {
     if (delError) throw delError;
   },
 
+  closeBrokerPeriod: async (brokerId, { startDate, endDate, tripIds, settlementIds, ledgerIds, totals, notes, userId }) => {
+    // 1. Create statement
+    const { data: stmt, error: stmtError } = await supabase.from('broker_statements').insert({
+      broker_id: brokerId,
+      created_by: userId,
+      start_date: startDate,
+      end_date: endDate,
+      total_revenue: totals.revenue,
+      total_expenses: totals.expenses,
+      total_remitted: totals.remitted,
+      total_write_off: totals.writeOff,
+      closing_balance: totals.balance,
+      notes: notes || "Period closed manually"
+    }).select().single();
+
+    if (stmtError) throw stmtError;
+    const stmtId = stmt.id;
+
+    // 2. Link trips
+    if (tripIds && tripIds.length > 0) {
+      await supabase.from('trips').update({ statement_id: stmtId }).in('id', tripIds);
+    }
+
+    // 3. Link settlements
+    if (settlementIds && settlementIds.length > 0) {
+      await supabase.from('settlements').update({ statement_id: stmtId }).in('id', settlementIds);
+    }
+
+    // 4. Link broker_ledger entries
+    if (ledgerIds && ledgerIds.length > 0) {
+      await supabase.from('broker_ledger').update({ statement_id: stmtId }).in('id', ledgerIds);
+    }
+
+    return stmtId;
+  },
+
   subscribeBrokerLedger: (brokerId, callback) => {
     if (!brokerId) {
         callback([]);
@@ -145,7 +188,7 @@ export const financeService = {
       return 0;
     };
 
-    supabase.from('broker_ledger').select('*, trips(location, trip_number)').eq('broker_id', brokerId).then(({ data, error }) => {
+    supabase.from('broker_ledger').select('*, trips(location, trip_number, lorry)').eq('broker_id', brokerId).then(({ data, error }) => {
       if (!error && data) {
         data.sort(sortLedger);
         callback(data);
@@ -155,7 +198,7 @@ export const financeService = {
     const channel = supabase
       .channel(`public:broker_ledger:${brokerId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'broker_ledger', filter: `broker_id=eq.${brokerId}` }, async () => {
-        const { data } = await supabase.from('broker_ledger').select('*, trips(location, trip_number)').eq('broker_id', brokerId);
+        const { data } = await supabase.from('broker_ledger').select('*, trips(location, trip_number, lorry)').eq('broker_id', brokerId);
         if (data) {
           data.sort(sortLedger);
           callback(data);
