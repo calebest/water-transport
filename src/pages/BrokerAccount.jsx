@@ -722,7 +722,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
 
         {/* ─── DATE VIEW ─────────────────────────────────────────────────────── */}
         {activeTab === "date" ? (
-          <div className="p-4 sm:p-5 space-y-8">
+          <div className="p-3 sm:p-5 space-y-6">
             {dateGroups.length === 0 && (
               <div className="py-14 text-center">
                 {hasActiveFilters
@@ -732,49 +732,47 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
             )}
 
             {dateGroups.map(dayGroup => (
-              <div key={dayGroup.date}>
-                {/* ── Sticky Date Header ── */}
-                <div className="sticky top-0 z-10 -mx-1 px-1 pb-3 bg-white/90 backdrop-blur-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-2 shrink-0">
-                      <span className="text-lg">📅</span>
+              <div key={dayGroup.date} className="space-y-2">
+
+                {/* ── Date Header ── */}
+                <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm pt-1 pb-2 -mx-3 sm:-mx-5 px-3 sm:px-5 border-b border-slate-100">
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Left: date */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-base shrink-0">📅</span>
+                      <h3 className="text-sm font-black text-slate-800 truncate">{dayGroup.date}</h3>
                     </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-800">{dayGroup.date}</h3>
-                      {/* Day summary chips */}
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Open {fmt(dayGroup.openingBalance)}</span>
-                        {dayGroup.totalRevenue > 0 && <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">+{fmt(dayGroup.totalRevenue)} revenue</span>}
-                        {dayGroup.totalExpenses > 0 && <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">−{fmt(dayGroup.totalExpenses)} exp</span>}
-                        {dayGroup.totalRemitted > 0 && <span className="text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">−{fmt(dayGroup.totalRemitted)} paid</span>}
-                        <span className="text-[10px] font-black bg-slate-800 text-white px-2 py-0.5 rounded-full">Close {fmt(dayGroup.closingBalance)}</span>
-                      </div>
-                    </div>
-                    <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent ml-2" />
+                    {/* Right: closing balance only — clean, no chip overflow */}
+                    <span className="shrink-0 text-xs font-black bg-slate-800 text-white px-2.5 py-1 rounded-full whitespace-nowrap">
+                      {fmt(dayGroup.closingBalance)}
+                    </span>
+                  </div>
+                  {/* Day flow — one compact line below */}
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] font-semibold text-slate-400 pl-6">
+                    <span>Open {fmt(dayGroup.openingBalance)}</span>
+                    {dayGroup.totalRevenue > 0 && <span className="text-emerald-600">+{fmt(dayGroup.totalRevenue)}</span>}
+                    {dayGroup.totalExpenses > 0 && <span className="text-amber-600">−{fmt(dayGroup.totalExpenses)} exp</span>}
+                    {dayGroup.totalRemitted > 0 && <span className="text-blue-600">−{fmt(dayGroup.totalRemitted)} paid</span>}
                   </div>
                 </div>
 
-                {/* ── Trips under this date ── */}
-                <div className="space-y-3 pl-2 border-l-2 border-slate-100 ml-4">
+                {/* ── Entries for this date ── */}
+                <div className="space-y-2 pt-1">
                   {dayGroup.trips.map(trip => {
                     if (trip.trip_id === "__standalone__") {
-                      // Non-trip entries (direct credits, expenses without a trip)
                       return [...trip.revenue_entries, ...trip.expense_entries].map(entry => (
                         <div key={entry.id} onClick={() => setSelectedEntry(entry)}
-                          className="relative -ml-2 pl-5 cursor-pointer group"
+                          className={`rounded-xl border px-3 py-2.5 flex items-start justify-between gap-3 cursor-pointer active:opacity-80 transition-opacity ${entry.type === "revenue" ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/40"}`}
                         >
-                          <div className="absolute left-0 top-3 w-2 h-2 -translate-x-1/2 rounded-full bg-slate-300 ring-4 ring-white" />
-                          <div className={`rounded-xl border px-4 py-3 flex items-center justify-between hover:brightness-95 transition-all ${entry.type === "revenue" ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/40"}`}>
-                            <div className="flex items-center gap-3">
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${entry.type === "revenue" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                                {entry.type === "revenue" ? "↑ Revenue" : "↓ Expense"}
-                              </span>
-                              <p className="text-sm text-slate-600">{entry.notes}</p>
-                            </div>
-                            <p className={`font-bold text-sm ${entry.type === "revenue" ? "text-emerald-600" : "text-rose-500"}`}>
-                              {entry.type === "revenue" ? "+" : "−"}{fmt(entry.amount)}
-                            </p>
+                          <div className="flex-1 min-w-0">
+                            <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded mb-1 ${entry.type === "revenue" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                              {entry.type === "revenue" ? "↑ Revenue" : "↓ Expense"}
+                            </span>
+                            <p className="text-xs text-slate-600 leading-snug truncate">{entry.notes}</p>
                           </div>
+                          <p className={`text-sm font-black shrink-0 ${entry.type === "revenue" ? "text-emerald-600" : "text-rose-500"}`}>
+                            {entry.type === "revenue" ? "+" : "−"}{fmt(entry.amount)}
+                          </p>
                         </div>
                       ));
                     }
@@ -783,114 +781,111 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
                     const net = trip.totalRevenue - trip.totalExpenses;
                     const accentColor = net > 0 ? "border-l-emerald-400" : net < 0 ? "border-l-rose-400" : "border-l-slate-300";
                     const allEntries = [...trip.revenue_entries, ...trip.expense_entries];
+                    const isExpanded = expandedTrips.has(trip.trip_id);
 
                     return (
-                      <div key={trip.trip_id} className="relative -ml-2 pl-5">
-                        <div className="absolute left-0 top-4 w-2.5 h-2.5 -translate-x-1/2 rounded-full bg-indigo-300 ring-4 ring-white" />
-                        <div className={`rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm border-l-4 ${accentColor}`}>
-                          {/* Trip header */}
-                          <div
-                            onClick={() => toggleTrip(trip.trip_id)}
-                            className="px-4 py-3 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-100/60 transition-colors"
-                          >
-                            <div className="flex items-center gap-2.5 flex-wrap">
-                              <span className="font-black text-slate-800">
+                      <div key={trip.trip_id} className={`rounded-xl border border-slate-200 bg-white overflow-hidden border-l-4 ${accentColor}`}>
+                        {/* Trip header — stacks on mobile */}
+                        <div
+                          onClick={() => toggleTrip(trip.trip_id)}
+                          className="px-3 py-2.5 bg-slate-50/70 cursor-pointer active:bg-slate-100 transition-colors"
+                        >
+                          {/* Row 1: Trip name + chevron */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-black text-slate-800 text-sm truncate">
                                 {trip.trip_number ? `Trip ${trip.trip_number}` : "Trip"}
                               </span>
                               {trip.location && (
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
-                                  📍 {trip.location}
-                                </span>
+                                <span className="text-xs text-slate-500 truncate">— {trip.location}</span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-xs font-bold ml-2 shrink-0">
-                              {trip.totalRevenue > 0 && <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">+{fmt(trip.totalRevenue)}</span>}
-                              {trip.totalExpenses > 0 && <span className="text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full">−{fmt(trip.totalExpenses)}</span>}
-                              <span className={`px-2 py-0.5 rounded-full border font-black text-xs ${net >= 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-rose-600 bg-rose-50 border-rose-200"}`}>
-                                Net {net >= 0 ? "+" : ""}{fmt(net)}
-                              </span>
-                              <span className={`text-slate-400 text-[10px] transition-transform duration-200 ${expandedTrips.has(trip.trip_id) ? "rotate-180" : ""}`}>▼</span>
-                            </div>
+                            <span className={`text-slate-400 text-[10px] shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}>▼</span>
                           </div>
-
-                          {/* Trip entries (always visible or expandable) */}
-                          {(expandedTrips.has(trip.trip_id) || allEntries.length <= 2) && (
-                            <div className="divide-y divide-slate-50">
-                              {allEntries.map(entry => (
-                                <div
-                                  key={entry.id}
-                                  onClick={() => setSelectedEntry(entry)}
-                                  className="px-4 py-3 flex items-start justify-between hover:bg-slate-50/70 transition-colors cursor-pointer gap-4"
-                                >
-                                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                                    <span className={`shrink-0 mt-0.5 text-xs font-bold px-2 py-0.5 rounded-md ${entry.type === "revenue" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                                      {entry.type === "revenue" ? "↑ Revenue" : "↓ Expense"}
-                                    </span>
-                                    <p className="text-sm text-slate-600 leading-snug">{entry.notes}</p>
-                                  </div>
-                                  <p className={`text-sm font-bold whitespace-nowrap ${entry.type === "revenue" ? "text-emerald-600" : "text-rose-500"}`}>
-                                    {entry.type === "revenue" ? "+" : "−"}{fmt(entry.amount)}
-                                  </p>
-                                </div>
-                              ))}
-                              {allEntries.length > 2 && expandedTrips.has(trip.trip_id) && (
-                                <div className="px-4 py-2 text-center">
-                                  <button onClick={() => toggleTrip(trip.trip_id)} className="text-xs font-bold text-slate-400 hover:text-slate-700">▲ Collapse</button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {allEntries.length > 2 && !expandedTrips.has(trip.trip_id) && (
-                            <div className="px-4 py-2 text-center border-t border-slate-50">
-                              <button onClick={() => toggleTrip(trip.trip_id)} className="text-xs font-bold text-indigo-500 hover:text-indigo-700">
-                                ▼ Show {allEntries.length} entries
-                              </button>
-                            </div>
-                          )}
+                          {/* Row 2: Amounts summary */}
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {trip.totalRevenue > 0 && (
+                              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">+{fmt(trip.totalRevenue)}</span>
+                            )}
+                            {trip.totalExpenses > 0 && (
+                              <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded">−{fmt(trip.totalExpenses)}</span>
+                            )}
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${net >= 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-rose-600 bg-rose-50 border-rose-200"}`}>
+                              Net {net >= 0 ? "+" : ""}{fmt(net)}
+                            </span>
+                          </div>
                         </div>
+
+                        {/* Trip entries */}
+                        {(isExpanded || allEntries.length <= 2) && (
+                          <div className="divide-y divide-slate-50">
+                            {allEntries.map(entry => (
+                              <div key={entry.id} onClick={() => setSelectedEntry(entry)}
+                                className="px-3 py-2.5 flex items-start justify-between gap-3 hover:bg-slate-50 active:bg-slate-100 transition-colors cursor-pointer"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded mb-0.5 ${entry.type === "revenue" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                                    {entry.type === "revenue" ? "↑ Revenue" : "↓ Expense"}
+                                  </span>
+                                  <p className="text-xs text-slate-600 leading-snug">{entry.notes}</p>
+                                </div>
+                                <p className={`text-sm font-bold shrink-0 whitespace-nowrap ${entry.type === "revenue" ? "text-emerald-600" : "text-rose-500"}`}>
+                                  {entry.type === "revenue" ? "+" : "−"}{fmt(entry.amount)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {allEntries.length > 2 && !isExpanded && (
+                          <button onClick={() => toggleTrip(trip.trip_id)}
+                            className="w-full py-2 text-xs font-bold text-indigo-500 hover:text-indigo-700 border-t border-slate-50 bg-white"
+                          >▼ Show {allEntries.length} entries</button>
+                        )}
+                        {allEntries.length > 2 && isExpanded && (
+                          <button onClick={() => toggleTrip(trip.trip_id)}
+                            className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-600 border-t border-slate-50 bg-white"
+                          >▲ Collapse</button>
+                        )}
                       </div>
                     );
                   })}
 
-                  {/* ── Payments / Settlements for this date ── */}
+                  {/* ── Payments & Adjustments ── */}
                   {dayGroup.payments.length > 0 && (
-                    <div className="relative -ml-2 pl-5">
-                      <div className="absolute left-0 top-4 w-2.5 h-2.5 -translate-x-1/2 rounded-full bg-emerald-400 ring-4 ring-white" />
-                      <div className="rounded-xl border border-emerald-100 overflow-hidden bg-emerald-50/30">
-                        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-100">
-                          <p className="text-xs font-black text-emerald-700 uppercase tracking-widest">Payments & Adjustments</p>
-                        </div>
-                        <div className="divide-y divide-emerald-50">
-                          {dayGroup.payments.map(entry => {
-                            const method = parseMethod(entry.notes || "");
-                            const isWO = entry.type === "write_off";
-                            return (
-                              <div key={entry.id} onClick={() => setSelectedEntry(entry)}
-                                className="px-4 py-3.5 flex items-center justify-between hover:bg-emerald-50 transition-colors cursor-pointer gap-4"
-                              >
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <span className="text-xl shrink-0">{isWO ? "⚖️" : METHOD_ICON[method] || "💵"}</span>
-                                  <div className="min-w-0">
-                                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 ${isWO ? "bg-slate-200 text-slate-600" : "bg-emerald-200 text-emerald-800"}`}>
-                                      {isWO ? "Adjustment" : `Settlement · ${method}`}
-                                    </span>
-                                    <p className="text-sm text-slate-600 truncate">{entry.notes}</p>
-                                  </div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <p className="font-black text-sm text-rose-600">−{fmt(entry.amount)}</p>
-                                  {entry.settlement_id && (
-                                    <button
-                                      onClick={e => { e.stopPropagation(); handleDeleteSettlement(entry.settlement_id); }}
-                                      className="text-[10px] font-bold text-rose-400 hover:text-rose-600 mt-0.5 block"
-                                    >Undo</button>
-                                  )}
+                    <div className="rounded-xl border border-emerald-100 overflow-hidden bg-emerald-50/20">
+                      <div className="px-3 py-2 bg-emerald-50 border-b border-emerald-100">
+                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Payments & Adjustments</p>
+                      </div>
+                      <div className="divide-y divide-emerald-50">
+                        {dayGroup.payments.map(entry => {
+                          const method = parseMethod(entry.notes || "");
+                          const isWO = entry.type === "write_off";
+                          return (
+                            <div key={entry.id} onClick={() => setSelectedEntry(entry)}
+                              className="px-3 py-3 flex items-start justify-between gap-3 hover:bg-emerald-50 active:bg-emerald-50 cursor-pointer"
+                            >
+                              <div className="flex items-start gap-2 flex-1 min-w-0">
+                                <span className="text-lg shrink-0 leading-none mt-0.5">{isWO ? "⚖️" : METHOD_ICON[method] || "💵"}</span>
+                                <div className="min-w-0">
+                                  <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full mb-0.5 ${isWO ? "bg-slate-200 text-slate-600" : "bg-emerald-200 text-emerald-800"}`}>
+                                    {isWO ? "Adjustment" : method}
+                                  </span>
+                                  <p className="text-xs text-slate-600 truncate">{entry.notes}</p>
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
+                              <div className="text-right shrink-0">
+                                <p className="font-black text-sm text-rose-600">−{fmt(entry.amount)}</p>
+                                {entry.settlement_id && (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); handleDeleteSettlement(entry.settlement_id); }}
+                                    className="text-[10px] font-bold text-rose-400 hover:text-rose-600 mt-0.5 block"
+                                  >Undo</button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
