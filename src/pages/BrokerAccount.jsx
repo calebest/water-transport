@@ -699,10 +699,9 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <StatCard label="Total Revenue" value={fmt(totalRevenue)} icon="💰" color="blue" />
-          <StatCard label="Expenses Paid" value={fmt(totalExpenses)} icon="📉" color="amber" />
-          <StatCard label="Amount Paid Out" value={fmt(totalRemitted + totalWriteOff)} icon="🏦" color="green" />
+          <StatCard label="Expenses Paid" value={fmt(totalExpenses + totalRemitted + totalWriteOff)} icon="📉" color="amber" />
         </div>
       </div>
 
