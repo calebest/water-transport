@@ -93,7 +93,7 @@ function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess,
       ];
 
   const linkableTrips = brokerTrips.filter(t =>
-    t.approval_status === "approved" && (!selectedVehicle || t.lorry === selectedVehicle)
+    t.approvalStatus === "approved" && (!selectedVehicle || t.lorry === selectedVehicle)
   );
 
   const quickCategories = direction === "IN"
@@ -199,7 +199,7 @@ function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess,
               <option value="">— No specific trip —</option>
               {linkableTrips.map(t => (
                 <option key={t.id} value={t.id}>
-                  {t.lorry ? `[${t.lorry}] ` : ""}{t.date} — {t.location || `Trip ${t.trip_number || t.id.slice(0, 6)}`}
+                  {t.lorry ? `[${t.lorry}] ` : ""}{t.date} — {t.location || `Trip ${t.tripNumber || t.id.slice(0, 6)}`}
                 </option>
               ))}
             </select>
@@ -393,8 +393,9 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
   const activeBroker = useMemo(() => brokers.find(b => b.id === activeBrokerId), [brokers, activeBrokerId]);
 
   // Trips for this broker (for modal trip linking)
+  // Note: trips.js fromDB() maps broker_id → brokerId (camelCase)
   const brokerTrips = useMemo(() =>
-    trips.filter(t => t.broker_id === activeBrokerId),
+    trips.filter(t => t.brokerId === activeBrokerId),
     [trips, activeBrokerId]
   );
 
