@@ -170,15 +170,16 @@ export const financeService = {
   },
 
   // Manual ledger entry (no FIFO trip distribution)
-  addDirectBrokerEntry: async (brokerId, { date, type, amount, notes, lorry }) => {
+  addDirectBrokerEntry: async (brokerId, { date, type, amount, notes, lorry, trip_id, category }) => {
     if (!brokerId) throw new Error("Broker ID required");
     const { error } = await supabase.from('broker_ledger').insert({
       broker_id: brokerId,
       date: date || new Date().toISOString().slice(0, 10),
       type,           // 'revenue' | 'expense_paid' | 'remittance' | 'write_off'
       amount: Number(amount),
-      notes: notes || "",
+      notes: [category, notes].filter(Boolean).join(' — ') || "",
       lorry: lorry || null,
+      trip_id: trip_id || null,
     });
     if (error) throw error;
   },

@@ -29,57 +29,53 @@ const isWithinPeriod = (dateStr, period, customStart, customEnd) => {
 };
 
 // ─── Record Transaction Modal ──────────────────────────────────────────────
-function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess }) {
-  const [direction, setDirection] = useState("IN"); // IN = money received, OUT = expense/adjustment
-  const [txType, setTxType] = useState("settlement"); // settlement | direct_credit | expense | adjustment
+function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess, vehicles = [], brokerTrips = [] }) {
+  const [direction, setDirection] = useState("IN");
+  const [txType, setTxType] = useState("settlement");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today());
   const [method, setMethod] = useState("Cash");
   const [notes, setNotes] = useState("");
+  const [category, setCategory] = useState("");
+  const [selectedVehicle, setSelectedVehicle] = useState("");
+  const [linkedTripId, setLinkedTripId] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Auto-set default note
   useEffect(() => {
-    if (txType === "settlement") setNotes(`Payment via ${method}`);
-    else if (txType === "adjustment") setNotes("Balance Adjustment / Write-Off");
-    else if (txType === "expense") setNotes("Broker expense");
-    else if (txType === "direct_credit") setNotes("Direct credit");
-  }, [txType, method]);
+    if (open) setSelectedVehicle(activeLorry !== "all" ? activeLorry : "");
+  }, [activeLorry, open]);
 
-  // Sync direction ↔ type
   const handleDirection = (dir) => {
     setDirection(dir);
-    if (dir === "IN") setTxType("settlement");
-    else setTxType("expense");
+    setTxType(dir === "IN" ? "settlement" : "expense");
+  };
+
+  const reset = () => {
+    setAmount(""); setNotes(""); setCategory(""); setLinkedTripId("");
+    setDate(today()); setDirection("IN"); setTxType("settlement"); setMethod("Cash");
+    setSelectedVehicle(activeLorry !== "all" ? activeLorry : "");
   };
 
   const handleSave = async () => {
     if (!amount || Number(amount) <= 0) return alert("Enter a valid amount.");
     setSaving(true);
     try {
+      const lorry = selectedVehicle || null;
       if (txType === "settlement") {
-        // FIFO settlement across oldest unpaid trips
-        await financeService.makeBrokerSettlement(broker.id, amount, {
-          date, method, notes,
-          lorry: activeLorry !== "all" ? activeLorry : null,
-        });
+        await financeService.makeBrokerSettlement(broker.id, amount, { date, method, notes, lorry });
       } else if (txType === "adjustment") {
-        // Write-off (FIFO)
         await financeService.makeBrokerSettlement(broker.id, amount, {
-          date, method: "Adjustment", notes, entryType: "write_off",
-          lorry: activeLorry !== "all" ? activeLorry : null,
+          date, method: "Adjustment", notes, entryType: "write_off", lorry,
         });
       } else {
-        // Direct entry — no FIFO
         const typeMap = { direct_credit: "remittance", expense: "expense_paid" };
         await financeService.addDirectBrokerEntry(broker.id, {
-          date, type: typeMap[txType] || "remittance", amount, notes,
-          lorry: activeLorry !== "all" ? activeLorry : null,
+          date, type: typeMap[txType] || "remittance", amount, notes, lorry,
+          trip_id: linkedTripId || null,
+          category: category || null,
         });
       }
-      setAmount(""); setNotes(""); setDate(today()); setDirection("IN"); setTxType("settlement");
-      onSuccess?.();
-      onClose();
+      reset(); onSuccess?.(); onClose();
     } catch (e) { alert("Error: " + e.message); }
     finally { setSaving(false); }
   };
@@ -88,64 +84,59 @@ function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess 
 
   const typeOptions = direction === "IN"
     ? [
-        { id: "settlement", label: "🏦 Settlement (Auto-applies to oldest trips)", desc: "FIFO — automatically clears oldest unpaid trip balances" },
-        { id: "direct_credit", label: "💵 Direct Credit", desc: "Manual credit entry — no trip distribution" },
+        { id: "settlement", label: "🏦 Settlement", desc: "Auto-distributes across oldest unpaid trips (FIFO)" },
+        { id: "direct_credit", label: "💵 Direct Credit", desc: "Manual credit — no trip distribution" },
       ]
     : [
-        { id: "expense", label: "📉 Broker Expense", desc: "Record an expense paid by the broker" },
-        { id: "adjustment", label: "⚖️ Adjustment / Write-Off", desc: "FIFO write-off — clears oldest unpaid trip balances" },
+        { id: "expense", label: "📉 Broker Expense", desc: "Expense paid by the broker (can link to a trip)" },
+        { id: "adjustment", label: "⚖️ Adjustment / Write-Off", desc: "FIFO write-off against oldest unpaid trips" },
       ];
 
+  const linkableTrips = brokerTrips.filter(t =>
+    t.approval_status === "approved" && (!selectedVehicle || t.lorry === selectedVehicle)
+  );
+
+  const quickCategories = direction === "IN"
+    ? ["Commission", "Advance Return", "Loan Repayment", "Other Income"]
+    : ["Fuel / Diesel", "Toll Charges", "Driver Allowance", "Loading Fee", "Weighbridge", "Repairs", "Other Expense"];
+
+  const showLinkTrip = txType === "expense" || txType === "direct_credit";
+  const showCategory = txType === "expense" || txType === "direct_credit";
+  const showMethod = txType === "settlement" || txType === "direct_credit";
+
+  // Unique vehicle plates from broker's trips
+  const vehiclePlates = [...new Set(brokerTrips.map(t => t.lorry).filter(Boolean))].sort();
+
   return (
-    <Modal open={open} onClose={onClose} title="">
-      {/* Gradient header */}
+    <Modal open={open} onClose={() => { reset(); onClose(); }} title="">
       <div className="-mx-5 -mt-5 mb-5 bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-700 px-6 pt-6 pb-5 rounded-t-2xl">
         <h2 className="text-xl font-black text-white">Record Transaction</h2>
-        <p className="text-emerald-200 text-sm mt-0.5">
-          {broker?.name}{activeLorry !== "all" ? ` · ${activeLorry}` : ""}
-        </p>
+        <p className="text-emerald-200 text-sm mt-0.5">{broker?.name}{activeLorry !== "all" ? ` · ${activeLorry}` : ""}</p>
       </div>
 
       <div className="space-y-5">
-        {/* IN / OUT toggle */}
+        {/* IN / OUT */}
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => handleDirection("IN")}
-            className={`flex-1 py-3.5 rounded-xl text-sm font-black transition-all duration-200 border-2 ${
-              direction === "IN"
-                ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-200/60"
-                : "bg-white text-slate-400 border-slate-200 hover:border-emerald-300 hover:text-emerald-500"
-            }`}
-          >
-            ↓ Money IN
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDirection("OUT")}
-            className={`flex-1 py-3.5 rounded-xl text-sm font-black transition-all duration-200 border-2 ${
-              direction === "OUT"
-                ? "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-200/60"
-                : "bg-white text-slate-400 border-slate-200 hover:border-rose-300 hover:text-rose-500"
-            }`}
-          >
-            ↑ Money OUT
-          </button>
+          {[["IN", "↓ Money IN"], ["OUT", "↑ Money OUT"]].map(([dir, label]) => (
+            <button key={dir} type="button" onClick={() => handleDirection(dir)}
+              className={`flex-1 py-3.5 rounded-xl text-sm font-black transition-all border-2 ${
+                direction === dir
+                  ? dir === "IN" ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-200/60"
+                                 : "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-200/60"
+                  : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
+              }`}
+            >{label}</button>
+          ))}
         </div>
 
-        {/* Type selector */}
+        {/* Type */}
         <div className="space-y-2">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaction Type</p>
           {typeOptions.map(opt => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setTxType(opt.id)}
+            <button key={opt.id} type="button" onClick={() => setTxType(opt.id)}
               className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
                 txType === opt.id
-                  ? direction === "IN"
-                    ? "border-emerald-400 bg-emerald-50"
-                    : "border-rose-400 bg-rose-50"
+                  ? direction === "IN" ? "border-emerald-400 bg-emerald-50" : "border-rose-400 bg-rose-50"
                   : "border-slate-200 bg-white hover:border-slate-300"
               }`}
             >
@@ -167,22 +158,68 @@ function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess 
           </div>
         </div>
 
-        {/* Method — only for monetary IN */}
-        {(txType === "settlement" || txType === "direct_credit") && (
+        {/* Vehicle */}
+        {vehiclePlates.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Vehicle</p>
+            <select className={inp} value={selectedVehicle} onChange={e => { setSelectedVehicle(e.target.value); setLinkedTripId(""); }}>
+              <option value="">— All Vehicles —</option>
+              {vehiclePlates.map(plate => <option key={plate} value={plate}>{plate}</option>)}
+            </select>
+          </div>
+        )}
+
+        {/* Category */}
+        {showCategory && (
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Category</p>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {quickCategories.map(cat => (
+                <button key={cat} type="button" onClick={() => setCategory(prev => prev === cat ? "" : cat)}
+                  className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-all ${
+                    category === cat
+                      ? direction === "IN" ? "bg-emerald-100 border-emerald-400 text-emerald-700" : "bg-rose-100 border-rose-400 text-rose-700"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
+                  }`}
+                >{cat}</button>
+              ))}
+            </div>
+            <input type="text" className={inp} placeholder="Or type a custom category…"
+              value={category} onChange={e => setCategory(e.target.value)} />
+          </div>
+        )}
+
+        {/* Link to Trip */}
+        {showLinkTrip && (
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+              Link to Trip <span className="normal-case font-normal">(optional)</span>
+            </p>
+            <select className={inp} value={linkedTripId} onChange={e => setLinkedTripId(e.target.value)}>
+              <option value="">— No specific trip —</option>
+              {linkableTrips.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.lorry ? `[${t.lorry}] ` : ""}{t.date} — {t.location || `Trip ${t.trip_number || t.id.slice(0, 6)}`}
+                </option>
+              ))}
+            </select>
+            {linkableTrips.length === 0 && (
+              <p className="text-[11px] text-slate-400 mt-1.5">No approved trips found{selectedVehicle ? ` for ${selectedVehicle}` : ""}.</p>
+            )}
+          </div>
+        )}
+
+        {/* Method */}
+        {showMethod && (
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Payment Method</p>
             <div className="flex gap-2">
               {["Cash", "M-Pesa", "Bank Transfer"].map(m => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMethod(m)}
+                <button key={m} type="button" onClick={() => setMethod(m)}
                   className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all ${
                     method === m ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
                   }`}
-                >
-                  {METHOD_ICON[m]} {m}
-                </button>
+                >{METHOD_ICON[m]} {m}</button>
               ))}
             </div>
           </div>
@@ -191,34 +228,25 @@ function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess 
         {/* Notes */}
         <div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Notes</p>
-          <textarea className={inp} rows="2" value={notes} onChange={e => setNotes(e.target.value)} />
+          <textarea className={inp} rows="2" placeholder="Any additional details…" value={notes} onChange={e => setNotes(e.target.value)} />
         </div>
 
-        {/* Info banner for settlement types */}
-        {(txType === "settlement" || txType === "adjustment") && (
+        {/* FIFO warning */}
+        {(txType === "settlement" || txType === "adjustment") && amount && (
           <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
-            <strong>Auto-distribution:</strong> This will apply <strong>KES {Number(amount || 0).toLocaleString()}</strong> across the oldest unpaid trips for <strong>{broker?.name}</strong>
-            {activeLorry !== "all" ? ` (${activeLorry} only)` : ""} using FIFO order.
+            <strong>Auto-distribution:</strong> KES {Number(amount).toLocaleString()} will be applied to the oldest unpaid trips for <strong>{broker?.name}</strong>{selectedVehicle ? ` (${selectedVehicle})` : ""} (FIFO).
           </div>
         )}
 
-        {/* Action buttons */}
+        {/* Actions */}
         <div className="flex gap-3 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !amount}
+          <button type="button" onClick={() => { reset(); onClose(); }} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving || !amount}
             className={`flex-1 rounded-xl py-2.5 text-sm font-black text-white disabled:opacity-50 transition-all ${
-              direction === "IN"
-                ? "bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20"
-                : "bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-500/20"
+              direction === "IN" ? "bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20"
+                                 : "bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-500/20"
             }`}
-          >
-            {saving ? "Saving…" : direction === "IN" ? "Record Payment" : "Record Deduction"}
-          </button>
+          >{saving ? "Saving…" : direction === "IN" ? "Record Payment" : "Record Deduction"}</button>
         </div>
       </div>
     </Modal>
@@ -321,7 +349,7 @@ function EntryDetailPanel({ entry, onClose, onUndo }) {
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
+export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = [], trips = [] }) {
   const [activeBrokerId, setActiveBrokerId] = useState("");
   const [ledger, setLedger] = useState([]);
   const [txModalOpen, setTxModalOpen] = useState(false);
@@ -363,6 +391,12 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
   }, [activeBrokerId]);
 
   const activeBroker = useMemo(() => brokers.find(b => b.id === activeBrokerId), [brokers, activeBrokerId]);
+
+  // Trips for this broker (for modal trip linking)
+  const brokerTrips = useMemo(() =>
+    trips.filter(t => t.broker_id === activeBrokerId),
+    [trips, activeBrokerId]
+  );
 
   const availableLorries = useMemo(() => {
     const plates = new Set();
@@ -970,6 +1004,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [] }) {
         broker={activeBroker}
         activeLorry={activeLorry}
         onSuccess={() => setTxModalOpen(false)}
+        vehicles={vehicles}
+        brokerTrips={brokerTrips}
       />
     </div>
   );
