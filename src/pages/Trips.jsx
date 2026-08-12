@@ -238,12 +238,6 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
             canAddTrips={canAddTrips}
             onOpenTripReview={onOpenTripReview}
           />
-            onApprove={handleApprove}
-            onReject={handleReject}
-            userId={userId}
-            canAddTrips={canAddTrips}
-            onOpenTripReview={onOpenTripReview}
-          />
         ))}
       </div>
 
