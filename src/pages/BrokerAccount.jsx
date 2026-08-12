@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { financeService } from "../services/finance";
-import { fmt, today } from "../utils/helpers";
+import { fmt, today, getWeekRange, getMonthRange } from "../utils/helpers";
+import { generateBrokerStatement } from "../utils/pdfGenerator";
 import { Modal, StatCard, Badge } from "../components/ui";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ const isWithinPeriod = (dateStr, period, customStart, customEnd) => {
 // ─── Record Transaction Modal ──────────────────────────────────────────────
 function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess, vehicles = [], brokerTrips = [] }) {
   const [direction, setDirection] = useState("IN");
-  const [txType, setTxType] = useState("settlement");
+  const [txType, setTxType] = useState("direct_credit");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today());
   const [method, setMethod] = useState("Cash");
@@ -348,11 +349,220 @@ function EntryDetailPanel({ entry, onClose, onUndo }) {
   );
 }
 
+// ─── Broker Statement Modal ────────────────────────────────────────────────
+function BrokerStatementModal({ open, onClose, broker, availableLorries, currentLorry, ledger }) {
+  const [period, setPeriod] = useState("all");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [vehicle, setVehicle] = useState(currentLorry || "all");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [options, setOptions] = useState({
+    includeTripDetails: true,
+    includeIndividualExpenses: true,
+    includeRemittances: true,
+    includeReconciliation: true,
+  });
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    
+    // 1. Filter ledger exactly like the UI does, but based on modal inputs
+    let filtered = ledger.filter(e => !e.statement_id);
+    if (vehicle !== "all") {
+      filtered = filtered.filter(e => (e.lorry || e.trips?.lorry) === vehicle);
+    }
+    filtered = filtered.filter(e => {
+      let dStart = "", dEnd = "";
+      if (period === "today") { dStart = today(); dEnd = today(); }
+      else if (period === "week") { const r = getWeekRange(); dStart = r[0]; dEnd = r[1]; }
+      else if (period === "month") { const r = getMonthRange(); dStart = r[0]; dEnd = r[1]; }
+      else if (period === "custom") { dStart = customStart; dEnd = customEnd; }
+      
+      if (dStart && e.date < dStart) return false;
+      if (dEnd && e.date > dEnd) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      alert("No transactions found for the selected period/vehicle.");
+      setIsGenerating(false);
+      return;
+    }
+
+    // 2. Run the same grouping logic as the UI
+    let runningCb = 0;
+    // For the PDF, Opening Balance is the running balance BEFORE the first transaction in the filtered set.
+    // To get this, we calculate the balance of all transactions BEFORE the start date.
+    let dStart = "";
+    if (period === "today") dStart = today();
+    else if (period === "week") dStart = getWeekRange()[0];
+    else if (period === "month") dStart = getMonthRange()[0];
+    else if (period === "custom") dStart = customStart;
+
+    let openingBalance = 0;
+    if (dStart) {
+      const beforeLedger = ledger.filter(e => !e.statement_id && e.date < dStart && (vehicle === "all" || (e.lorry || e.trips?.lorry) === vehicle));
+      beforeLedger.forEach(entry => {
+        const amt = Number(entry.amount || 0);
+        if (entry.type === "revenue") openingBalance += amt;
+        else if (entry.type === "expense_paid" || entry.type === "expense") openingBalance -= amt;
+        else if (entry.type === "remittance" || entry.type === "write_off") openingBalance -= amt;
+      });
+    }
+
+    let tr = 0, te = 0, trm = 0, cb = openingBalance;
+    const groups = {};
+    const sorted = [...filtered].sort((a, b) => {
+      const dc = (a.date || "").localeCompare(b.date || "");
+      if (dc !== 0) return dc;
+      const na = parseInt(String(a.trips?.trip_number || "0").replace(/\D/g,""),10)||0;
+      const nb = parseInt(String(b.trips?.trip_number || "0").replace(/\D/g,""),10)||0;
+      return na - nb;
+    });
+
+    sorted.forEach(entry => {
+      const amt = Number(entry.amount || 0);
+      const date = entry.date || "No Date";
+      if (!groups[date]) groups[date] = { date, trips: {}, payments: [], openingBalance: cb, totalRevenue: 0, totalExpenses: 0, totalRemitted: 0, closingBalance: 0 };
+      const g = groups[date];
+
+      if (entry.type === "remittance" || entry.type === "write_off") {
+        cb -= amt; trm += amt; g.totalRemitted += amt; g.payments.push(entry);
+      } else if (entry.trip_id) {
+        if (!g.trips[entry.trip_id]) {
+          g.trips[entry.trip_id] = {
+            trip_id: entry.trip_id, trip_number: entry.trips?.trip_number || entry.notes?.match(/Trip (\d+)/)?.[1] || "",
+            location: entry.trips?.location || "", revenue_entries: [], expense_entries: [], totalRevenue: 0, totalExpenses: 0
+          };
+        }
+        const t = g.trips[entry.trip_id];
+        if (entry.type === "revenue") { t.revenue_entries.push(entry); t.totalRevenue += amt; cb += amt; tr += amt; g.totalRevenue += amt; }
+        else if (entry.type === "expense_paid" || entry.type === "expense") { t.expense_entries.push(entry); t.totalExpenses += amt; cb -= amt; te += amt; g.totalExpenses += amt; }
+      } else {
+        if (!g.trips["__standalone__"]) g.trips["__standalone__"] = { trip_id: "__standalone__", trip_number: null, location: null, revenue_entries: [], expense_entries: [], totalRevenue: 0, totalExpenses: 0 };
+        const t = g.trips["__standalone__"];
+        if (entry.type === "revenue") { t.revenue_entries.push(entry); t.totalRevenue += amt; cb += amt; tr += amt; g.totalRevenue += amt; }
+        else if (entry.type === "expense_paid" || entry.type === "expense") { t.expense_entries.push(entry); t.totalExpenses += amt; cb -= amt; te += amt; g.totalExpenses += amt; }
+      }
+      g.closingBalance = cb;
+    });
+
+    const dateGroups = Object.values(groups)
+      .sort((a, b) => a.date.localeCompare(b.date)) // Chronological for PDF
+      .map(g => ({ ...g, trips: Object.values(g.trips).sort((a, b) => (parseInt(a.trip_number)||0) - (parseInt(b.trip_number)||0)) }));
+
+    const reportData = {
+      openingBalance, totalRevenue: tr, totalExpenses: te, totalRemitted: trm, closingBalance: cb,
+      dateGroups
+    };
+
+    let dateRange = { start: "All Time", end: "All Time" };
+    if (period === "today") dateRange = { start: today(), end: today() };
+    else if (period === "week") { const r = getWeekRange(); dateRange = { start: r[0], end: r[1] }; }
+    else if (period === "month") { const r = getMonthRange(); dateRange = { start: r[0], end: r[1] }; }
+    else if (period === "custom") { dateRange = { start: customStart || "N/A", end: customEnd || "N/A" }; }
+
+    // 3. Generate PDF
+    setTimeout(() => {
+      try {
+        generateBrokerStatement(broker, vehicle, dateRange, reportData, options);
+      } catch (err) {
+        console.error(err);
+        alert("Failed to generate PDF: " + err.message);
+      } finally {
+        setIsGenerating(false);
+        onClose();
+      }
+    }, 100);
+  };
+
+  const inp = "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-100";
+
+  return (
+    <Modal open={open} onClose={() => !isGenerating && onClose()} title="Generate PDF Statement">
+      <div className="space-y-5 px-1 pb-2">
+        
+        {/* Vehicle Selection */}
+        <div>
+          <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Vehicle</label>
+          <select className={inp} value={vehicle} onChange={e => setVehicle(e.target.value)}>
+            <option value="all">All Vehicles</option>
+            {availableLorries.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+
+        {/* Date Range Selection */}
+        <div>
+          <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Date Range</label>
+          <select className={inp} value={period} onChange={e => setPeriod(e.target.value)}>
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="custom">Custom Range</option>
+          </select>
+        </div>
+
+        {period === "custom" && (
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-400">Start Date</label>
+              <input type="date" className={inp} value={customStart} onChange={e => setCustomStart(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-400">End Date</label>
+              <input type="date" className={inp} value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {/* Report Options */}
+        <div>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">Report Details</label>
+          <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" 
+                checked={options.includeTripDetails} onChange={e => setOptions({...options, includeTripDetails: e.target.checked})} />
+              <span className="text-sm font-semibold text-slate-700">Include trip details</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" 
+                checked={options.includeIndividualExpenses} disabled={!options.includeTripDetails}
+                onChange={e => setOptions({...options, includeIndividualExpenses: e.target.checked})} />
+              <span className={`text-sm font-semibold ${options.includeTripDetails ? 'text-slate-700' : 'text-slate-400'}`}>Include individual expenses</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" 
+                checked={options.includeRemittances} onChange={e => setOptions({...options, includeRemittances: e.target.checked})} />
+              <span className="text-sm font-semibold text-slate-700">Include remittance history</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" 
+                checked={options.includeReconciliation} onChange={e => setOptions({...options, includeReconciliation: e.target.checked})} />
+              <span className="text-sm font-semibold text-slate-700">Include final reconciliation</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Action */}
+        <button
+          onClick={handleGenerate}
+          disabled={isGenerating || (period === "custom" && (!customStart || !customEnd))}
+          className="w-full rounded-xl bg-indigo-600 py-3.5 text-sm font-black text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isGenerating ? "Generating Statement..." : "Generate PDF Statement"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = [], trips = [] }) {
   const [activeBrokerId, setActiveBrokerId] = useState("");
   const [ledger, setLedger] = useState([]);
   const [txModalOpen, setTxModalOpen] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [expandedTrips, setExpandedTrips] = useState(new Set());
   const [activeTab, setActiveTab] = useState("date"); // default to Date view — better organized
   const [activeLorry, setActiveLorry] = useState("all");
@@ -420,7 +630,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
     return filteredLedger.filter(e => {
       if (filterType === "revenue" && e.type !== "revenue") return false;
       if (filterType === "payment" && e.type !== "remittance") return false;
-      if (filterType === "expense" && e.type !== "expense_paid") return false;
+      if (filterType === "expense" && e.type !== "expense_paid" && e.type !== "expense") return false;
       if (filterType === "adjustment" && e.type !== "write_off") return false;
       if (!isWithinPeriod(e.date, filterPeriod, customStart, customEnd)) return false;
       if (searchQuery) {
@@ -437,8 +647,30 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
   const clearFilters = () => { setSearchQuery(""); setFilterPeriod("all"); setFilterType("all"); setCustomStart(""); setCustomEnd(""); };
 
   // ── Ledger View (flat table with running balance) ──────────────────────────
-  const { totalRevenue, totalExpenses, totalRemitted, totalWriteOff, currentBalance, groupedLedger } = useMemo(() => {
-    let tr = 0, te = 0, trm = 0, two = 0, cb = 0;
+  const { openingBalance, totalRevenue, totalExpenses, totalRemitted, totalWriteOff, currentBalance, groupedLedger } = useMemo(() => {
+    let ob = 0;
+    // Calculate opening balance from transactions before the filtered period
+    if (filterPeriod !== "all") {
+      let dStart = "";
+      if (filterPeriod === "today") dStart = today();
+      else if (filterPeriod === "week") dStart = getWeekRange()[0];
+      else if (filterPeriod === "month") dStart = getMonthRange()[0];
+      else if (filterPeriod === "year") dStart = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+      else if (filterPeriod === "custom") dStart = customStart;
+
+      if (dStart) {
+        // Filter from the base filteredLedger (which respects lorry filters and closed statements)
+        const beforeLedger = filteredLedger.filter(e => e.date < dStart);
+        beforeLedger.forEach(entry => {
+          const amt = Number(entry.amount || 0);
+          if (entry.type === "revenue") ob += amt;
+          else if (entry.type === "expense_paid" || entry.type === "expense") ob -= amt;
+          else if (entry.type === "remittance" || entry.type === "write_off") ob -= amt;
+        });
+      }
+    }
+
+    let tr = 0, te = 0, trm = 0, two = 0, cb = ob;
     const groups = [];
     const tripMap = new Map();
 
@@ -458,7 +690,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
     sorted.forEach(entry => {
       const amt = Number(entry.amount || 0);
       if (entry.type === "revenue") { cb += amt; tr += amt; }
-      else if (entry.type === "expense_paid") { cb -= amt; te += amt; }
+      else if (entry.type === "expense_paid" || entry.type === "expense") { cb -= amt; te += amt; }
       else if (entry.type === "remittance") { cb -= amt; trm += amt; }
       else if (entry.type === "write_off") { cb -= amt; two += amt; }
       entry.runningBalance = cb;
@@ -474,7 +706,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
         const group = tripMap.get(entry.trip_id);
         group.items.push(entry);
         if (entry.type === "revenue") group.revenue += amt;
-        if (entry.type === "expense_paid") group.expenses += amt;
+        if (entry.type === "expense_paid" || entry.type === "expense") group.expenses += amt;
         group.runningBalance = cb;
       }
     });
@@ -492,7 +724,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
       return na - nb;
     });
 
-    let running = 0;
+    let running = openingBalance || 0;
     sorted.forEach(entry => {
       const amt = Number(entry.amount || 0);
       const date = entry.date || "No Date";
@@ -515,13 +747,13 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
         }
         const t = g.trips[entry.trip_id];
         if (entry.type === "revenue") { t.revenue_entries.push(entry); t.totalRevenue += amt; running += amt; g.totalRevenue += amt; }
-        else if (entry.type === "expense_paid") { t.expense_entries.push(entry); t.totalExpenses += amt; running -= amt; g.totalExpenses += amt; }
+        else if (entry.type === "expense_paid" || entry.type === "expense") { t.expense_entries.push(entry); t.totalExpenses += amt; running -= amt; g.totalExpenses += amt; }
       } else {
         // Standalone non-trip entry
         if (!g.trips["__standalone__"]) g.trips["__standalone__"] = { trip_id: "__standalone__", trip_number: null, location: null, revenue_entries: [], expense_entries: [], totalRevenue: 0, totalExpenses: 0 };
         const t = g.trips["__standalone__"];
         if (entry.type === "revenue") { t.revenue_entries.push(entry); t.totalRevenue += amt; running += amt; g.totalRevenue += amt; }
-        else if (entry.type === "expense_paid") { t.expense_entries.push(entry); t.totalExpenses += amt; running -= amt; g.totalExpenses += amt; }
+        else if (entry.type === "expense_paid" || entry.type === "expense") { t.expense_entries.push(entry); t.totalExpenses += amt; running -= amt; g.totalExpenses += amt; }
       }
       g.closingBalance = running;
     });
@@ -529,7 +761,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
     return Object.values(groups)
       .sort((a, b) => b.date.localeCompare(a.date))
       .map(g => ({ ...g, trips: Object.values(g.trips).sort((a, b) => (parseInt(a.trip_number)||0) - (parseInt(b.trip_number)||0)) }));
-  }, [displayedLedger]);
+  }, [displayedLedger, openingBalance]);
 
   const handleDeleteSettlement = async (settlementId) => {
     if (!confirm("Are you sure? This will reverse all trip payments linked to this settlement. This cannot be undone.")) return;
@@ -567,12 +799,20 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
             </p>
           </div>
           {isAdmin && activeBrokerId && (
-            <button
-              onClick={() => setTxModalOpen(true)}
-              className="shrink-0 flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-black text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-700 transition-colors"
-            >
-              <span className="text-base">+</span> Record Transaction
-            </button>
+            <div className="shrink-0 flex items-center gap-2">
+              <button
+                onClick={() => setPdfModalOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-slate-100 border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200 hover:text-slate-900 transition-colors"
+              >
+                <span>📄</span> Generate PDF
+              </button>
+              <button
+                onClick={() => setTxModalOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-black text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-700 transition-colors"
+              >
+                <span className="text-base">+</span> Record Transaction
+              </button>
+            </div>
           )}
         </div>
 
@@ -1000,6 +1240,16 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
         onSuccess={() => setTxModalOpen(false)}
         vehicles={vehicles}
         brokerTrips={brokerTrips}
+      />
+      
+      {/* ── PDF Statement Modal ─────────────────────────────────────────────── */}
+      <BrokerStatementModal
+        open={pdfModalOpen}
+        onClose={() => setPdfModalOpen(false)}
+        broker={activeBroker}
+        availableLorries={availableLorries}
+        currentLorry={activeLorry}
+        ledger={ledger}
       />
     </div>
   );
