@@ -72,6 +72,14 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   const [reviewTrip, setReviewTrip] = useState(null);
   const [tripEditTrip, setTripEditTrip] = useState(null);
 
+  const [globalVehicle, setGlobalVehicle] = useState(() => {
+    return localStorage.getItem("wt_global_vehicle") || "all";
+  });
+  const handleSetGlobalVehicle = useCallback((v) => {
+    setGlobalVehicle(v);
+    localStorage.setItem("wt_global_vehicle", v);
+  }, []);
+
   const navigateToPage = useCallback((nextPage, { replace = false } = {}) => {
     const path = getPathForPage(nextPage);
     setPage(nextPage);
@@ -163,17 +171,19 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onOpenTripReview={openTripReview}
           onMarkTripPaid={handleMarkTripPaid}
           onGoToTrips={() => navigateToPage("trips")}
+          globalVehicle={globalVehicle}
+          setGlobalVehicle={handleSetGlobalVehicle}
         />
       ),
-    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} earningsConfig={earningsConfig} brokers={brokers} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} />,
+    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} earningsConfig={earningsConfig} brokers={brokers} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     locations: <LocationsPage locations={locations} />,
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} brokers={brokers} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
-    "broker-account": <BrokerAccountPage isAdmin={isAdmin} brokers={brokers} vehicles={vehicles} trips={trips} />,
+    "broker-account": <BrokerAccountPage isAdmin={isAdmin} brokers={brokers} vehicles={vehicles} trips={trips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     "broker-reconcile": <BrokerReconciliationPage brokers={brokers} />,
     "personnel-account": <PersonnelAccountPage isAdmin={isAdmin} personnelId={personnelId} personnelList={personnel} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
-    reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} />,
+    reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     loans: <LoansPage loans={loans} onOpenTripReview={openTripReview} />,
     earnings: <EarningsPage trips={trips} vehicles={vehicles} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} onMarkTripPaid={handleMarkTripPaid} />,
     backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} loans={loans} complaints={complaints} settings={settings} earningsConfig={earningsConfig} />,
@@ -200,6 +210,22 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             <div>
               <p className="text-xs font-black text-slate-800 leading-tight">Mount Kenya Water Distributors</p>
               <p className="text-xs text-slate-400">Manager</p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Active Vehicle</label>
+            <div className="relative">
+              <select
+                value={globalVehicle}
+                onChange={(e) => handleSetGlobalVehicle(e.target.value)}
+                className="w-full appearance-none rounded-xl bg-slate-50 border border-slate-200 pl-3 pr-8 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              >
+                <option value="all">All Vehicles</option>
+                {vehicles?.map(v => <option key={v.id} value={v.plate}>{v.plate}</option>)}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+              </div>
             </div>
           </div>
         </div>
@@ -237,28 +263,48 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
       </aside>
 
       <div className="flex-1 min-w-0 lg:ml-64 flex flex-col min-h-screen">
-        <header className="lg:hidden sticky top-0 z-20 flex min-w-0 items-center justify-between bg-white border-b border-slate-100 px-4 py-3 shadow-sm">
-          <div className="flex min-w-0 items-center gap-3">
-            <button onClick={() => setMobileMenuOpen(true)} className="p-1 -ml-1 text-slate-500 hover:text-slate-800 focus:outline-none">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <div className="min-w-0">
-              <span className="text-xl">🚛</span>
+        <header className="lg:hidden sticky top-0 z-20 flex flex-col min-w-0 bg-white border-b border-slate-100 shadow-sm">
+          <div className="flex min-w-0 items-center justify-between px-4 py-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <button onClick={() => setMobileMenuOpen(true)} className="p-1 -ml-1 text-slate-500 hover:text-slate-800 focus:outline-none">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
               <div className="min-w-0">
-                <p className="truncate text-xs font-black leading-tight text-slate-800">Mount Kenya Water Distributors</p>
-                <p className="truncate text-[11px] text-slate-500">{activeNavItem?.label || "Dashboard"}</p>
+                <div className="min-w-0 flex items-center gap-2">
+                  <span className="text-xl">🚛</span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-black leading-tight text-slate-800">Mount Kenya Water Distributors</p>
+                    <p className="truncate text-[11px] text-slate-500">{activeNavItem?.label || "Dashboard"}</p>
+                  </div>
+                </div>
               </div>
             </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Badge color={isAdmin ? "green" : isOwner ? "blue" : "slate"}>{profile?.role}</Badge>
+              {pendingCount > 0 && (
+                <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-rose-500 text-white text-xs font-black">
+                  {pendingCount}
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Badge color={isAdmin ? "green" : isOwner ? "blue" : "slate"}>{profile?.role}</Badge>
-            {pendingCount > 0 && (
-              <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-rose-500 text-white text-xs font-black">
-                {pendingCount}
-              </span>
-            )}
+          <div className="px-4 pb-3 border-t border-slate-50 pt-2 flex items-center gap-3 bg-slate-50/50">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Vehicle</span>
+            <div className="relative flex-1">
+              <select
+                value={globalVehicle}
+                onChange={(e) => handleSetGlobalVehicle(e.target.value)}
+                className="w-full appearance-none rounded-lg bg-white border border-slate-200 pl-3 pr-8 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-sm"
+              >
+                <option value="all">All Vehicles</option>
+                {vehicles?.map(v => <option key={v.id} value={v.plate}>{v.plate}</option>)}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+              </div>
+            </div>
           </div>
         </header>
 

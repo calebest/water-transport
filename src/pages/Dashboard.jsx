@@ -174,97 +174,242 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
   const VEHICLE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e"];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-2xl font-black text-slate-800">{greeting}, {profile?.name?.split(' ')[0]}!</h2>
-          <p className="text-slate-500 text-sm mt-1">Here is what's happening with your trips today.</p>
+          <h2 className="text-3xl font-black text-slate-800 tracking-tight">{greeting}, {profile?.name?.split(' ')[0]}</h2>
+          <p className="text-slate-500 text-sm mt-1">Here is your operational overview for today, {todayStr}.</p>
         </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+             <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+               <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+               System Online
+             </span>
+          </div>
+        )}
       </div>
-
-      {/* Alert Banners */}
-      {((isAdmin || isOwner) && (approvalPendingTrips.length > 0 || brokerBalance > 0)) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {approvalPendingTrips.length > 0 && (
-            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex min-w-0 items-center gap-4">
-              <div className="h-10 w-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center text-xl">⏳</div>
-              <div className="min-w-0">
-                <p className="font-bold text-amber-900">{approvalPendingTrips.length} Trips Pending Approval</p>
-                <p className="text-xs text-amber-700">New trip entries waiting in the log</p>
-              </div>
-            </div>
-          )}
-          {brokerBalance > 0 && (
-            <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex min-w-0 items-center gap-4">
-              <div className="h-10 w-10 bg-rose-200 text-rose-700 rounded-full flex items-center justify-center text-xl">💸</div>
-              <div className="min-w-0">
-                <p className="font-bold text-rose-900">KES {fmt(brokerBalance)} Broker Balance</p>
-                <p className="text-xs text-rose-700">Awaiting settlement from broker</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {(isAdmin || isOwner) ? (
         <>
-          {/* Finance Stats */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Overall Finances</p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact mb-6">
-              <StatCard label="Broker Outstanding" value={fmt(brokerBalance)} icon="💸" color={brokerBalance > 0 ? "red" : "slate"} />
-              <StatCard label="Amount Remitted" value={fmt(brokerRemitted)} icon="🏦" color="green" />
-              <StatCard label="Pending Personnel" value={fmt(pendingPersonnel)} icon="💳" color="amber" />
-              <StatCard label="Total Liabilities" value={fmt(totalLiabilities)} icon="⚖️" color={totalLiabilities > 0 ? "amber" : "slate"} />
-            </div>
-
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Today — {todayStr}</p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
-              <StatCard label="Revenue" value={fmt(todaySummary.revenue)} icon="💰" color="blue" />
-              <StatCard label="Expenses" value={fmt(todaySummary.operatingExpenses)} icon="📉" color="red" />
-              <StatCard label="Operating Profit" value={fmt(todaySummary.operatingProfit)} icon="📈" color="green" />
-              <StatCard label="Deductions" value={fmt(todaySummary.deductions)} icon="💸" color="amber" />
-              <StatCard label="Net Profit" value={fmt(todaySummary.netProfit)} icon="✓" color={todaySummary.netProfit >= 0 ? "green" : "red"} />
-              <StatCard label="Total Trips" value={todaySummary.count} icon="🚛" color="slate" />
-              <StatCard label="Pending Trips" value={todaySummary.pendingCount} icon="…" color="amber" />
-              <StatCard label="Paid Trips" value={todaySummary.paidCount} icon="✓" color="green" />
-            </div>
-          </div>
-
-          {/* Vehicle Today Cards */}
-          <div className={`grid grid-cols-2 ${vehicleTodayStats.length > 2 ? 'lg:grid-cols-4' : ''} gap-3 mobile-card-rail mobile-card-rail--wide`}>
-            {vehicleTodayStats.map((v, i) => (
-              <div key={v.id} className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{v.plate} Today</p>
-                <p className={`text-xl font-black ${v.summary.netProfit >= 0 ? "text-emerald-700" : "text-rose-600"}`}>{fmt(v.summary.netProfit)}</p>
-                <p className="text-xs text-slate-500 mt-1">{v.summary.count} trips · Rev {fmt(v.summary.revenue)}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Pending Trips */}
-          {paymentPendingTrips.length > 0 && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 overflow-hidden shadow-sm">
-              <button
-                type="button"
-                onClick={() => setPendingOpen(v => !v)}
-                className="flex w-full items-center justify-between gap-3 border-b border-amber-100 px-4 py-4 text-left hover:bg-amber-100/60 transition-colors"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xl">⏳</span>
-                    <h3 className="font-black text-amber-900">Pending Trips</h3>
-                    <Badge color="amber">{paymentPendingTrips.length}</Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-amber-700">Remaining trip settlements.</p>
+          {/* ── HERO SECTION ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main KPI */}
+            <div className="lg:col-span-2 relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-600 to-teal-900 p-8 text-white shadow-xl shadow-teal-900/20">
+              <div className="relative z-10">
+                <p className="text-sm font-bold uppercase tracking-widest text-emerald-100/80 mb-2">Today's Net Profit</p>
+                <div className="flex items-end gap-4">
+                  <h3 className="text-5xl sm:text-7xl font-black tracking-tighter">
+                    <span className="text-3xl sm:text-4xl text-emerald-300 mr-1">KES</span>
+                    {fmt(todaySummary.netProfit)}
+                  </h3>
                 </div>
-                <span className="text-amber-500 text-sm font-bold">{pendingOpen ? "Hide" : "Show"}</span>
-              </button>
-              {pendingOpen && (
-                <div className="p-4 space-y-3">
-                  <div className="space-y-2">
-                    {paymentPendingTrips.slice(0, 5).map((trip) => {
+                
+                <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-6">
+                  <div>
+                    <p className="text-xs text-emerald-200/70 font-medium mb-1">Revenue</p>
+                    <p className="text-xl font-bold">{fmt(todaySummary.revenue)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-emerald-200/70 font-medium mb-1">Expenses</p>
+                    <p className="text-xl font-bold">{fmt(todaySummary.operatingExpenses)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-emerald-200/70 font-medium mb-1">Trips</p>
+                    <p className="text-xl font-bold">{todaySummary.count}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-emerald-200/70 font-medium mb-1">Paid</p>
+                    <p className="text-xl font-bold">{todaySummary.paidCount}</p>
+                  </div>
+                </div>
+              </div>
+              {/* Decorative elements */}
+              <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl"></div>
+              <div className="absolute -bottom-32 -left-10 h-80 w-80 rounded-full bg-emerald-400/10 blur-3xl"></div>
+            </div>
+
+            {/* Action Center & Alerts */}
+            <div className="flex flex-col gap-4">
+              <div className="flex-1 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm flex flex-col justify-center">
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Action Center</h3>
+                
+                <div className="space-y-3">
+                  {approvalPendingTrips.length > 0 ? (
+                    <div className="flex items-center gap-4 rounded-2xl bg-amber-50 p-4 border border-amber-100/50">
+                      <div className="h-12 w-12 shrink-0 rounded-full bg-amber-200/50 flex items-center justify-center text-xl shadow-inner text-amber-700">⏳</div>
+                      <div>
+                        <p className="font-bold text-amber-900">{approvalPendingTrips.length} Pending Approval</p>
+                        <p className="text-xs text-amber-700/70">Trips waiting in the log</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4 rounded-2xl bg-slate-50 p-4">
+                      <div className="h-12 w-12 shrink-0 rounded-full bg-slate-200/50 flex items-center justify-center text-xl text-slate-400">✓</div>
+                      <div>
+                        <p className="font-bold text-slate-600">All Caught Up</p>
+                        <p className="text-xs text-slate-400">No trips pending approval</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {brokerBalance > 0 && (
+                    <div className="flex items-center gap-4 rounded-2xl bg-rose-50 p-4 border border-rose-100/50">
+                      <div className="h-12 w-12 shrink-0 rounded-full bg-rose-200/50 flex items-center justify-center text-xl shadow-inner text-rose-700">💸</div>
+                      <div>
+                        <p className="font-bold text-rose-900">KES {fmt(brokerBalance)}</p>
+                        <p className="text-xs text-rose-700/70">Broker Outstanding</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── VEHICLE TODAY STRIP ── */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Live Fleet Performance</h3>
+            </div>
+            <div className="flex overflow-x-auto gap-4 pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 hide-scrollbar snap-x">
+              {vehicleTodayStats.map(v => (
+                <div key={v.id} className="snap-start shrink-0 w-64 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+                  <div className="flex justify-between items-start mb-4">
+                    <p className="font-black text-slate-800 text-lg">{v.plate}</p>
+                    <Badge color={v.summary.netProfit > 0 ? "green" : v.summary.netProfit < 0 ? "red" : "slate"}>
+                      {v.summary.count} trips
+                    </Badge>
+                  </div>
+                  <p className={`text-2xl font-black tracking-tight ${v.summary.netProfit >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                    {fmt(v.summary.netProfit)}
+                  </p>
+                  <p className="text-xs font-medium text-slate-400 mt-1 uppercase tracking-wider">Net Profit Today</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── CHARTS ROW ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {/* Profit Trend Chart */}
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">Profit Trend</h3>
+                  <p className="text-xs text-slate-400 mt-1">Revenue vs Expenses over time</p>
+                </div>
+                <div className="flex gap-2 bg-slate-50 p-1 rounded-full border border-slate-100">
+                  <RangeBtn label="7D" active={chartRange === 7} onClick={() => setChartRange(7)} />
+                  <RangeBtn label="14D" active={chartRange === 14} onClick={() => setChartRange(14)} />
+                  <RangeBtn label="30D" active={chartRange === 30} onClick={() => setChartRange(30)} />
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-4 mb-6">
+                <LegendDot color="#3b82f6" label="Revenue" />
+                <LegendDot color="#f43f5e" label="Expenses" />
+                <LegendDot color="#10b981" label="Op. Profit" />
+                <LegendDot color="#0f766e" label="Net Profit" />
+              </div>
+
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradExpenses" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.12} />
+                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradProfit" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradNet" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#0f766e" stopOpacity={0.14} />
+                      <stop offset="95%" stopColor="#0f766e" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} dy={10} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} dx={-10} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#e2e8f0", strokeWidth: 1.5, strokeDasharray: "4 4" }} />
+                  <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2.5} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 6, fill: "#3b82f6", stroke: "#fff", strokeWidth: 2 }} />
+                  <Area type="monotone" dataKey="expenses" stroke="#f43f5e" strokeWidth={2.5} fill="url(#gradExpenses)" dot={false} activeDot={{ r: 6, fill: "#f43f5e", stroke: "#fff", strokeWidth: 2 }} />
+                  <Area type="monotone" dataKey="operatingProfit" stroke="#10b981" strokeWidth={2.5} fill="url(#gradProfit)" dot={false} activeDot={{ r: 6, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }} />
+                  <Area type="monotone" dataKey="netProfit" stroke="#0f766e" strokeWidth={3} fill="url(#gradNet)" dot={false} activeDot={{ r: 6, fill: "#0f766e", stroke: "#fff", strokeWidth: 2 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Lorry Comparison Chart */}
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm flex flex-col">
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-slate-800">Monthly Fleet Comparison</h3>
+                <p className="text-xs text-slate-400 mt-1">Vehicle performance this month</p>
+              </div>
+              <div className="flex flex-wrap gap-4 mb-6">
+                <LegendDot color="#3b82f6" label="Revenue" />
+                <LegendDot color="#10b981" label="Op. Profit" />
+                <LegendDot color="#0f766e" label="Net Profit" />
+              </div>
+              <div className="flex-1 min-h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={vehicleMonthStats} barGap={6} barCategoryGap="25%" margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} dy={10} />
+                    <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} dx={-10} />
+                    <Tooltip content={<BarTooltip />} cursor={{ fill: "#f1f5f9", opacity: 0.5 }} />
+                    <Bar dataKey="revenue" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="operatingProfit" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="netProfit" fill="#0f766e" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* ── SECONDARY METRICS ROW ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Liabilities */}
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-5">Outstanding Liabilities</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <p className="text-xs font-medium text-slate-400 mb-1 uppercase tracking-widest">Total Liabilities</p>
+                  <p className={`text-xl font-black ${totalLiabilities > 0 ? 'text-amber-600' : 'text-slate-700'}`}>{fmt(totalLiabilities)}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <p className="text-xs font-medium text-slate-400 mb-1 uppercase tracking-widest">Pending Personnel</p>
+                  <p className="text-xl font-black text-slate-700">{fmt(pendingPersonnel)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Pending Payment Trips */}
+            {paymentPendingTrips.length > 0 && (
+              <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50/30 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-900 uppercase tracking-widest">Unpaid Trips</h3>
+                    <p className="text-xs text-amber-700/70 mt-1">{paymentPendingTrips.length} trips awaiting settlement</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPendingOpen(v => !v)}
+                    className="px-4 py-2 rounded-full bg-amber-200/50 text-amber-800 text-xs font-bold hover:bg-amber-200 transition-colors"
+                  >
+                    {pendingOpen ? "Hide Details" : "View List"}
+                  </button>
+                </div>
+                
+                {pendingOpen && (
+                  <div className="space-y-3 mt-4">
+                    {paymentPendingTrips.slice(0, 4).map((trip) => {
                       const days = dayDiff(trip.date);
                       return (
                         <div
@@ -272,162 +417,76 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
                           role="button"
                           tabIndex={0}
                           onClick={() => onOpenTripReview?.(trip)}
-                          className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 text-left shadow-sm hover:shadow-md transition-shadow"
+                          className="flex items-center justify-between gap-3 rounded-2xl bg-white/60 p-3 hover:bg-white transition-colors border border-amber-100/50"
                         >
                           <div className="min-w-0">
-                            <p className="font-semibold text-slate-800">{trip.date} · {trip.lorry} · {trip.location || "N/A"}</p>
-                            <p className="text-xs text-slate-400">Trip #{trip.tripNumber}</p>
+                            <p className="font-bold text-slate-800 text-sm truncate">{trip.lorry} · {trip.location || "N/A"}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{trip.date}</p>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge color={days > 3 ? "amber" : "slate"}>{days} days pending</Badge>
-                            <span className="text-sm font-bold text-amber-700">{fmt((trip.revenue || 0) - (trip.amountPaid || 0))}</span>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-sm font-black text-amber-700">{fmt((trip.revenue || 0) - (trip.amountPaid || 0))}</span>
                             {isAdmin && (
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); onMarkTripPaid?.(trip); }}
-                                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                                className="rounded-xl bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 shadow-sm"
                               >
-                                Mark Paid
+                                Pay
                               </button>
                             )}
                           </div>
                         </div>
                       );
                     })}
+                    {paymentPendingTrips.length > 4 && (
+                      <button onClick={onGoToTrips} className="w-full py-3 mt-2 text-xs font-bold text-amber-800 text-center hover:bg-amber-100/50 rounded-xl transition-colors">
+                        View all {paymentPendingTrips.length} unpaid trips →
+                      </button>
+                    )}
                   </div>
-                  <div className="rounded-xl bg-amber-100 px-4 py-3">
-                    <p className="text-sm font-bold text-amber-900">Daily commission setting: {fmt(dailyCommissionAmount)} per paid vehicle day.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={onGoToTrips}
-                    className="rounded-xl border border-amber-200 bg-white px-4 py-2 text-sm font-bold text-amber-800 hover:bg-amber-50"
-                  >
-                    View all trips
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── PROFIT TREND CHART ──────────────────────────────────────── */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-              <div>
-                <p className="font-bold text-slate-800">Profit Trend</p>
-                <p className="text-xs text-slate-400 mt-0.5">Revenue, expenses & profit over time</p>
+                )}
               </div>
-              <div className="flex gap-2">
-                <RangeBtn label="7D" active={chartRange === 7} onClick={() => setChartRange(7)} />
-                <RangeBtn label="14D" active={chartRange === 14} onClick={() => setChartRange(14)} />
-                <RangeBtn label="30D" active={chartRange === 30} onClick={() => setChartRange(30)} />
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="flex flex-wrap gap-4 mb-4">
-              <LegendDot color="#3b82f6" label="Revenue" />
-              <LegendDot color="#f43f5e" label="Expenses" />
-              <LegendDot color="#10b981" label="Op. Profit" />
-              <LegendDot color="#0f766e" label="Net Profit" />
-            </div>
-
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradExpenses" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.12} />
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradNet" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0f766e" stopOpacity={0.14} />
-                    <stop offset="95%" stopColor="#0f766e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#e2e8f0", strokeWidth: 1.5 }} />
-                <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 5, fill: "#3b82f6", stroke: "#fff", strokeWidth: 2 }} name="Revenue" />
-                <Area type="monotone" dataKey="expenses" stroke="#f43f5e" strokeWidth={2} fill="url(#gradExpenses)" dot={false} activeDot={{ r: 5, fill: "#f43f5e", stroke: "#fff", strokeWidth: 2 }} name="Expenses" />
-                <Area type="monotone" dataKey="operatingProfit" stroke="#10b981" strokeWidth={2} fill="url(#gradProfit)" dot={false} activeDot={{ r: 5, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }} name="Op. Profit" />
-                <Area type="monotone" dataKey="netProfit" stroke="#0f766e" strokeWidth={2.5} fill="url(#gradNet)" dot={false} activeDot={{ r: 5, fill: "#0f766e", stroke: "#fff", strokeWidth: 2 }} name="Net Profit" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* ── WEEK / MONTH SUMMARY CARDS ──────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3 mobile-card-rail mobile-card-rail--wide">
-            <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">This Week</p>
-              <p className={`text-2xl font-black mb-3 ${weekSummary.netProfit >= 0 ? "text-emerald-700" : "text-rose-600"}`}>{fmt(weekSummary.netProfit)}</p>
-              <MiniRow label="Revenue" value={weekSummary.revenue} color="blue" />
-              <MiniRow label="Expenses" value={weekSummary.expenses} color="red" />
-              <MiniRow label="Deductions" value={weekSummary.deductions} color="amber" />
-            </div>
-            <div className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">This Month</p>
-              <p className={`text-2xl font-black mb-3 ${monthSummary.netProfit >= 0 ? "text-emerald-700" : "text-rose-600"}`}>{fmt(monthSummary.netProfit)}</p>
-              <MiniRow label="Revenue" value={monthSummary.revenue} color="blue" />
-              <MiniRow label="Expenses" value={monthSummary.expenses} color="red" />
-              <MiniRow label="Deductions" value={monthSummary.deductions} color="amber" />
-            </div>
-          </div>
-
-          {/* ── LORRY COMPARISON CHART ──────────────────────────────────── */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="mb-5">
-              <p className="font-bold text-slate-800">Monthly Lorry Comparison</p>
-              <p className="text-xs text-slate-400 mt-0.5">Revenue vs operating profit per vehicle this month</p>
-            </div>
-            <div className="flex flex-wrap gap-4 mb-4">
-              <LegendDot color="#3b82f6" label="Revenue" />
-              <LegendDot color="#10b981" label="Op. Profit" />
-              <LegendDot color="#0f766e" label="Net Profit" />
-            </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={vehicleMonthStats} barGap={4} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip content={<BarTooltip />} cursor={{ fill: "#f8fafc" }} />
-                <Bar dataKey="revenue" fill="#3b82f6" name="Revenue" radius={[6, 6, 0, 0]} maxBarSize={36} />
-                <Bar dataKey="operatingProfit" fill="#10b981" name="Op. Profit" radius={[6, 6, 0, 0]} maxBarSize={36} />
-                <Bar dataKey="netProfit" fill="#0f766e" name="Net Profit" radius={[6, 6, 0, 0]} maxBarSize={36} />
-              </BarChart>
-            </ResponsiveContainer>
+            )}
           </div>
         </>
       ) : (
-        /* DRIVER VIEW */
+        /* ── DRIVER VIEW (Modernized) ── */
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <StatCard label="My Outstanding Balance" value={fmt(pendingPersonnel)} icon="💸" color={pendingPersonnel > 0 ? "amber" : "slate"} />
-            <StatCard label="Trips Today" value={todaySummary.count} icon="🚛" color="blue" />
-            <StatCard label="Trips This Week" value={weekSummary.count} icon="📅" color="green" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">My Outstanding Balance</p>
+              <p className={`text-3xl font-black ${pendingPersonnel > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{fmt(pendingPersonnel)}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Trips Today</p>
+              <p className="text-3xl font-black text-blue-600">{todaySummary.count}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Trips This Week</p>
+              <p className="text-3xl font-black text-emerald-600">{weekSummary.count}</p>
+            </div>
           </div>
-          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-4">Your Recent Trips</h3>
-            {trips.slice(0, 5).map(t => (
-              <button key={t.id} type="button" onClick={() => onOpenTripReview?.(t)} className="flex min-w-0 w-full justify-between gap-3 items-center py-3 border-b border-slate-50 last:border-0 text-left">
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-700">{t.date} · {t.lorry}</p>
-                  <p className="text-xs text-slate-500">{t.location || 'N/A'}</p>
+          
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+            <h3 className="font-bold text-slate-800 mb-6 text-lg">Your Recent Trips</h3>
+            <div className="space-y-3">
+              {trips.slice(0, 5).map(t => (
+                <button key={t.id} type="button" onClick={() => onOpenTripReview?.(t)} className="flex w-full items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-slate-200 hover:bg-slate-100/50 transition-all text-left">
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-800">{t.date} <span className="text-slate-300 mx-2">|</span> {t.lorry}</p>
+                    <p className="text-sm text-slate-500 mt-1">{t.location || 'N/A'}</p>
+                  </div>
+                  <Badge color={t.approvalStatus === 'approved' ? 'green' : t.approvalStatus === 'rejected' ? 'red' : 'amber'}>
+                    {t.approvalStatus === 'approved' ? 'Approved' : t.approvalStatus === 'rejected' ? 'Rejected' : 'Pending'}
+                  </Badge>
+                </button>
+              ))}
+              {trips.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-slate-400">No trips recorded yet.</p>
                 </div>
-                <Badge color={t.approvalStatus === 'approved' ? 'green' : t.approvalStatus === 'rejected' ? 'red' : 'amber'}>
-                  {t.approvalStatus === 'approved' ? 'Approved' : t.approvalStatus === 'rejected' ? 'Rejected' : 'Pending'}
-                </Badge>
-              </button>
-            ))}
-            {trips.length === 0 && <p className="text-sm text-slate-400">No trips recorded yet.</p>}
+              )}
+            </div>
           </div>
         </div>
       )}

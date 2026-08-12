@@ -16,14 +16,13 @@ const APPROVAL_BADGE = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function TripsPage({ trips, locations, vehicles, personnel = [], brokers = [], settings, earningsConfig, onOpenTripReview, refreshTrips }) {
+export default function TripsPage({ trips, locations, vehicles, personnel = [], brokers = [], settings, earningsConfig, onOpenTripReview, refreshTrips, globalVehicle, setGlobalVehicle }) {
   const { isAdmin, isOwner, isPrivileged, canAddTrips, userId } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editTrip, setEditTrip] = useState(null);
   const [delTrip, setDelTrip] = useState(null);
   const [markingPaid, setMarkingPaid] = useState(null);
   const [search, setSearch] = useState("");
-  const [filterLorry, setFilterLorry] = useState("All");
   const [filterDate, setFilterDate] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [approvalsOpen, setApprovalsOpen] = useState(true);
@@ -56,7 +55,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
 
   const groupedTrips = useMemo(() => {
     const filtered = visibleTrips.filter(t => {
-      if (filterLorry !== "All" && t.lorry !== filterLorry) return false;
+      if (globalVehicle !== "all" && t.lorry !== globalVehicle) return false;
       if (filterDate && t.date !== filterDate) return false;
       if (search) {
         const s = search.toLowerCase();
@@ -94,7 +93,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
         ),
       };
     });
-  }, [visibleTrips, filterLorry, filterDate, search, isAdmin]);
+  }, [visibleTrips, globalVehicle, filterDate, search, isAdmin]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -185,21 +184,19 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
           ℹ️ Trips you submit will be reviewed and approved by an admin before they appear in reports.
         </div>
       )}
-
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mobile-filter-grid">
         <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none w-40"
           placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
         <select className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-          value={filterLorry} onChange={e => setFilterLorry(e.target.value)}>
-          <option>All</option>
+          value={globalVehicle} onChange={e => setGlobalVehicle(e.target.value)}>
+          <option value="all">All Vehicles</option>
           {(vehicles || []).map(v => <option key={v.id} value={v.plate}>{v.plate}</option>)}
-          {(!vehicles || vehicles.length === 0) && <><option>KBZ</option><option>KBL</option></>}
         </select>
         <input type="date" className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
           value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-        {(filterLorry !== "All" || filterDate || search) && (
-          <button onClick={() => { setFilterLorry("All"); setFilterDate(""); setSearch(""); }}
+        {(globalVehicle !== "all" || filterDate || search) && (
+          <button onClick={() => { setGlobalVehicle("all"); setFilterDate(""); setSearch(""); }}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:bg-slate-50">
             Clear
           </button>

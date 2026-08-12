@@ -56,14 +56,13 @@ const formatComplaintDate = (value) => {
   return "Just now";
 };
 
-export default function ReportsPage({ trips, vehicles, complaints = [] }) {
+export default function ReportsPage({ trips, vehicles, complaints = [], globalVehicle, setGlobalVehicle }) {
   const { user, profile, isAdmin, isOwner } = useAuth();
   const [activeTab, setActiveTab] = useState("reports");
   const [range, setRange] = useState("daily");
   const [customStart, setCustomStart] = useState(today());
   const [customEnd, setCustomEnd] = useState(today());
   const [reportType, setReportType] = useState("pending");
-  const [filterVehicle, setFilterVehicle] = useState("All Vehicles");
   const [filterRoute, setFilterRoute] = useState("All Routes");
   const [filterDetailedRoute, setFilterDetailedRoute] = useState("All Detailed Routes");
   const [filterTripStatus, setFilterTripStatus] = useState("All Trip Statuses");
@@ -81,7 +80,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
   const [complaintNote, setComplaintNote] = useState("");
 
   const resetAllFilters = () => {
-    setFilterVehicle("All Vehicles");
+    setGlobalVehicle("all");
     setFilterRoute("All Routes");
     setFilterDetailedRoute("All Detailed Routes");
     setFilterTripStatus("All Trip Statuses");
@@ -90,8 +89,8 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
 
   const rangeTrips = useMemo(() => {
     let filtered = trips;
-    if (filterVehicle !== "All Vehicles") {
-      filtered = filtered.filter(t => t.lorry === filterVehicle);
+    if (globalVehicle !== "all") {
+      filtered = filtered.filter(t => t.lorry === globalVehicle);
     }
     if (filterRoute !== "All Routes") {
       filtered = filtered.filter(t => locationMatchesFilter(t.location, filterRoute));
@@ -194,7 +193,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
     route: "Route",
   }[reportType] || "Financial";
 
-  const title = `${dateTitle} ${reportTypeLabel} Report${filterVehicle !== "All Vehicles" ? ` - ${filterVehicle}` : ""}${filterRoute !== "All Routes" ? ` - ${filterRoute}` : ""}${filterDetailedRoute !== "All Detailed Routes" ? ` - ${filterDetailedRoute}` : ""}`;
+  const title = `${dateTitle} ${reportTypeLabel} Report${globalVehicle !== "all" ? ` - ${globalVehicle}` : ""}${filterRoute !== "All Routes" ? ` - ${filterRoute}` : ""}${filterDetailedRoute !== "All Detailed Routes" ? ` - ${filterDetailedRoute}` : ""}`;
 
   const btnCls = (v) =>
     `px-4 py-2 rounded-xl text-sm font-bold transition-all ${range === v
@@ -305,18 +304,18 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="flex items-center gap-2">
                 <select
-                  value={filterVehicle}
-                  onChange={e => setFilterVehicle(e.target.value)}
+                  value={globalVehicle}
+                  onChange={e => setGlobalVehicle(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none"
                 >
-                  <option value="All Vehicles">All Vehicles</option>
+                  <option value="all">All Vehicles</option>
                   {vehicles.map(v => (
                     <option key={v.id} value={v.plate}>{v.plate} ({v.name})</option>
                   ))}
                 </select>
                 <button
                   type="button"
-                  onClick={() => setFilterVehicle("All Vehicles")}
+                  onClick={() => setGlobalVehicle("all")}
                   className="rounded-lg border border-slate-200 px-2 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
                 >
                   Clear
@@ -468,7 +467,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [] }) {
             ))}
           </div>
 
-          {reportView === "performance" && filterVehicle === "All Vehicles" && activeLorryPlates.length > 0 && (
+          {reportView === "performance" && globalVehicle === "all" && activeLorryPlates.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mobile-card-rail mobile-card-rail--wide">
               {activeLorryPlates.map(plate => {
                 const vehSum = summarize(rangeTrips.filter(t => t.lorry === plate));

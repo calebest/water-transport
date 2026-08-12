@@ -30,7 +30,7 @@ const isWithinPeriod = (dateStr, period, customStart, customEnd) => {
 };
 
 // ─── Record Transaction Modal ──────────────────────────────────────────────
-function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess, vehicles = [], brokerTrips = [] }) {
+function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSuccess, vehicles = [], brokerTrips = [] }) {
   const [direction, setDirection] = useState("IN");
   const [txType, setTxType] = useState("direct_credit");
   const [amount, setAmount] = useState("");
@@ -43,8 +43,8 @@ function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess,
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setSelectedVehicle(activeLorry !== "all" ? activeLorry : "");
-  }, [activeLorry, open]);
+    if (open) setSelectedVehicle(globalVehicle !== "all" ? globalVehicle : "");
+  }, [globalVehicle, open]);
 
   const handleDirection = (dir) => {
     setDirection(dir);
@@ -54,7 +54,7 @@ function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess,
   const reset = () => {
     setAmount(""); setNotes(""); setCategory(""); setLinkedTripId("");
     setDate(today()); setDirection("IN"); setTxType("settlement"); setMethod("Cash");
-    setSelectedVehicle(activeLorry !== "all" ? activeLorry : "");
+    setSelectedVehicle(globalVehicle !== "all" ? globalVehicle : "");
   };
 
   const handleSave = async () => {
@@ -112,7 +112,7 @@ function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess,
     <Modal open={open} onClose={() => { reset(); onClose(); }} title="">
       <div className="-mx-5 -mt-5 mb-5 bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-700 px-6 pt-6 pb-5 rounded-t-2xl">
         <h2 className="text-xl font-black text-white">Record Transaction</h2>
-        <p className="text-emerald-200 text-sm mt-0.5">{broker?.name}{activeLorry !== "all" ? ` · ${activeLorry}` : ""}</p>
+        <p className="text-emerald-200 text-sm mt-0.5">{broker?.name}{globalVehicle !== "all" ? ` · ${globalVehicle}` : ""}</p>
       </div>
 
       <div className="space-y-5">
@@ -255,12 +255,39 @@ function BrokerTransactionModal({ open, onClose, broker, activeLorry, onSuccess,
 }
 
 // ─── Entry Detail Panel ───────────────────────────────────────────────────────
-function EntryDetailPanel({ entry, onClose, onUndo }) {
+function EntryDetailPanel({ entry, onClose, onUndo, onEdit, vehicles }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editLorry, setEditLorry] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (entry) {
+      setIsEditing(false);
+      setEditLorry(entry.lorry || "");
+      setEditNotes(entry.notes || "");
+    }
+  }, [entry]);
+
   if (!entry) return null;
   const method = parseMethod(entry.notes || "");
   const isIn = entry.type === "revenue";
   const isPayment = entry.type === "remittance";
   const isWriteOff = entry.type === "write_off";
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      console.log("Saving entry...", entry.id, editLorry, editNotes);
+      await onEdit(entry.id, { lorry: editLorry || null, notes: editNotes });
+      console.log("Save completed in panel");
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Error in handleSave:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -271,13 +298,38 @@ function EntryDetailPanel({ entry, onClose, onUndo }) {
         <style>{`@keyframes slideInRight { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }`}</style>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50">
           <div>
-            <h3 className="font-black text-slate-800">Entry Details</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-black text-slate-800">Entry Details</h3>
+              {!isEditing && onEdit && (
+                <button onClick={() => setIsEditing(true)} className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full hover:bg-slate-300 transition-colors font-bold">Edit</button>
+              )}
+            </div>
             <p className="text-xs text-slate-500 mt-0.5">{entry.date}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors">✕</button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {isEditing ? (
+            <div className="space-y-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1 block">Vehicle</label>
+                <select value={editLorry} onChange={e => setEditLorry(e.target.value)} className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
+                  <option value="">— No specific vehicle —</option>
+                  {vehicles?.map(v => <option key={v.id} value={v.plate}>{v.plate}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1 block">Notes</label>
+                <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} rows="3" className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setIsEditing(false)} className="flex-1 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+                <button onClick={handleSave} disabled={isSaving} className="flex-1 py-2 text-sm font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 shadow-sm shadow-emerald-600/20">{isSaving ? "Saving..." : "Save Changes"}</button>
+              </div>
+            </div>
+          ) : (
+            <>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Type</p>
             <Badge color={isIn ? "blue" : isPayment ? "green" : isWriteOff ? "slate" : "amber"}>
@@ -299,6 +351,13 @@ function EntryDetailPanel({ entry, onClose, onUndo }) {
                 <span className="text-xl">{METHOD_ICON[method] || "💵"}</span>
                 <span>{method}</span>
               </div>
+            </div>
+          )}
+
+          {entry.lorry && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Vehicle</p>
+              <p className="text-slate-700 font-semibold">{entry.lorry}</p>
             </div>
           )}
 
@@ -341,6 +400,8 @@ function EntryDetailPanel({ entry, onClose, onUndo }) {
             >
               Undo / Delete this Settlement
             </button>
+          )}
+          </>
           )}
         </div>
       </div>
@@ -557,16 +618,13 @@ function BrokerStatementModal({ open, onClose, broker, availableLorries, current
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = [], trips = [] }) {
+export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = [], trips = [], globalVehicle, setGlobalVehicle }) {
   const [activeBrokerId, setActiveBrokerId] = useState("");
   const [ledger, setLedger] = useState([]);
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [expandedTrips, setExpandedTrips] = useState(new Set());
   const [activeTab, setActiveTab] = useState("date"); // default to Date view — better organized
-  const [activeLorry, setActiveLorry] = useState("all");
-
   // Filter state
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -578,7 +636,6 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
   const [selectedEntry, setSelectedEntry] = useState(null);
 
   useEffect(() => {
-    setActiveLorry("all");
     setSearchQuery(""); setFilterPeriod("all"); setFilterType("all");
     setCustomStart(""); setCustomEnd(""); setSelectedEntry(null);
   }, [activeBrokerId]);
@@ -620,10 +677,10 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
   // Base filtered ledger
   const filteredLedger = useMemo(() => {
     let result = showAllHistory ? ledger : ledger.filter(e => !e.statement_id);
-    if (activeLorry !== "all")
-      result = result.filter(e => (e.lorry || e.trips?.lorry) === activeLorry);
+    if (globalVehicle !== "all")
+      result = result.filter(e => (e.lorry || e.trips?.lorry) === globalVehicle);
     return result;
-  }, [ledger, activeLorry, showAllHistory]);
+  }, [ledger, globalVehicle, showAllHistory]);
 
   // Display ledger (adds search + period + type)
   const displayedLedger = useMemo(() => {
@@ -769,6 +826,18 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
     catch (e) { alert("Error: " + e.message); }
   };
 
+  const handleEditEntry = async (entryId, updates) => {
+    try {
+      console.log("Updating entry", entryId, updates);
+      await financeService.updateBrokerEntry(entryId, updates);
+      console.log("Update successful");
+      setSelectedEntry(prev => prev ? { ...prev, ...updates } : null);
+    } catch (e) {
+      console.error("Update error:", e);
+      alert("Failed to update entry: " + (e.message || JSON.stringify(e)));
+    }
+  };
+
   const paidRatio = totalRevenue > 0 ? Math.min(100, ((totalRevenue - currentBalance) / totalRevenue) * 100) : 100;
   const inp = "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-100";
 
@@ -827,9 +896,9 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
               </select>
             </div>
             {availableLorries.length > 0 && (
-              <div className={`flex items-center gap-2 border rounded-xl px-3 py-2 transition-all ${activeLorry !== "all" ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-slate-50"}`}>
-                <span className={activeLorry !== "all" ? "text-blue-500" : "text-slate-400"}>🚛</span>
-                <select value={activeLorry} onChange={e => setActiveLorry(e.target.value)} className={`bg-transparent text-sm font-semibold focus:outline-none min-w-[120px] ${activeLorry !== "all" ? "text-blue-700" : "text-slate-700"}`}>
+              <div className={`flex items-center gap-2 border rounded-xl px-3 py-2 transition-all ${globalVehicle !== "all" ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-slate-50"}`}>
+                <span className={globalVehicle !== "all" ? "text-blue-500" : "text-slate-400"}>🚛</span>
+                <select value={globalVehicle} onChange={e => setGlobalVehicle(e.target.value)} className={`bg-transparent text-sm font-semibold focus:outline-none min-w-[120px] ${globalVehicle !== "all" ? "text-blue-700" : "text-slate-700"}`}>
                   <option value="all">All Vehicles</option>
                   {availableLorries.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
@@ -912,11 +981,11 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
       )}
 
       {/* Vehicle banner */}
-      {activeLorry !== "all" && (
+      {globalVehicle !== "all" && (
         <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm">
           <span className="text-blue-500">🚛</span>
-          <span className="font-semibold text-blue-700">Viewing <strong>{activeLorry}</strong> only.</span>
-          <button onClick={() => setActiveLorry("all")} className="ml-auto text-blue-400 hover:text-blue-700 font-bold text-xs">✕ Show All</button>
+          <span className="font-semibold text-blue-700">Viewing <strong>{globalVehicle}</strong> only.</span>
+          <button onClick={() => setGlobalVehicle("all")} className="ml-auto text-blue-400 hover:text-blue-700 font-bold text-xs">✕ Show All</button>
         </div>
       )}
 
@@ -952,7 +1021,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
           <h3 className="text-sm font-bold text-slate-800">
             {activeTab === "date" ? "Transaction History by Date" : "Running Ledger"} —{" "}
             <span className="text-emerald-600">{activeBroker?.name || "…"}</span>
-            {activeLorry !== "all" && <span className="ml-2 text-xs font-bold rounded-full bg-blue-100 text-blue-700 px-2 py-0.5">{activeLorry}</span>}
+            {globalVehicle !== "all" && <span className="ml-2 text-xs font-bold rounded-full bg-blue-100 text-blue-700 px-2 py-0.5">{globalVehicle}</span>}
           </h3>
           {hasActiveFilters && (
             <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
@@ -1229,14 +1298,20 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
       </div>
 
       {/* ── Entry Detail Panel ──────────────────────────────────────────────── */}
-      <EntryDetailPanel entry={selectedEntry} onClose={() => setSelectedEntry(null)} onUndo={handleDeleteSettlement} />
+      <EntryDetailPanel 
+        entry={selectedEntry} 
+        onClose={() => setSelectedEntry(null)} 
+        onUndo={handleDeleteSettlement}
+        onEdit={handleEditEntry}
+        vehicles={vehicles}
+      />
 
       {/* ── Transaction Modal ───────────────────────────────────────────────── */}
       <BrokerTransactionModal
         open={txModalOpen}
         onClose={() => setTxModalOpen(false)}
         broker={activeBroker}
-        activeLorry={activeLorry}
+        globalVehicle={globalVehicle}
         onSuccess={() => setTxModalOpen(false)}
         vehicles={vehicles}
         brokerTrips={brokerTrips}
@@ -1248,7 +1323,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
         onClose={() => setPdfModalOpen(false)}
         broker={activeBroker}
         availableLorries={availableLorries}
-        currentLorry={activeLorry}
+        currentLorry={globalVehicle}
         ledger={ledger}
       />
     </div>

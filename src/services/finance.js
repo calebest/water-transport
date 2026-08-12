@@ -184,6 +184,26 @@ export const financeService = {
     if (error) throw error;
   },
 
+  updateBrokerEntry: async (entryId, updates) => {
+    if (!entryId) throw new Error("Entry ID required");
+    
+    // First fetch the entry to see if it has a settlement_id
+    const { data: entry, error: fetchErr } = await supabase.from('broker_ledger').select('settlement_id').eq('id', entryId).single();
+    if (fetchErr) throw fetchErr;
+
+    const { data: updatedLedger, error } = await supabase.from('broker_ledger').update(updates).eq('id', entryId).select();
+    if (error) throw error;
+    if (!updatedLedger || updatedLedger.length === 0) {
+      throw new Error("Update blocked by database permissions (RLS returned 0 rows). Please check your account role.");
+    }
+    
+    if (entry.settlement_id && updates.lorry !== undefined) {
+      // Also update the settlement record's lorry to keep them in sync
+      const { data: updatedStl, error: stlErr } = await supabase.from('settlements').update({ lorry: updates.lorry }).eq('id', entry.settlement_id).select();
+      if (stlErr) throw stlErr;
+    }
+  },
+
   subscribeBrokerLedger: (brokerId, callback) => {
     if (!brokerId) {
         callback([]);
