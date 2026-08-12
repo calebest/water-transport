@@ -355,34 +355,38 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           </div>
         </header>
 
-        {/* Horizontal Sub-Nav Tabs */}
+        {/* Modern Sub-Nav Tabs */}
         {activeNavItem && activeNavItem.group !== "Dashboard" && (
-          <div className="bg-white border-b border-slate-200 w-full shadow-sm sticky top-[68px] lg:top-0 z-10">
-            <div className="max-w-5xl mx-auto px-3 lg:px-8 flex gap-6 overflow-x-auto hide-scrollbar">
-              {groupedNavItems.find(g => g.group === activeNavItem.group)?.items.map(n => {
-                const isActive = activePage === n.id;
-                return (
-                  <button
-                    key={n.id}
-                    onClick={() => navigateToPage(n.id)}
-                    className={`whitespace-nowrap py-3 lg:py-4 border-b-2 font-semibold text-sm transition-colors flex items-center gap-2 ${
-                      isActive 
-                        ? "border-emerald-500 text-emerald-700" 
-                        : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
-                    }`}
-                  >
-                    <span className="opacity-70">{n.icon}</span>
-                    {n.label}
-                    {n.id === "trips" && pendingCount > 0 && (
-                      <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full text-[10px] font-black ${
-                        isActive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"
-                      }`}>
-                        {pendingCount}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
+          <div className="bg-white/80 backdrop-blur-xl border-b border-slate-100 w-full shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] sticky top-[68px] lg:top-0 z-10 transition-all">
+            <div className="max-w-5xl mx-auto px-4 lg:px-8 py-3 lg:py-4">
+              <div className="flex items-center overflow-x-auto hide-scrollbar">
+                <div className="inline-flex p-1.5 space-x-2 bg-slate-100/80 rounded-2xl border border-slate-200/50">
+                  {groupedNavItems.find(g => g.group === activeNavItem.group)?.items.map(n => {
+                    const isActive = activePage === n.id;
+                    return (
+                      <button
+                        key={n.id}
+                        onClick={() => navigateToPage(n.id)}
+                        className={`relative flex items-center gap-2 whitespace-nowrap px-4 py-2 text-sm font-bold rounded-xl transition-all duration-300 ease-out ${
+                          isActive 
+                            ? "bg-white text-emerald-800 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 translate-y-[0px]" 
+                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 hover:-translate-y-[1px]"
+                        }`}
+                      >
+                        <span className={`transition-transform duration-300 ${isActive ? 'scale-110 opacity-100' : 'opacity-60 grayscale'}`}>{n.icon}</span>
+                        <span>{n.label}</span>
+                        {n.id === "trips" && pendingCount > 0 && (
+                          <span className={`ml-1 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-black shadow-sm transition-all ${
+                            isActive ? "bg-emerald-100 text-emerald-700" : "bg-rose-500 text-white shadow-rose-500/30"
+                          }`}>
+                            {pendingCount}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         )}
