@@ -108,7 +108,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [], globalVe
       filtered = filtered.filter(t => !isPaidTrip(t));
     } else if (reportType === "paid") {
       filtered = filtered.filter(isPaidTrip);
-    } else if (reportType === "vehicle" && filterVehicle === "All Vehicles") {
+    } else if (reportType === "vehicle" && globalVehicle === "all") {
       filtered = filtered.filter(t => t.lorry);
     } else if (reportType === "route" && filterRoute === "All Routes") {
       filtered = filtered.filter(t => t.location);
@@ -117,7 +117,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [], globalVe
     if (range === "weekly") { const [s, e] = getWeekRange(); return filterByRange(filtered, s, e); }
     if (range === "monthly") { const [s, e] = getMonthRange(); return filterByRange(filtered, s, e); }
     return filterByRange(filtered, customStart, customEnd);
-  }, [trips, range, customStart, customEnd, reportType, filterVehicle, filterRoute, filterDetailedRoute, filterTripStatus, filterPaymentStatus]);
+  }, [trips, range, customStart, customEnd, reportType, globalVehicle, filterRoute, filterDetailedRoute, filterTripStatus, filterPaymentStatus]);
 
   const sum = useMemo(() => summarize(rangeTrips), [rangeTrips]);
 
