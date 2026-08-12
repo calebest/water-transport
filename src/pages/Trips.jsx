@@ -476,8 +476,8 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
 
       {expanded && (
         <>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
-          {group.trips.map(t => {
+        <div className="flex flex-col p-2">
+          {group.trips.map((t, idx) => {
             const approval = t.approvalStatus && t.approvalStatus !== "approved" ? t.approvalStatus : null;
             const isRejected = t.approvalStatus === "rejected";
             const isPendingEdit = t.approvalStatus === "pending_edit";
@@ -485,30 +485,52 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
             const financials = getTripFinancials(t);
 
             return (
-              <article
+              <div
                 key={t.id}
-                className={`rounded-xl border p-3 shadow-sm ${
-                  isRejected ? "border-rose-100 bg-rose-50/40 opacity-70" :
-                  isPending  ? "border-amber-100 bg-amber-50/50" :
-                  "border-slate-100 bg-white"
-                }`}
+                className={`group flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl transition-colors ${
+                  isRejected ? "bg-rose-50/40 opacity-70" :
+                  isPending ? "bg-amber-50/50" :
+                  "hover:bg-slate-50"
+                } ${idx !== group.trips.length - 1 ? 'border-b border-slate-100/50 rounded-none hover:rounded-2xl' : ''}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge color={t.lorry === "KBZ" ? "blue" : "amber"}>{t.lorry}</Badge>
-                      <span className="text-xs font-black uppercase tracking-wide text-slate-400">Trip #{t.tripNumber}</span>
-                    </div>
-                    <p className="mt-2 truncate text-sm font-bold text-slate-800">{t.location || "N/A"}</p>
+                {/* Left: Info */}
+                <div className="flex flex-col gap-1 md:w-[220px] shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Badge color={t.lorry === "KBZ" ? "blue" : "amber"}>{t.lorry}</Badge>
+                    <span className="text-[11px] font-black tracking-wide text-slate-400">#{t.tripNumber}</span>
                   </div>
+                  <p className="text-sm font-bold text-slate-800 truncate pr-4">{t.location || "No location"}</p>
+                </div>
 
-                  <div className="flex shrink-0 flex-col items-end gap-1">
+                {/* Middle: Financials */}
+                <div className="flex-1 grid grid-cols-2 lg:flex lg:flex-row lg:items-center gap-x-6 gap-y-3">
+                  <div className="min-w-[90px]">
+                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Revenue</p>
+                     <p className="text-sm font-black text-slate-700">{fmt(financials.revenue)}</p>
+                  </div>
+                  <div className="min-w-[90px]">
+                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Expenses</p>
+                     <p className="text-sm font-bold text-rose-500">{fmt(financials.operatingExpenses)}</p>
+                  </div>
+                  <div className="min-w-[90px]">
+                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Deductions</p>
+                     <p className="text-sm font-bold text-amber-500">{fmt(financials.totalDeductions)}</p>
+                  </div>
+                  <div className="min-w-[90px]">
+                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Net Payable</p>
+                     <p className={`text-sm font-black ${financials.netPayable >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmt(financials.netPayable)}</p>
+                  </div>
+                </div>
+
+                {/* Right: Status & Actions */}
+                <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 mt-2 md:mt-0">
+                  <div className="flex items-center justify-end w-[90px]">
                     {isAdmin && !isRejected && !isPending ? (
                       <select
                         value={t.status}
                         disabled={markingPaid === t.id}
                         onChange={e => onStatusChange(t, e.target.value)}
-                        className={`rounded-full border px-2.5 py-1 text-xs font-black focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60 ${paymentSelectClass(t.status)}`}
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60 cursor-pointer ${paymentSelectClass(t.status)}`}
                         aria-label={`Payment status for trip ${t.tripNumber}`}
                       >
                         <option value="Pending">Pending</option>
@@ -518,77 +540,51 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                     ) : (
                       <Badge color={paymentBadgeColor(t.status)}>{t.status}</Badge>
                     )}
-                    {approval && APPROVAL_BADGE[approval] && (
-                      <Badge color={APPROVAL_BADGE[approval].color}>
-                        {APPROVAL_BADGE[approval].label}
-                      </Badge>
+                  </div>
+                  
+                  {approval && APPROVAL_BADGE[approval] && (
+                    <div className="w-[80px] flex justify-end">
+                       <Badge color={APPROVAL_BADGE[approval].color}>
+                         {APPROVAL_BADGE[approval].label}
+                       </Badge>
+                    </div>
+                  )}
+                  
+                  {/* Actions shown as icon buttons with hover tooltip */}
+                  <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    {!isRejected && (
+                      <button onClick={() => exportVoucher(t)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Print Receipt">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                      </button>
+                    )}
+                    {onOpenTripReview && (
+                      <button onClick={() => onOpenTripReview(t)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View Trip">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      </button>
+                    )}
+                    {isAdmin && isPendingEdit && onApprove && onReject && (
+                      <>
+                        <button onClick={() => onApprove(t)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Apply Edit">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        </button>
+                        <button onClick={() => onReject(t)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Discard Edit">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </>
+                    )}
+                    {canEditTrip(t) && !isPendingEdit && onEdit && (
+                      <button onClick={() => onEdit(t)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit Trip">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      </button>
+                    )}
+                    {canDelTrip(t) && onDel && (
+                      <button onClick={() => onDel(t)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete Trip">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
                     )}
                   </div>
                 </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-lg bg-blue-50 px-3 py-2">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-blue-500">Revenue</p>
-                    <p className="text-sm font-black text-blue-700">{fmt(financials.revenue)}</p>
-                  </div>
-                  <div className="rounded-lg bg-rose-50 px-3 py-2">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-rose-500">Expenses</p>
-                    <p className="text-sm font-black text-rose-600">{fmt(financials.operatingExpenses)}</p>
-                  </div>
-                  <div className="rounded-lg bg-slate-50 px-3 py-2">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Deductions</p>
-                    <p className="text-sm font-black text-amber-600">{fmt(financials.totalDeductions)}</p>
-                  </div>
-                  <div className={`rounded-lg px-3 py-2 ${financials.netPayable >= 0 ? "bg-emerald-50" : "bg-rose-50"}`}>
-                    <p className={`text-[11px] font-bold uppercase tracking-wide ${financials.netPayable >= 0 ? "text-emerald-500" : "text-rose-500"}`}>Net Payable</p>
-                    <p className={`text-sm font-black ${financials.netPayable >= 0 ? "text-emerald-700" : "text-rose-600"}`}>{fmt(financials.netPayable)}</p>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                  {!isRejected && (
-                    <button onClick={() => exportVoucher(t)}
-                      className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
-                      title="Print Receipt">Print</button>
-                  )}
-
-                  {onOpenTripReview && (
-                    <button
-                      onClick={() => onOpenTripReview(t)}
-                      className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200"
-                    >
-                      View
-                    </button>
-                  )}
-
-                  {isAdmin && isPendingEdit && onApprove && onReject && (
-                    <>
-                      <button onClick={() => onApprove(t)}
-                        className="rounded-lg bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-200">
-                        Apply
-                      </button>
-                      <button onClick={() => onReject(t)}
-                        className="rounded-lg bg-rose-100 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-200">
-                        Discard
-                      </button>
-                    </>
-                  )}
-
-                  {canEditTrip(t) && !isPendingEdit && onEdit && (
-                    <button onClick={() => onEdit(t)}
-                      className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-100">
-                      Edit
-                    </button>
-                  )}
-
-                  {canDelTrip(t) && onDel && (
-                    <button onClick={() => onDel(t)}
-                      className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-500 hover:bg-rose-100">
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </article>
+              </div>
             );
           })}
         </div>
