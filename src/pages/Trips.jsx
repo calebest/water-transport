@@ -250,37 +250,175 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
         title={isAdmin ? "Edit Trip" : "Propose Trip Edit (requires approval)"} wide>
         {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} brokers={brokers} initial={editTrip} onSave={handleEdit} onCancel={() => setEditTrip(null)} />}
       </Modal>
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors">
-                          ✓ Apply Edit
+      <Modal open={!!delTrip} onClose={() => setDelTrip(null)} title="Delete Trip">
+        {delTrip && (
+          <div className="space-y-4">
+            <p className="text-slate-600">
+              Delete trip <strong>{delTrip.tripNumber}</strong> on {delTrip.date} ({delTrip.lorry})?
+              <br /><span className="text-rose-500 font-semibold">This cannot be undone.</span>
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDelTrip(null)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleDel} disabled={deleting}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-60">
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+// ─── Approvals Panel (admin only) ────────────────────────────────────────────
+
+function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReject }) {
+  const total = newTrips.length + editTrips.length;
+  return (
+    <div className="relative overflow-hidden rounded-3xl border border-amber-200/50 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+      
+      <div
+        className="relative z-10 flex items-center justify-between p-5 lg:p-6 cursor-pointer hover:bg-white/40 transition-colors"
+        onClick={onToggle}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shadow-sm">
+             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-amber-900">Pending Approvals</h3>
+            <p className="text-sm font-medium text-amber-700/70">{total} items require your attention</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs font-black w-8 h-8 shadow-sm">{total}</span>
+          <div className="w-8 h-8 rounded-full bg-white/50 flex items-center justify-center text-amber-600">
+            <svg className={`w-5 h-5 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </div>
+        </div>
+      </div>
+
+      <div className={`relative z-10 grid transition-all duration-300 ease-in-out ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+        <div className="overflow-hidden">
+          <div className="px-5 lg:px-6 pb-6 space-y-6">
+            {/* New trip submissions */}
+            {newTrips.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-amber-800/60 flex items-center gap-2">
+                  <span className="w-4 h-px bg-amber-300/50"></span>
+                  New Submissions ({newTrips.length})
+                </h4>
+                {newTrips.map(t => (
+                  <div key={t.id} className="rounded-2xl bg-white/70 backdrop-blur-md border border-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge color={t.lorry === "KBZ" ? "blue" : "amber"}>{t.lorry}</Badge>
+                          <span className="text-sm font-bold text-slate-400">Trip #{t.tripNumber}</span>
+                        </div>
+                        <p className="text-lg font-black text-slate-800">{t.date}</p>
+                        <p className="text-sm text-slate-500 font-medium">{t.location || "No location specified"}</p>
+                      </div>
+                      
+                      <div className="flex bg-white rounded-xl p-2 border border-slate-100 shadow-sm self-start md:self-center gap-6">
+                         <div className="px-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Revenue</p>
+                            <p className="font-black text-slate-700">{fmt(t.revenue)}</p>
+                         </div>
+                         <div className="px-2 border-l border-slate-100">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Expenses</p>
+                            <p className="font-black text-rose-500">{fmt(getTripFinancials(t).operatingExpenses)}</p>
+                         </div>
+                         <div className="px-2 border-l border-slate-100">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Net Payable</p>
+                            <p className={`font-black ${getTripFinancials(t).netPayable >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmt(getTripFinancials(t).netPayable)}</p>
+                         </div>
+                      </div>
+
+                      <div className="flex gap-2 self-start md:self-center w-full md:w-auto">
+                        <button onClick={() => onApprove(t)}
+                          className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-600 transition-colors">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                          Approve
                         </button>
                         <button onClick={() => onReject(t)}
-                          className="rounded-lg bg-white border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors">
-                          ✗ Discard
+                          className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-white border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-600 shadow-sm hover:bg-rose-50 transition-colors">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                          Reject
                         </button>
                       </div>
                     </div>
-                    {changes.length > 0 ? (
-                      <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
-                        <p className="text-xs font-semibold text-slate-500 mb-1">Changes proposed:</p>
-                        {changes.map(([key, label]) => (
-                          <div key={key} className="flex items-center gap-2 text-xs">
-                            <span className="font-semibold text-slate-600 w-20">{label}</span>
-                            <span className="text-rose-500 line-through">{String(t[key])}</span>
-                            <span className="text-slate-400">→</span>
-                            <span className="text-emerald-600 font-semibold">{String(p[key])}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-400">Edit details not available for preview.</p>
-                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+
+            {/* Pending edits */}
+            {editTrips.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-amber-800/60 flex items-center gap-2">
+                  <span className="w-4 h-px bg-amber-300/50"></span>
+                  Proposed Edits ({editTrips.length})
+                </h4>
+                {editTrips.map(t => {
+                  const p = t.pendingEdits || {};
+                  const LABELS = { date: "Date", lorry: "Lorry", location: "Location", revenue: "Revenue", amountPaid: "Amount Paid" };
+                  const changes = Object.entries(LABELS).filter(([key]) =>
+                    p[key] !== undefined && String(p[key]) !== String(t[key])
+                  );
+                  return (
+                    <div key={t.id} className="rounded-2xl bg-white/70 backdrop-blur-md border border-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge color={t.lorry === "KBZ" ? "blue" : "amber"}>{t.lorry}</Badge>
+                            <span className="text-sm font-bold text-slate-400">Trip #{t.tripNumber}</span>
+                          </div>
+                          <p className="text-lg font-black text-slate-800">{t.date}</p>
+                          
+                          {changes.length > 0 ? (
+                            <div className="mt-4 bg-white rounded-xl border border-amber-100 p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-3">Proposed Changes</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                                {changes.map(([key, label]) => (
+                                  <div key={key} className="flex items-center text-sm">
+                                    <span className="font-semibold text-slate-400 w-24 flex-shrink-0">{label}</span>
+                                    <span className="text-rose-500 line-through decoration-rose-300 truncate w-20">{String(t[key])}</span>
+                                    <svg className="w-4 h-4 text-slate-300 mx-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                    <span className="text-emerald-600 font-bold truncate">{String(p[key])}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-slate-400 mt-2">Edit details not available.</p>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
+                          <button onClick={() => onApprove(t)}
+                            className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-600 transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                            Apply Edit
+                          </button>
+                          <button onClick={() => onReject(t)}
+                            className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-white border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-600 shadow-sm hover:bg-rose-50 transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                            Discard
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
