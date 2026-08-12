@@ -132,22 +132,8 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   const mobileNavItems = navItems.filter(n => primaryMobileIds.has(n.id));
   const hasHiddenActivePage = !primaryMobileIds.has(activePage);
 
-  const [openGroups, setOpenGroups] = useState(() => {
-    const defaultOpen = { "Dashboard": true };
-    const active = NAV_ITEMS.find(n => n.id === getPageFromPath());
-    if (active?.group) defaultOpen[active.group] = true;
-    return defaultOpen;
-  });
-
-  // Keep open group synced if activePage changes externally
-  useEffect(() => {
-    if (activeNavItem?.group) {
-      setOpenGroups(prev => ({ ...prev, [activeNavItem.group]: true }));
-    }
-  }, [activeNavItem]);
-
   const toggleGroup = (group) => {
-    setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
+    // Legacy function, replaced by navigateToPage for tabs
   };
 
   const groupedNavItems = useMemo(() => {
@@ -273,49 +259,35 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             </div>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto p-3 space-y-2">
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {groupedNavItems.map(({ group, items }) => {
-            const isOpen = openGroups[group];
-            const isDashboard = group === "Dashboard"; // Don't show collapsible header for Dashboard
+            const isActiveGroup = activeNavItem?.group === group;
+            
+            // Define icons for the groups
+            const groupIcons = {
+              "Dashboard": "📊",
+              "Operations": "🚛",
+              "Finance": "💵",
+              "Team & Contacts": "👥",
+              "System": "⚙️"
+            };
+            const icon = groupIcons[group] || "📌";
 
             return (
-              <div key={group} className="space-y-1">
-                {!isDashboard && (
-                  <button
-                    onClick={() => toggleGroup(group)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    <span>{group}</span>
-                    <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                )}
-
-                <div className={`space-y-1 overflow-hidden transition-all duration-300 ${isOpen || isDashboard ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}>
-                  {items.map(n => {
-                    const isActive = activePage === n.id;
-                    return (
-                      <button key={n.id} onClick={() => { navigateToPage(n.id); setMobileMenuOpen(false); }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                          isActive
-                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                        }`}>
-                        <span className={isActive ? "text-emerald-100" : "text-slate-400"}>{n.icon}</span>
-                        <span className="flex-1 text-left">{n.label}</span>
-                        {n.id === "trips" && pendingCount > 0 && (
-                          <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full text-[10px] font-black ${
-                            isActive ? "bg-white text-emerald-600 shadow-sm" : "bg-rose-500 text-white shadow-sm shadow-rose-500/20"
-                          }`}>
-                            {pendingCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <button key={group} 
+                onClick={() => { 
+                   // Navigate to the first item in this group
+                   navigateToPage(items[0].id);
+                   setMobileMenuOpen(false); 
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
+                  isActiveGroup
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}>
+                <span className={isActiveGroup ? "text-emerald-100 text-lg" : "text-slate-400 text-lg"}>{icon}</span>
+                <span className="flex-1 text-left tracking-wide">{group}</span>
+              </button>
             );
           })}
         </nav>
@@ -382,6 +354,38 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             </div>
           </div>
         </header>
+
+        {/* Horizontal Sub-Nav Tabs */}
+        {activeNavItem && activeNavItem.group !== "Dashboard" && (
+          <div className="bg-white border-b border-slate-200 w-full shadow-sm sticky top-[68px] lg:top-0 z-10">
+            <div className="max-w-5xl mx-auto px-3 lg:px-8 flex gap-6 overflow-x-auto hide-scrollbar">
+              {groupedNavItems.find(g => g.group === activeNavItem.group)?.items.map(n => {
+                const isActive = activePage === n.id;
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => navigateToPage(n.id)}
+                    className={`whitespace-nowrap py-3 lg:py-4 border-b-2 font-semibold text-sm transition-colors flex items-center gap-2 ${
+                      isActive 
+                        ? "border-emerald-500 text-emerald-700" 
+                        : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
+                    }`}
+                  >
+                    <span className="opacity-70">{n.icon}</span>
+                    {n.label}
+                    {n.id === "trips" && pendingCount > 0 && (
+                      <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full text-[10px] font-black ${
+                        isActive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"
+                      }`}>
+                        {pendingCount}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <main className="flex-1 min-w-0 w-full p-3 lg:p-8 pb-24 lg:pb-8">
           <div className="w-full min-w-0 max-w-5xl mx-auto">
