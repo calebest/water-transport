@@ -35,22 +35,25 @@ import BrokersPage from "./pages/Brokers";
 import "./App.css";
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: "📊" },
-  { id: "trips", label: "Trips", icon: "🚛" },
-  { id: "locations", label: "Locations", icon: "📍" },
-  { id: "vehicles", label: "Vehicles", icon: "🚚" },
-  { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true },
-  { id: "broker-account", label: "Broker Ledger", icon: "🏢", roleAccess: ["admin", "owner", "broker"] },
-  { id: "broker-reconcile", label: "Close Period", icon: "✔️", roleAccess: ["admin", "owner"] },
-  { id: "brokers", label: "Brokers", icon: "🤝", adminOnly: true },
-  { id: "personnel-account", label: "My Account", icon: "💳", roleAccess: ["admin", "owner", "driver", "conductor"] },
-  { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true },
-  { id: "loans", label: "Loans", icon: "💸" },
-  { id: "earnings", label: "Earnings", icon: "💵", adminOnly: true },
-  { id: "reports", label: "Reports", icon: "📄" },
-  { id: "backup", label: "Backup", icon: "💾", adminOnly: true },
-  { id: "settings", label: "Settings", icon: "⚙️", adminOnly: true },
-  { id: "users", label: "Users", icon: "👥", adminOnly: true },
+  { id: "dashboard", label: "Dashboard", icon: "📊", group: "Dashboard" },
+  { id: "trips", label: "Trips", icon: "🚛", group: "Operations" },
+  { id: "locations", label: "Locations", icon: "📍", group: "Operations" },
+  { id: "vehicles", label: "Vehicles", icon: "🚚", group: "Operations" },
+  { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true, group: "Operations" },
+  
+  { id: "broker-account", label: "Broker Ledger", icon: "🏢", roleAccess: ["admin", "owner", "broker"], group: "Finance" },
+  { id: "broker-reconcile", label: "Close Period", icon: "✔️", roleAccess: ["admin", "owner"], group: "Finance" },
+  { id: "loans", label: "Loans", icon: "💸", group: "Finance" },
+  { id: "earnings", label: "Earnings", icon: "💵", adminOnly: true, group: "Finance" },
+  { id: "reports", label: "Reports", icon: "📄", group: "Finance" },
+
+  { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true, group: "Team & Contacts" },
+  { id: "brokers", label: "Brokers", icon: "🤝", adminOnly: true, group: "Team & Contacts" },
+  { id: "users", label: "Users", icon: "👥", adminOnly: true, group: "Team & Contacts" },
+  { id: "personnel-account", label: "My Account", icon: "💳", roleAccess: ["admin", "owner", "driver", "conductor"], group: "Team & Contacts" },
+
+  { id: "settings", label: "Settings", icon: "⚙️", adminOnly: true, group: "System" },
+  { id: "backup", label: "Backup", icon: "💾", adminOnly: true, group: "System" },
 ];
 
 const ROUTE_BY_PATH = NAV_ITEMS.reduce((routes, item) => {
@@ -128,6 +131,47 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   const primaryMobileIds = new Set(["dashboard", "trips", "reports"]);
   const mobileNavItems = navItems.filter(n => primaryMobileIds.has(n.id));
   const hasHiddenActivePage = !primaryMobileIds.has(activePage);
+
+  const [openGroups, setOpenGroups] = useState(() => {
+    const defaultOpen = { "Dashboard": true };
+    const active = NAV_ITEMS.find(n => n.id === getPageFromPath());
+    if (active?.group) defaultOpen[active.group] = true;
+    return defaultOpen;
+  });
+
+  // Keep open group synced if activePage changes externally
+  useEffect(() => {
+    if (activeNavItem?.group) {
+      setOpenGroups(prev => ({ ...prev, [activeNavItem.group]: true }));
+    }
+  }, [activeNavItem]);
+
+  const toggleGroup = (group) => {
+    setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
+
+  const groupedNavItems = useMemo(() => {
+    // We want to maintain a specific group order, e.g., Dashboard, Operations, Finance, Team, System
+    const order = ["Dashboard", "Operations", "Finance", "Team & Contacts", "System"];
+    const groups = navItems.reduce((acc, item) => {
+      const g = item.group || "Other";
+      if (!acc[g]) acc[g] = [];
+      acc[g].push(item);
+      return acc;
+    }, {});
+    
+    // Sort keys based on `order`
+    return Object.keys(groups)
+      .sort((a, b) => {
+        const idxA = order.indexOf(a);
+        const idxB = order.indexOf(b);
+        if (idxA === -1 && idxB === -1) return 0;
+        if (idxA === -1) return 1;
+        if (idxB === -1) return -1;
+        return idxA - idxB;
+      })
+      .map(key => ({ group: key, items: groups[key] }));
+  }, [navItems]);
 
   const openTripReview = useCallback((trip, editMode = false) => {
     if (editMode) {
@@ -229,20 +273,51 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             </div>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {navItems.map(n => (
-            <button key={n.id} onClick={() => { navigateToPage(n.id); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${activePage === n.id ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" : "text-slate-600 hover:bg-slate-50"
-                }`}>
-              <span>{n.icon}</span>
-              <span className="flex-1 text-left">{n.label}</span>
-              {n.id === "trips" && pendingCount > 0 && (
-                <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-rose-500 text-white text-xs font-black">
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-          ))}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-2">
+          {groupedNavItems.map(({ group, items }) => {
+            const isOpen = openGroups[group];
+            const isDashboard = group === "Dashboard"; // Don't show collapsible header for Dashboard
+
+            return (
+              <div key={group} className="space-y-1">
+                {!isDashboard && (
+                  <button
+                    onClick={() => toggleGroup(group)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <span>{group}</span>
+                    <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                )}
+
+                <div className={`space-y-1 overflow-hidden transition-all duration-300 ${isOpen || isDashboard ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}>
+                  {items.map(n => {
+                    const isActive = activePage === n.id;
+                    return (
+                      <button key={n.id} onClick={() => { navigateToPage(n.id); setMobileMenuOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                          isActive
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        }`}>
+                        <span className={isActive ? "text-emerald-100" : "text-slate-400"}>{n.icon}</span>
+                        <span className="flex-1 text-left">{n.label}</span>
+                        {n.id === "trips" && pendingCount > 0 && (
+                          <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full text-[10px] font-black ${
+                            isActive ? "bg-white text-emerald-600 shadow-sm" : "bg-rose-500 text-white shadow-sm shadow-rose-500/20"
+                          }`}>
+                            {pendingCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </nav>
         <div className="p-4 border-t border-slate-100">
           <div className="flex items-center gap-3 mb-3">
