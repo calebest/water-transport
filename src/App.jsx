@@ -33,20 +33,20 @@ import BrokersPage from "./pages/Brokers";
 import "./App.css";
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: "📊", group: "Dashboard" },
-  { id: "trips", label: "Trips", icon: "🚛", group: "Operations" },
-  { id: "locations", label: "Locations", icon: "📍", group: "Operations" },
-  { id: "vehicles", label: "Vehicles", icon: "🚚", group: "Operations" },
+  { id: "dashboard", label: "Dashboard", icon: "📊", roleAccess: ["admin", "owner", "broker"], group: "Dashboard" },
+  { id: "trips", label: "Trips", icon: "🚛", roleAccess: ["admin", "owner", "broker"], group: "Operations" },
+  { id: "locations", label: "Locations", icon: "📍", roleAccess: ["admin", "owner"], group: "Operations" },
+  { id: "vehicles", label: "Vehicles", icon: "🚚", roleAccess: ["admin", "owner", "broker"], group: "Operations" },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true, group: "Operations" },
   
   { id: "broker-account", label: "Broker Ledger", icon: "🏢", roleAccess: ["admin", "owner", "broker"], group: "Finance" },
   { id: "broker-reconcile", label: "Close Period", icon: "✔️", roleAccess: ["admin", "owner"], group: "Finance" },
-  { id: "reports", label: "Reports", icon: "📄", group: "Finance" },
+  { id: "reports", label: "Reports", icon: "📄", roleAccess: ["admin", "owner"], group: "Finance" },
 
+  { id: "personnel-account", label: "My Account", icon: "💳", roleAccess: ["admin", "owner", "driver", "conductor"], group: "Team & Contacts" },
   { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true, group: "Team & Contacts" },
   { id: "brokers", label: "Brokers", icon: "🤝", adminOnly: true, group: "Team & Contacts" },
   { id: "users", label: "Users", icon: "👥", adminOnly: true, group: "Team & Contacts" },
-  { id: "personnel-account", label: "My Account", icon: "💳", roleAccess: ["admin", "owner", "driver", "conductor"], group: "Team & Contacts" },
 
   { id: "settings", label: "Settings", icon: "⚙️", adminOnly: true, group: "System" },
   { id: "backup", label: "Backup", icon: "💾", adminOnly: true, group: "System" },
@@ -122,11 +122,11 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     if (n.roleAccess) return n.roleAccess.includes(profile?.role);
     return true;
   });
-  const activePage = navItems.some(n => n.id === page) ? page : "dashboard";
+  const activePage = navItems.some(n => n.id === page) ? page : (navItems[0]?.id || "dashboard");
   const activeNavItem = navItems.find(n => n.id === activePage) || navItems[0];
-  const primaryMobileIds = new Set(["dashboard", "trips", "reports"]);
-  const mobileNavItems = navItems.filter(n => primaryMobileIds.has(n.id));
-  const hasHiddenActivePage = !primaryMobileIds.has(activePage);
+  const primaryMobileIds = new Set(["dashboard", "trips", "reports", "personnel-account"]);
+  const mobileNavItems = navItems.filter(n => primaryMobileIds.has(n.id)).slice(0, 3);
+  const hasHiddenActivePage = !mobileNavItems.some(n => n.id === activePage);
 
   const toggleGroup = (group) => {
     // Legacy function, replaced by navigateToPage for tabs
