@@ -92,12 +92,17 @@ const LegendDot = ({ color, label }) => (
   </div>
 );
 
-export default function DashboardPage({ trips, vehicles = [], earningsConfig = { ratePerTrip: 200 }, onOpenTripReview, onMarkTripPaid, onGoToTrips }) {
+export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, onMarkTripPaid, onGoToTrips }) {
   const { profile, isAdmin, isOwner } = useAuth();
-  const [pendingOpen, setPendingOpen] = useState(true);
+  const [pendingOpen, setPendingOpen] = useState(() => localStorage.getItem("wt_dash_pendingOpen") !== "false");
   const [brokerLedger, setBrokerLedger] = useState([]);
   const [personnelLedger, setPersonnelLedger] = useState([]);
-  const [chartRange, setChartRange] = useState(14); // 7, 14, 30
+  const [chartRange, setChartRange] = useState(() => parseInt(localStorage.getItem("wt_dash_chartRange")) || 14);
+
+  useEffect(() => {
+    localStorage.setItem("wt_dash_pendingOpen", pendingOpen);
+    localStorage.setItem("wt_dash_chartRange", chartRange);
+  }, [pendingOpen, chartRange]);
 
   useEffect(() => {
     let unsub1, unsub2;
@@ -159,7 +164,7 @@ export default function DashboardPage({ trips, vehicles = [], earningsConfig = {
 
   const approvalPendingTrips = trips.filter(t => t.approvalStatus === "pending" || t.approvalStatus === "pending_edit");
   const paymentPendingTrips = trips.filter(t => !isPaidTrip(t) && t.approvalStatus !== "rejected");
-  const dailyCommissionAmount = Number(earningsConfig?.dailyCommissionAmount ?? earningsConfig?.ratePerTrip ?? 200);
+
 
   const brokerBalance = brokerLedger.reduce((sum, e) => {
     if (e.type === "revenue") return sum + Number(e.amount);

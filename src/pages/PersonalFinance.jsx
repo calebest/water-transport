@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { personalFinanceService } from "../services/personalFinance";
 import { Badge, Modal, StatCard } from "../components/ui";
 import { fmt, today } from "../utils/helpers";
-import EarningsPage from "./Earnings";
-
 const METHODS = ["Cash", "M-Pesa", "Bank Transfer"];
 const CATEGORIES = ["Personal", "Business", "Family", "Supplier", "Emergency", "Other"];
 
@@ -273,8 +271,12 @@ function FinanceRecords({ records, type, people }) {
   const [editingId, setEditingId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [transactionId, setTransactionId] = useState(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => localStorage.getItem(`wt_pf_search_${type}`) || "");
   const [transactions, setTransactions] = useState([]);
+
+  useEffect(() => {
+    localStorage.setItem(`wt_pf_search_${type}`, search);
+  }, [search, type]);
 
   const scopedRecords = useMemo(() => records.filter((record) => record.type === type), [records, type]);
   const selectedRecord = useMemo(() => records.find((record) => record.id === selectedId) || null, [records, selectedId]);
@@ -467,8 +469,12 @@ function ActionCenter({ records }) {
   );
 }
 
-export default function PersonalFinancePage({ records = [], trips, vehicles, earningsConfig, onOpenTripReview, onMarkTripPaid }) {
-  const [activeTab, setActiveTab] = useState("overview");
+export default function PersonalFinancePage({ records = [], trips, vehicles, onOpenTripReview, onMarkTripPaid }) {
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem("wt_pf_activeTab") || "overview");
+
+  useEffect(() => {
+    localStorage.setItem("wt_pf_activeTab", activeTab);
+  }, [activeTab]);
 
   const people = useMemo(() => [...new Set(records.map((record) => record.personName).filter(Boolean))].sort(), [records]);
   const totals = useMemo(() => ({
@@ -483,8 +489,7 @@ export default function PersonalFinancePage({ records = [], trips, vehicles, ear
     ["overview", "Overview"],
     ["owe", "I Owe"],
     ["owed", "Owed To Me"],
-    ["people", "People"],
-    ["earnings", "Earnings"],
+    ["people", "People Summary"],
   ];
 
   return (
@@ -522,15 +527,6 @@ export default function PersonalFinancePage({ records = [], trips, vehicles, ear
       {activeTab === "owe" && <FinanceRecords records={records} type="i_owe" people={people} />}
       {activeTab === "owed" && <FinanceRecords records={records} type="owed_to_me" people={people} />}
       {activeTab === "people" && <PeopleSummary records={records} />}
-      {activeTab === "earnings" && (
-        <EarningsPage
-          trips={trips}
-          vehicles={vehicles}
-          earningsConfig={earningsConfig}
-          onOpenTripReview={onOpenTripReview}
-          onMarkTripPaid={onMarkTripPaid}
-        />
-      )}
     </div>
   );
 }

@@ -7,8 +7,7 @@ import { personnelService } from "./services/personnel";
 import { maintenanceService } from "./services/maintenance";
 import { settingsService } from "./services/settings";
 import { complaintService } from "./services/complaints";
-import { loanService } from "./services/loans";
-import { earningsService } from "./services/earnings";
+
 import { brokerService } from "./services/brokers";
 import { Badge, Modal } from "./components/ui";
 import TripReviewModal from "./components/TripReviewModal";
@@ -19,8 +18,7 @@ import DashboardPage from "./pages/Dashboard";
 import TripsPage from "./pages/Trips";
 import LocationsPage from "./pages/Locations";
 import ReportsPage from "./pages/Reports";
-import LoansPage from "./pages/Loans";
-import EarningsPage from "./pages/Earnings";
+
 import BackupPage from "./pages/Backup";
 import UsersPage from "./pages/Users";
 import VehiclesPage from "./pages/Vehicles";
@@ -43,8 +41,6 @@ const NAV_ITEMS = [
   
   { id: "broker-account", label: "Broker Ledger", icon: "🏢", roleAccess: ["admin", "owner", "broker"], group: "Finance" },
   { id: "broker-reconcile", label: "Close Period", icon: "✔️", roleAccess: ["admin", "owner"], group: "Finance" },
-  { id: "loans", label: "Loans", icon: "💸", group: "Finance" },
-  { id: "earnings", label: "Earnings", icon: "💵", adminOnly: true, group: "Finance" },
   { id: "reports", label: "Reports", icon: "📄", group: "Finance" },
 
   { id: "personnel", label: "Personnel", icon: "👤", adminOnly: true, group: "Team & Contacts" },
@@ -68,7 +64,7 @@ const getPageFromPath = () => {
 
 const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
 
-function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, loans, earningsConfig, brokers = [], refreshTrips }) {
+function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, brokers = [], refreshTrips }) {
   const { user, profile, logout, isAdmin, isOwner, isPrivileged, personnelId } = useAuth();
   const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -180,10 +176,9 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
       isAdmin,
       directApproval: settings?.directApproval,
       isPending: tripEditTrip?.approvalStatus === "pending",
-      earningsRate: tripEditTrip?.earningsRate ?? tripEditTrip?.earningsAmount ?? earningsConfig?.ratePerTrip,
     });
     if (refreshTrips) refreshTrips();
-  }, [earningsConfig?.ratePerTrip, isAdmin, settings?.directApproval, tripEditTrip, refreshTrips]);
+  }, [isAdmin, settings?.directApproval, tripEditTrip, refreshTrips]);
 
   useEffect(() => {
     if (page !== activePage) {
@@ -197,7 +192,6 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           trips={trips}
           vehicles={vehicles}
           settings={settings}
-          earningsConfig={earningsConfig}
           onOpenTripReview={openTripReview}
           onMarkTripPaid={handleMarkTripPaid}
           onGoToTrips={() => navigateToPage("trips")}
@@ -205,18 +199,16 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           setGlobalVehicle={handleSetGlobalVehicle}
         />
       ),
-    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} earningsConfig={earningsConfig} brokers={brokers} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
+    trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} brokers={brokers} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     locations: <LocationsPage locations={locations} />,
-    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} brokers={brokers} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} />,
+    vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} brokers={brokers} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
     "broker-account": <BrokerAccountPage isAdmin={isAdmin} brokers={brokers} vehicles={vehicles} trips={trips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     "broker-reconcile": <BrokerReconciliationPage brokers={brokers} />,
     "personnel-account": <PersonnelAccountPage isAdmin={isAdmin} personnelId={personnelId} personnelList={personnel} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
-    loans: <LoansPage loans={loans} onOpenTripReview={openTripReview} />,
-    earnings: <EarningsPage trips={trips} vehicles={vehicles} earningsConfig={earningsConfig} onOpenTripReview={openTripReview} onMarkTripPaid={handleMarkTripPaid} />,
-    backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} loans={loans} complaints={complaints} settings={settings} earningsConfig={earningsConfig} />,
+    backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} complaints={complaints} settings={settings} />,
     settings: <SettingsPage settings={settings} />,
     users: <UsersPage personnel={personnel} />,
     brokers: <BrokersPage brokers={brokers} />
@@ -400,7 +392,6 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
         <TripReviewModal
           open={!!reviewTrip}
           trip={reviewTrip}
-          ratePerTrip={earningsConfig?.ratePerTrip || 200}
           onClose={() => setReviewTrip(null)}
           onMarkPaid={isAdmin ? handleMarkTripPaid : undefined}
           onEditTrip={isAdmin ? (trip) => openTripReview(trip, true) : undefined}
@@ -468,8 +459,7 @@ function AppInner() {
   const [maintenance, setMaintenance] = useState([]);
   const [settings, setSettings] = useState({ directApproval: false });
   const [complaints, setComplaints] = useState([]);
-  const [loans, setLoans] = useState([]);
-  const [earningsConfig, setEarningsConfig] = useState({ ratePerTrip: 200, dailyCommissionAmount: 200, commissionStatus: "Enabled" });
+
   const [brokers, setBrokers] = useState([]);
 
   // Manual refresh — called right after add/delete/approve so UI updates instantly
@@ -487,8 +477,6 @@ function AppInner() {
       setMaintenance([]);
       setSettings({ directApproval: false });
       setComplaints([]);
-      setLoans([]);
-      setEarningsConfig({ ratePerTrip: 200, dailyCommissionAmount: 200, commissionStatus: "Enabled" });
       setBrokers([]);
       return;
     }
@@ -500,8 +488,6 @@ function AppInner() {
     const unsubMaintenance = maintenanceService.subscribe(setMaintenance);
     const unsubSettings = settingsService.subscribe(setSettings);
     const unsubComplaints = complaintService.subscribe(setComplaints);
-    const unsubLoans = loanService.subscribe(setLoans);
-    const unsubEarnings = earningsService.subscribeConfig(setEarningsConfig);
     const unsubBrokers = brokerService.subscribeBrokers(setBrokers);
     
     return () => {
@@ -512,8 +498,6 @@ function AppInner() {
       unsubMaintenance();
       if (unsubSettings) unsubSettings();
       if (unsubComplaints) unsubComplaints();
-      if (unsubLoans) unsubLoans();
-      if (unsubEarnings) unsubEarnings();
       if (unsubBrokers) unsubBrokers();
     };
   }, [user, refreshTrips]);
@@ -543,7 +527,7 @@ function AppInner() {
   );
 
   if (!user) return <LoginPage />;
-  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} loans={loans} earningsConfig={earningsConfig} brokers={brokers} refreshTrips={refreshTrips} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} brokers={brokers} refreshTrips={refreshTrips} />;
 }
 
 export default function App() {

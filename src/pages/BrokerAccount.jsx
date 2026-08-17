@@ -619,26 +619,34 @@ function BrokerStatementModal({ open, onClose, broker, availableLorries, current
 }
 
 export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = [], trips = [], globalVehicle, setGlobalVehicle }) {
-  const [activeBrokerId, setActiveBrokerId] = useState("");
+  const [activeBrokerId, setActiveBrokerId] = useState(() => localStorage.getItem("wt_broker_activeId") || "");
   const [ledger, setLedger] = useState([]);
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [expandedTrips, setExpandedTrips] = useState(new Set());
-  const [activeTab, setActiveTab] = useState("date"); // default to Date view — better organized
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem("wt_broker_activeTab") || "date"); 
   // Filter state
-  const [showFilters, setShowFilters] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterPeriod, setFilterPeriod] = useState("all");
-  const [filterType, setFilterType] = useState("all");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
-  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [showFilters, setShowFilters] = useState(() => localStorage.getItem("wt_broker_showFilters") === "true");
+  const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem("wt_broker_search") || "");
+  const [filterPeriod, setFilterPeriod] = useState(() => localStorage.getItem("wt_broker_period") || "all");
+  const [filterType, setFilterType] = useState(() => localStorage.getItem("wt_broker_type") || "all");
+  const [customStart, setCustomStart] = useState(() => localStorage.getItem("wt_broker_customStart") || "");
+  const [customEnd, setCustomEnd] = useState(() => localStorage.getItem("wt_broker_customEnd") || "");
+  const [showAllHistory, setShowAllHistory] = useState(() => localStorage.getItem("wt_broker_showAllHistory") === "true");
   const [selectedEntry, setSelectedEntry] = useState(null);
 
+  // Persist state
   useEffect(() => {
-    setSearchQuery(""); setFilterPeriod("all"); setFilterType("all");
-    setCustomStart(""); setCustomEnd(""); setSelectedEntry(null);
-  }, [activeBrokerId]);
+    localStorage.setItem("wt_broker_activeId", activeBrokerId);
+    localStorage.setItem("wt_broker_activeTab", activeTab);
+    localStorage.setItem("wt_broker_showFilters", showFilters);
+    localStorage.setItem("wt_broker_search", searchQuery);
+    localStorage.setItem("wt_broker_period", filterPeriod);
+    localStorage.setItem("wt_broker_type", filterType);
+    localStorage.setItem("wt_broker_customStart", customStart);
+    localStorage.setItem("wt_broker_customEnd", customEnd);
+    localStorage.setItem("wt_broker_showAllHistory", showAllHistory);
+  }, [activeBrokerId, activeTab, showFilters, searchQuery, filterPeriod, filterType, customStart, customEnd, showAllHistory]);
 
   const toggleTrip = (id) => {
     setExpandedTrips(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });

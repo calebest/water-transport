@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Badge } from "../components/ui";
 import { fmt } from "../utils/helpers";
@@ -13,7 +13,7 @@ const downloadJson = (payload, filename) => {
   URL.revokeObjectURL(url);
 };
 
-export default function BackupPage({ trips = [], locations = [], vehicles = [], personnel = [], maintenance = [], loans = [], complaints = [], settings = {}, earningsConfig = {} }) {
+export default function BackupPage({ trips = [], locations = [], vehicles = [], personnel = [], maintenance = [], complaints = [], settings = {} }) {
   const { isAdmin } = useAuth();
 
   const payload = useMemo(() => ({
@@ -23,17 +23,15 @@ export default function BackupPage({ trips = [], locations = [], vehicles = [], 
     vehicles,
     personnel,
     maintenance,
-    loans,
     complaints,
     settings,
-    earningsConfig,
-  }), [trips, locations, vehicles, personnel, maintenance, loans, complaints, settings, earningsConfig]);
+  }), [trips, locations, vehicles, personnel, maintenance, complaints, settings]);
 
   const summary = [
     { label: "Trips", value: trips.length, color: "blue" },
     { label: "Locations", value: locations.length, color: "green" },
     { label: "Vehicles", value: vehicles.length, color: "amber" },
-    { label: "Loans", value: loans.length, color: "red" },
+    { label: "Personnel", value: personnel.length, color: "purple" },
   ];
 
   return (
@@ -68,7 +66,7 @@ export default function BackupPage({ trips = [], locations = [], vehicles = [], 
           Download JSON Backup
         </button>
         <div className="mt-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">
-          Backup size grows with trips, loans, and complaints. Consider downloading it before major changes.
+          Backup size grows with trips and complaints. Consider downloading it before major changes.
         </div>
       </div>
 
@@ -80,8 +78,8 @@ export default function BackupPage({ trips = [], locations = [], vehicles = [], 
             <p className="mt-1 text-lg font-black text-slate-800">{fmt(trips.reduce((sum, trip) => sum + Number(trip.revenue || 0), 0))}</p>
           </div>
           <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-xs font-semibold text-slate-400">Outstanding loans</p>
-            <p className="mt-1 text-lg font-black text-slate-800">{fmt(loans.reduce((sum, loan) => sum + Number(loan.balance || 0), 0))}</p>
+            <p className="text-xs font-semibold text-slate-400">Total personnel</p>
+            <p className="mt-1 text-lg font-black text-slate-800">{personnel.length}</p>
           </div>
         </div>
       </div>

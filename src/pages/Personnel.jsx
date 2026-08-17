@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { personnelService } from "../services/personnel";
 import { Badge, Modal } from "../components/ui";
@@ -11,9 +11,18 @@ export default function PersonnelPage({ personnel, trips }) {
   const [addOpen, setAddOpen] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
   const [delPerson, setDelPerson] = useState(null);
-  const [selected, setSelected] = useState(null);
-  const [filterRole, setFilterRole] = useState("All");
-  const [showInactive, setShowInactive] = useState(false);
+  const [selected, setSelected] = useState(() => {
+    const s = localStorage.getItem("wt_personnel_selected");
+    return s ? JSON.parse(s) : null;
+  });
+  const [filterRole, setFilterRole] = useState(() => localStorage.getItem("wt_personnel_filterRole") || "All");
+  const [showInactive, setShowInactive] = useState(() => localStorage.getItem("wt_personnel_showInactive") === "true");
+
+  useEffect(() => {
+    localStorage.setItem("wt_personnel_selected", selected ? JSON.stringify(selected) : "");
+    localStorage.setItem("wt_personnel_filterRole", filterRole);
+    localStorage.setItem("wt_personnel_showInactive", showInactive);
+  }, [selected, filterRole, showInactive]);
 
   const filtered = useMemo(() =>
     personnel.filter(p => (filterRole === "All" || p.role === filterRole || p.role === "Both") && (showInactive || p.status !== "Inactive")),
@@ -261,7 +270,7 @@ export default function PersonnelPage({ personnel, trips }) {
               <p className="text-sm text-rose-600">Deleting <strong>{delPerson.name}</strong> will:</p>
               <ul className="text-sm text-rose-600 list-disc list-inside mt-1 space-y-0.5">
                 <li>Remove all their ledger earnings & payment history</li>
-                <li>Remove any loans linked to them</li>
+
                 <li>Unlink them from historical trip records (trips remain, driver/conductor will show as blank)</li>
               </ul>
             </div>

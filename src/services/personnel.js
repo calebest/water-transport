@@ -46,8 +46,7 @@ export const personnelService = {
     await supabase.from('trips').update({ conductor_id: null }).eq('conductor_id', id);
     // Step 3: Delete their ledger entries
     await supabase.from('personnel_ledger').delete().eq('personnel_id', id);
-    // Step 4: Delete any loans linked to them
-    await supabase.from('loans').delete().eq('personnel_id', id);
+
     // Step 5: Now safe to delete the personnel record
     const { error } = await supabase.from('personnel').delete().eq('id', id);
     if (error) throw error;

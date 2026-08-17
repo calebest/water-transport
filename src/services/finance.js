@@ -246,20 +246,36 @@ export const financeService = {
 
   // --- PERSONNEL ACCOUNTS ---
 
-  makePersonnelPayment: async (personnelId, amount, { date, notes } = {}) => {
-    const paymentAmount = Number(amount);
-    if (isNaN(paymentAmount) || paymentAmount <= 0) throw new Error("Invalid payment amount");
+  addPersonnelLedgerEntry: async (personnelId, amount, { date, notes, type = "payment" } = {}) => {
+    const parsedAmount = Number(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) throw new Error("Invalid amount");
 
     const { data: inserted, error } = await supabase.from('personnel_ledger').insert({
       personnel_id: personnelId,
       date: date || new Date().toISOString().slice(0, 10),
-      type: "payment",
-      amount: paymentAmount,
-      notes: notes || "Payment"
+      type: type, // "earning" or "payment"
+      amount: parsedAmount,
+      notes: notes || (type === "earning" ? "Earning" : "Payment")
     }).select().single();
 
     if (error) throw error;
     return inserted.id;
+  },
+
+  updatePersonnelLedgerEntry: async (id, data) => {
+    const updateData = {};
+    if (data.amount) updateData.amount = Number(data.amount);
+    if (data.date) updateData.date = data.date;
+    if (data.notes) updateData.notes = data.notes;
+    if (data.type) updateData.type = data.type; // "earning" or "payment"
+
+    const { error } = await supabase.from('personnel_ledger').update(updateData).eq('id', id);
+    if (error) throw error;
+  },
+
+  deletePersonnelLedgerEntry: async (id) => {
+    const { error } = await supabase.from('personnel_ledger').delete().eq('id', id);
+    if (error) throw error;
   },
 
   subscribePersonnelLedger: (personnelId, callback) => {

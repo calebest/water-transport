@@ -16,16 +16,23 @@ const APPROVAL_BADGE = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function TripsPage({ trips, locations, vehicles, personnel = [], brokers = [], settings, earningsConfig, onOpenTripReview, refreshTrips, globalVehicle, setGlobalVehicle }) {
+export default function TripsPage({ trips, locations, vehicles, personnel = [], brokers = [], settings, onOpenTripReview, refreshTrips, globalVehicle, setGlobalVehicle }) {
   const { isAdmin, isOwner, isPrivileged, canAddTrips, userId } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
   const [editTrip, setEditTrip] = useState(null);
   const [delTrip, setDelTrip] = useState(null);
   const [markingPaid, setMarkingPaid] = useState(null);
-  const [search, setSearch] = useState("");
-  const [filterDate, setFilterDate] = useState("");
+  const [search, setSearch] = useState(() => localStorage.getItem("wt_trips_search") || "");
+  const [filterDate, setFilterDate] = useState(() => localStorage.getItem("wt_trips_filterDate") || "");
   const [deleting, setDeleting] = useState(false);
-  const [approvalsOpen, setApprovalsOpen] = useState(true);
+  const [approvalsOpen, setApprovalsOpen] = useState(() => localStorage.getItem("wt_trips_approvalsOpen") !== "false");
+
+  // Persist state
+  useEffect(() => {
+    localStorage.setItem("wt_trips_search", search);
+    localStorage.setItem("wt_trips_filterDate", filterDate);
+    localStorage.setItem("wt_trips_approvalsOpen", approvalsOpen);
+  }, [search, filterDate, approvalsOpen]);
 
   // Pending new trips for admin approval panel
   const pendingNewTrips = useMemo(() =>
@@ -98,7 +105,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handleAdd = async (form) => {
-    await tripService.add(form, { userId, isAdmin, directApproval: settings?.directApproval, earningsRate: earningsConfig?.ratePerTrip });
+    await tripService.add(form, { userId, isAdmin, directApproval: settings?.directApproval });
     if (refreshTrips) refreshTrips();
   };
 
@@ -107,14 +114,13 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       isAdmin, 
       directApproval: settings?.directApproval,
       isPending: editTrip?.approvalStatus === "pending",
-      earningsRate: editTrip?.earningsRate ?? editTrip?.earningsAmount ?? earningsConfig?.ratePerTrip,
     });
     if (refreshTrips) refreshTrips();
   };
 
   const handleApprove = async (trip) => {
     try { 
-      await tripService.approve(trip.id, trip, { earningsRate: earningsConfig?.ratePerTrip }); 
+      await tripService.approve(trip.id, trip, {}); 
       if (refreshTrips) refreshTrips();
     }
     catch (e) { alert(e.message); }

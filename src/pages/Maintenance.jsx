@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { maintenanceService } from "../services/maintenance";
 import { Badge, Modal } from "../components/ui";
@@ -11,8 +11,13 @@ export default function MaintenancePage({ maintenance, vehicles }) {
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [delItem, setDelItem] = useState(null);
-  const [filterType, setFilterType] = useState("All");
-  const [filterLorry, setFilterLorry] = useState("All");
+  const [filterType, setFilterType] = useState(() => localStorage.getItem("wt_maintenance_filterType") || "All");
+  const [filterLorry, setFilterLorry] = useState(() => localStorage.getItem("wt_maintenance_filterLorry") || "All");
+
+  useEffect(() => {
+    localStorage.setItem("wt_maintenance_filterType", filterType);
+    localStorage.setItem("wt_maintenance_filterLorry", filterLorry);
+  }, [filterType, filterLorry]);
 
   const lorryList = useMemo(() => {
     const fromRecords = [...new Set(maintenance.map(m => m.lorry))];

@@ -5,10 +5,15 @@ import { useAuth } from "../contexts/AuthContext";
 
 export default function BrokerReconciliation({ brokers = [] }) {
   const { user } = useAuth();
-  const [activeBrokerId, setActiveBrokerId] = useState("");
+  const [activeBrokerId, setActiveBrokerId] = useState(() => localStorage.getItem("wt_broker_recon_activeId") || "");
   const [ledger, setLedger] = useState([]);
   const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+
+  // Persist state
+  useEffect(() => {
+    localStorage.setItem("wt_broker_recon_activeId", activeBrokerId);
+  }, [activeBrokerId]);
   
   // Auto-select first active broker
   useEffect(() => {
