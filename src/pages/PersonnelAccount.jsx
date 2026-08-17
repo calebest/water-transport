@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { financeService } from "../services/finance";
 import { fmt, today, getWeekRange, getMonthRange } from "../utils/helpers";
 import { Modal, StatCard, Badge } from "../components/ui";
+import PersonalRecordsTab from "../components/PersonalRecordsTab";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const isWithinPeriod = (dateStr, period, customStart, customEnd) => {
@@ -179,6 +180,7 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
   const [selectedPersonnelId, setSelectedPersonnelId] = useState(() => localStorage.getItem("wt_personnel_selectedId") || "");
   const [ledgerStartDate, setLedgerStartDate] = useState(() => localStorage.getItem("wt_personnel_ledgerStartDate") || "");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("admin_ledger"); // 'admin_ledger' or 'personal_records'
 
   // Persist filters when they change
   useEffect(() => {
@@ -289,85 +291,117 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header & Controls */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-2xl font-black text-slate-800">
-            {isAdmin ? "Personnel Ledger" : `My Account: ${personnel.name || "Personnel"}`}
-          </h2>
-          <p className="text-slate-500 text-sm mt-1">Earnings, payments, and deductions.</p>
+    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
+      {/* Header & Tabs */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-800 tracking-tight">
+            My Account
+          </h1>
+          {personnel.name && isAdmin && (
+            <p className="text-sm font-semibold text-slate-500 mt-1">Viewing ledger for {personnel.name} ({personnel.role})</p>
+          )}
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Personnel Selector */}
-          {isAdmin && personnelList.length > 0 && (
-            <select
-              value={activePersonnelId || ""}
-              onChange={e => setSelectedPersonnelId(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-sm"
-            >
-              {personnelList.filter(p => p.status !== "Inactive" || p.id === activePersonnelId).map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
-              ))}
-            </select>
-          )}
-
-          {/* Period Filter */}
-          <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200 shadow-sm">
-            {["all", "today", "week", "month", "custom"].map(p => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  period === p ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/50" : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
-                }`}
-              >
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          {/* Action Button */}
-          {isAdmin && activePersonnelId && (
-            <button 
-              onClick={() => { setEditingEntry(null); setModalOpen(true); }} 
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-blue-700 transition-colors"
-            >
-              Record Transaction
-            </button>
-          )}
-
-          {/* Settings Button */}
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:text-slate-800 hover:bg-slate-100 shadow-sm transition-all"
-            title="Account Settings"
+        {/* Tab Navigation */}
+        <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner w-full sm:w-auto">
+          <button 
+            onClick={() => setActiveTab("admin_ledger")}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "admin_ledger" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            Admin Ledger
+          </button>
+          <button 
+            onClick={() => setActiveTab("personal_records")}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "personal_records" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            My Personal Records
           </button>
         </div>
       </div>
 
-      <AccountSettingsModal 
-        open={settingsOpen} 
-        onClose={() => setSettingsOpen(false)} 
-        startDate={ledgerStartDate} 
-        setStartDate={setLedgerStartDate} 
-      />
+      {activeTab === "personal_records" ? (
+        <PersonalRecordsTab personnelId={activePersonnelId} />
+      ) : (
+        <div className="space-y-6">
+          {/* Header & Controls */}
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-2xl font-black text-slate-800">
+                {isAdmin ? "Personnel Ledger" : `My Account: ${personnel.name || "Personnel"}`}
+              </h2>
+              <p className="text-slate-500 text-sm mt-1">Earnings, payments, and deductions.</p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Personnel Selector */}
+              {isAdmin && personnelList.length > 0 && (
+                <select
+                  value={activePersonnelId || ""}
+                  onChange={e => setSelectedPersonnelId(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-sm"
+                >
+                  {personnelList.filter(p => p.status !== "Inactive" || p.id === activePersonnelId).map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
+                  ))}
+                </select>
+              )}
 
-      {period === "custom" && (
-        <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm w-fit">
-          <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-200" />
-          <span className="text-slate-400 font-medium">to</span>
-          <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-200" />
-        </div>
-      )}
+              {/* Period Filter */}
+              <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200 shadow-sm">
+                {["all", "today", "week", "month", "custom"].map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      period === p ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/50" : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </button>
+                ))}
+              </div>
 
-      {/* Stats */}
+              {/* Action Button */}
+              {isAdmin && activePersonnelId && (
+                <button 
+                  onClick={() => { setEditingEntry(null); setModalOpen(true); }} 
+                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-blue-700 transition-colors"
+                >
+                  Record Transaction
+                </button>
+              )}
+
+              {/* Settings Button */}
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:text-slate-800 hover:bg-slate-100 shadow-sm transition-all"
+                title="Account Settings"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <AccountSettingsModal 
+            open={settingsOpen} 
+            onClose={() => setSettingsOpen(false)} 
+            startDate={ledgerStartDate} 
+            setStartDate={setLedgerStartDate} 
+          />
+
+          {period === "custom" && (
+            <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm w-fit">
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-200" />
+              <span className="text-slate-400 font-medium">to</span>
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-200" />
+            </div>
+          )}
+
+          {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard label="Total Earned (All Time)" value={fmt(totalEarned)} icon="💰" color="blue" />
         <StatCard label="Total Paid (All Time)" value={fmt(totalPaid)} icon="📉" color="slate" />
@@ -562,6 +596,8 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
         personnel={personnel}
         initialData={editingEntry}
       />
+        </div>
+      )}
     </div>
   );
 }

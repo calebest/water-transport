@@ -55,3 +55,26 @@ ALTER TABLE public.personal_finance_tx ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admin full access loan_repayments" ON public.loan_repayments USING (public.user_role() IN ('admin', 'owner'));
 CREATE POLICY "Admin full access personal_finance" ON public.personal_finance USING (public.user_role() IN ('admin', 'owner'));
 CREATE POLICY "Admin full access personal_finance_tx" ON public.personal_finance_tx USING (public.user_role() IN ('admin', 'owner'));
+
+-- =========================================================================
+-- UPDATE: Personal Records for Drivers & Conductors
+-- =========================================================================
+
+CREATE TABLE public.personal_records (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  trip_id TEXT REFERENCES public.trips(id) ON DELETE SET NULL,
+  type TEXT NOT NULL CHECK (type IN ('note', 'expense', 'income')),
+  amount NUMERIC DEFAULT 0,
+  notes TEXT NOT NULL,
+  date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS: Users can only manage their own personal records
+ALTER TABLE public.personal_records ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own personal records" 
+ON public.personal_records 
+FOR ALL 
+USING (user_id = auth.uid());
