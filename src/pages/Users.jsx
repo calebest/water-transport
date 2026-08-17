@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../services/supabase";
+import { adminSupabase } from "../services/adminSupabase";
 import { useAuth } from "../contexts/AuthContext";
 import { Badge, Modal } from "../components/ui";
 
@@ -20,9 +21,33 @@ export default function UsersPage({ personnel = [] }) {
   const [deleting, setDeleting] = useState(false);
 
   const fetchProfiles = async () => {
-    const { data, error } = await supabase.from("profiles").select("*");
-    if (error) setErr("Could not load users: " + error.message);
-    else setUsers(data);
+    // Always fetch profiles from the DB
+    const { data: profileData, error } = await supabase.from("profiles").select("*");
+    if (error) { setErr("Could not load users: " + error.message); return; }
+
+    // If admin client is available, also fetch auth users so orphaned accounts
+    // (created but profile insert failed) still appear in the list
+    if (adminSupabase) {
+      try {
+        const { data: authData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
+        const authUsers = authData?.users ?? [];
+        const profileMap = new Map((profileData ?? []).map(p => [p.id, p]));
+
+        // Merge: auth user + profile (profile wins on overlap)
+        const merged = authUsers.map(au => ({
+          id: au.id,
+          email: au.email,
+          name: au.user_metadata?.name || au.email,
+          phone: au.user_metadata?.phone || "",
+          role: profileMap.get(au.id)?.role || "viewer",
+          personnel_id: profileMap.get(au.id)?.personnel_id || null,
+          _hasProfile: profileMap.has(au.id),
+        }));
+        setUsers(merged);
+        return;
+      } catch {/* fall back to profiles only */}
+    }
+    setUsers(profileData ?? []);
   };
 
   useEffect(() => {
@@ -40,22 +65,37 @@ export default function UsersPage({ personnel = [] }) {
     };
   }, []);
 
-  const handleRoleChange = async (userId, newRole) => {
+  const handleRoleChange = async (u, newRole) => {
     try {
-      const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId);
+      // upsert so orphaned auth accounts also get a profile
+      const client = adminSupabase || supabase;
+      const { error } = await client.from("profiles").upsert({ 
+        id: u.id, 
+        role: newRole,
+        name: u.name,
+        phone: u.phone
+      });
       if (error) throw error;
+      setTimeout(fetchProfiles, 400);
     } catch (e) {
       alert("Failed to update role: " + e.message);
     }
   };
 
-  const handlePersonnelLink = async (userId, personnelId) => {
+  const handlePersonnelLink = async (u, personnelId) => {
     try {
-      const { error } = await supabase
+      const client = adminSupabase || supabase;
+      const { error } = await client
         .from("profiles")
-        .update({ personnel_id: personnelId || null })
-        .eq("id", userId);
+        .upsert({ 
+          id: u.id, 
+          personnel_id: personnelId || null,
+          role: u.role,
+          name: u.name,
+          phone: u.phone
+        });
       if (error) throw error;
+      setTimeout(fetchProfiles, 400);
     } catch (e) {
       alert("Failed to link personnel: " + e.message);
     }
@@ -83,32 +123,38 @@ export default function UsersPage({ personnel = [] }) {
     e.preventDefault();
     setAddLoading(true);
     setAddErr("");
+
+    if (!adminSupabase) {
+      setAddErr(
+        "Admin key not configured. Add VITE_SUPABASE_SERVICE_ROLE_KEY to your .env.local file and restart the dev server."
+      );
+      setAddLoading(false);
+      return;
+    }
+
     try {
-      // Use signUp — works with anon key. Password is set immediately.
-      const { data, error } = await supabase.auth.signUp({
+      // admin.createUser skips email confirmation entirely — no emails sent
+      const { data, error } = await adminSupabase.auth.admin.createUser({
         email: addForm.email,
         password: addForm.password,
-        options: {
-          data: { name: addForm.name, phone: addForm.phone },
-          // Disable email confirmation so the user can log in right away
-          emailRedirectTo: window.location.origin,
-        },
+        email_confirm: true, // mark as confirmed immediately
+        user_metadata: { name: addForm.name, phone: addForm.phone },
       });
       if (error) throw error;
-      // Upsert profile with role
+
+      // Upsert profile with role — note: no 'email' column in profiles table
       if (data?.user?.id) {
-        const { error: profileErr } = await supabase.from("profiles").upsert({
+        const { error: profileErr } = await adminSupabase.from("profiles").upsert({
           id: data.user.id,
           name: addForm.name,
           phone: addForm.phone,
           role: addForm.role,
-          email: addForm.email,
         });
         if (profileErr) throw profileErr;
       }
       setAddModal(false);
       setAddForm(emptyForm);
-      setTimeout(fetchProfiles, 800); // slight delay for DB to settle
+      setTimeout(fetchProfiles, 800);
     } catch (err) {
       setAddErr(err.message);
     } finally {
@@ -190,7 +236,12 @@ export default function UsersPage({ personnel = [] }) {
                   className="border-b border-slate-50 bg-white hover:bg-slate-50 transition-colors"
                 >
                   <td className="px-4 py-3 text-slate-800">
-                    <div className="font-semibold">{u.name || "Unknown"}</div>
+                    <div className="font-semibold flex items-center gap-1.5">
+                      {u.name || "Unknown"}
+                      {!u._hasProfile && (
+                        <span title="Auth account exists but no profile yet — assign a role to create one" className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-600">No Profile</span>
+                      )}
+                    </div>
                     <div className="text-xs text-slate-400">{u.phone || "No phone"}</div>
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate">
@@ -202,7 +253,7 @@ export default function UsersPage({ personnel = [] }) {
                     ) : (
                       <select
                         value={u.role || "viewer"}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                        onChange={(e) => handleRoleChange(u, e.target.value)}
                         className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
                       >
                         {ROLES.map((r) => (
@@ -217,7 +268,7 @@ export default function UsersPage({ personnel = [] }) {
                     {u.role === "driver" || u.role === "conductor" ? (
                       <select
                         value={u.personnel_id || ""}
-                        onChange={(e) => handlePersonnelLink(u.id, e.target.value)}
+                        onChange={(e) => handlePersonnelLink(u, e.target.value)}
                         className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:border-emerald-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer max-w-[140px] truncate"
                         title={
                           u.personnel_id
