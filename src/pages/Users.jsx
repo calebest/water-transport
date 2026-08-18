@@ -66,8 +66,7 @@ export default function UsersPage({ personnel = [] }) {
   const handleRoleChange = async (u, newRole) => {
     try {
       // upsert so orphaned auth accounts also get a profile
-      const client = adminSupabase || supabase;
-      const { error } = await client.from("profiles").upsert({ 
+      const { error } = await supabase.from("profiles").upsert({ 
         id: u.id, 
         role: newRole,
         name: u.name,
@@ -82,8 +81,7 @@ export default function UsersPage({ personnel = [] }) {
 
   const handlePersonnelLink = async (u, personnelId) => {
     try {
-      const client = adminSupabase || supabase;
-      const { error } = await client
+      const { error } = await supabase
         .from("profiles")
         .upsert({ 
           id: u.id, 
