@@ -1,4 +1,4 @@
-﻿import { supabase } from './supabase';
+import { supabase } from './supabase';
 
 export const personalRecordsService = {
   fetchAll: async (userId) => {
@@ -46,7 +46,7 @@ export const personalRecordsService = {
     if (!personnelId) return [];
     const { data, error } = await supabase
       .from('trips')
-      .select('id, date, locations(name), destination(name), vehicles(plate)')
+      .select('id, date, location, destination, lorry, trip_number')
       .or(`driver_id.eq.${personnelId},conductor_id.eq.${personnelId}`)
       .order('date', { ascending: false });
     if (error) throw error;
