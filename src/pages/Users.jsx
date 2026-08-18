@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../services/supabase";
-import { adminSupabase } from "../services/adminSupabase";
 import { useAuth } from "../contexts/AuthContext";
 import { Badge, Modal } from "../components/ui";
 
@@ -25,28 +24,27 @@ export default function UsersPage({ personnel = [] }) {
     const { data: profileData, error } = await supabase.from("profiles").select("*");
     if (error) { setErr("Could not load users: " + error.message); return; }
 
-    // If admin client is available, also fetch auth users so orphaned accounts
-    // (created but profile insert failed) still appear in the list
-    if (adminSupabase) {
-      try {
-        const { data: authData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
-        const authUsers = authData?.users ?? [];
+    // Fetch auth users via server-side API so orphaned accounts still appear
+    try {
+      const resp = await fetch("/api/list-users");
+      if (resp.ok) {
+        const { users: authUsers } = await resp.json();
         const profileMap = new Map((profileData ?? []).map(p => [p.id, p]));
 
-        // Merge: auth user + profile (profile wins on overlap)
         const merged = authUsers.map(au => ({
           id: au.id,
           email: au.email,
-          name: au.user_metadata?.name || au.email,
-          phone: au.user_metadata?.phone || "",
+          name: profileMap.get(au.id)?.name || au.name || au.email,
+          phone: profileMap.get(au.id)?.phone || au.phone || "",
           role: profileMap.get(au.id)?.role || "viewer",
           personnel_id: profileMap.get(au.id)?.personnel_id || null,
           _hasProfile: profileMap.has(au.id),
         }));
         setUsers(merged);
         return;
-      } catch {/* fall back to profiles only */}
-    }
+      }
+    } catch {/* fall through to profiles-only */}
+
     setUsers(profileData ?? []);
   };
 
@@ -124,34 +122,29 @@ export default function UsersPage({ personnel = [] }) {
     setAddLoading(true);
     setAddErr("");
 
-    if (!adminSupabase) {
-      setAddErr(
-        "Admin key not configured. Add VITE_SUPABASE_SERVICE_ROLE_KEY to your .env.local file and restart the dev server."
-      );
-      setAddLoading(false);
-      return;
-    }
-
     try {
-      // admin.createUser skips email confirmation entirely — no emails sent
-      const { data, error } = await adminSupabase.auth.admin.createUser({
-        email: addForm.email,
-        password: addForm.password,
-        email_confirm: true, // mark as confirmed immediately
-        user_metadata: { name: addForm.name, phone: addForm.phone },
-      });
-      if (error) throw error;
-
-      // Upsert profile with role — note: no 'email' column in profiles table
-      if (data?.user?.id) {
-        const { error: profileErr } = await adminSupabase.from("profiles").upsert({
-          id: data.user.id,
+      const resp = await fetch("/api/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: addForm.email,
+          password: addForm.password,
           name: addForm.name,
           phone: addForm.phone,
           role: addForm.role,
-        });
-        if (profileErr) throw profileErr;
+        }),
+      });
+
+      const result = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(result.error || "Failed to create user.");
       }
+      if (result.warning) {
+        // User created but profile had issues — still close modal and refresh
+        console.warn(result.warning);
+      }
+
       setAddModal(false);
       setAddForm(emptyForm);
       setTimeout(fetchProfiles, 800);
