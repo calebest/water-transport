@@ -21,15 +21,22 @@ export default function PersonalRecordsTab({ personnelId }) {
   
   const loadData = async () => {
     if (!user) return;
+
+    // Fetch records and trips independently so one failure doesn't block the other
     try {
-      const [recs, linkedTrips] = await Promise.all([
-        personalRecordsService.fetchAll(user.id),
-        personalRecordsService.fetchLinkedTrips(personnelId)
-      ]);
+      const recs = await personalRecordsService.fetchAll(user.id);
       setRecords(recs);
+    } catch (e) {
+      console.error("[PersonalRecords] Failed to load records:", e.message);
+    }
+
+    try {
+      const linkedTrips = await personalRecordsService.fetchLinkedTrips(personnelId);
       setTrips(linkedTrips);
     } catch (e) {
-      console.error("Failed to load personal records", e);
+      // Trips may be blocked by RLS for non-admin users — safe to ignore
+      console.warn("[PersonalRecords] Could not load linked trips (RLS?):", e.message);
+      setTrips([]);
     }
   };
 
