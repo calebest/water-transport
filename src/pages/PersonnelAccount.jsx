@@ -321,7 +321,7 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
       </div>
 
       {activeTab === "personal_records" ? (
-        <PersonalRecordsTab personnelId={activePersonnelId} />
+        <PersonalRecordsTab personnelId={activePersonnelId} personnelName={personnel?.name} />
       ) : (
         <div className="space-y-6">
           {/* Header & Controls */}
