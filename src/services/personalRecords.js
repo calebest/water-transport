@@ -46,7 +46,7 @@ export const personalRecordsService = {
     if (!personnelId) return [];
     const { data, error } = await supabase
       .from('trips')
-      .select('id, date, location, destination, lorry, trip_number')
+      .select('id, date, location, lorry, trip_number')
       .or(`driver_id.eq.${personnelId},conductor_id.eq.${personnelId}`)
       .order('date', { ascending: false });
     if (error) throw error;

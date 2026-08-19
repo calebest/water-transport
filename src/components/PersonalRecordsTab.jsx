@@ -136,7 +136,7 @@ export default function PersonalRecordsTab({ personnelId }) {
                     <td className="px-4 py-3 text-slate-700 font-medium max-w-[200px] truncate" title={r.notes}>{r.notes}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">
                       {r.trip_id ? (
-                        <div className="max-w-[150px] truncate" title={trips.find(t => t.id === r.trip_id)?.destination || trips.find(t => t.id === r.trip_id)?.location}>
+                        <div className="max-w-[150px] truncate" title={trips.find(t => t.id === r.trip_id)?.location}>
                           {new Date(trips.find(t => t.id === r.trip_id)?.date).toLocaleDateString()} - {trips.find(t => t.id === r.trip_id)?.lorry}
                         </div>
                       ) : "—"}
@@ -185,7 +185,7 @@ export default function PersonalRecordsTab({ personnelId }) {
               <option value="">— None —</option>
               {trips.map(t => (
                 <option key={t.id} value={t.id}>
-                  {new Date(t.date).toLocaleDateString()} - {t.destination || t.location} ({t.lorry})
+                  {new Date(t.date).toLocaleDateString()} - {t.location} ({t.lorry})
                 </option>
               ))}
             </select>
