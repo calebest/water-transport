@@ -3,6 +3,7 @@ import { financeService } from "../services/finance";
 import { fmt, today, getWeekRange, getMonthRange } from "../utils/helpers";
 import { generateBrokerStatement } from "../utils/pdfGenerator";
 import { Modal, StatCard, Badge } from "../components/ui";
+import PersonalRecordsTab from "../components/PersonalRecordsTab";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const METHOD_ICON = { Cash: "💵", "M-Pesa": "📱", "Bank Transfer": "🏦", Adjustment: "⚖️" };
@@ -618,8 +619,12 @@ function BrokerStatementModal({ open, onClose, broker, availableLorries, current
   );
 }
 
-export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = [], trips = [], globalVehicle, setGlobalVehicle }) {
-  const [activeBrokerId, setActiveBrokerId] = useState(() => localStorage.getItem("wt_broker_activeId") || "");
+export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = [], trips = [], globalVehicle, setGlobalVehicle, linkedBrokerId }) {
+  const [activeBrokerId, setActiveBrokerId] = useState(() => {
+    if (!isAdmin && linkedBrokerId) return linkedBrokerId;
+    return localStorage.getItem("wt_broker_activeId") || "";
+  });
+  const [mainTab, setMainTab] = useState(() => localStorage.getItem("wt_broker_mainTab") || "ledger");
   const [ledger, setLedger] = useState([]);
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
@@ -637,7 +642,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
 
   // Persist state
   useEffect(() => {
-    localStorage.setItem("wt_broker_activeId", activeBrokerId);
+    if (isAdmin) localStorage.setItem("wt_broker_activeId", activeBrokerId);
+    localStorage.setItem("wt_broker_mainTab", mainTab);
     localStorage.setItem("wt_broker_activeTab", activeTab);
     localStorage.setItem("wt_broker_showFilters", showFilters);
     localStorage.setItem("wt_broker_search", searchQuery);
@@ -646,18 +652,20 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
     localStorage.setItem("wt_broker_customStart", customStart);
     localStorage.setItem("wt_broker_customEnd", customEnd);
     localStorage.setItem("wt_broker_showAllHistory", showAllHistory);
-  }, [activeBrokerId, activeTab, showFilters, searchQuery, filterPeriod, filterType, customStart, customEnd, showAllHistory]);
+  }, [isAdmin, activeBrokerId, mainTab, activeTab, showFilters, searchQuery, filterPeriod, filterType, customStart, customEnd, showAllHistory]);
 
   const toggleTrip = (id) => {
     setExpandedTrips(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
 
   useEffect(() => {
-    if (!activeBrokerId && brokers.length > 0) {
+    if (!isAdmin && linkedBrokerId) {
+      setActiveBrokerId(linkedBrokerId);
+    } else if (isAdmin && !activeBrokerId && brokers.length > 0) {
       const first = brokers.find(b => b.status === "Active") || brokers[0];
       if (first) setActiveBrokerId(first.id);
     }
-  }, [brokers, activeBrokerId]);
+  }, [isAdmin, linkedBrokerId, brokers, activeBrokerId]);
 
   useEffect(() => {
     if (!activeBrokerId) { setLedger([]); return; }
@@ -861,10 +869,43 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
     );
   }
 
+  const currentBroker = brokers.find(b => b.id === activeBrokerId) || {};
+
   return (
     <div className="space-y-5">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="bg-white p-5 lg:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
+      {/* ── Main Tab Navigation ────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-black text-slate-800">
+            {isAdmin ? "Broker Overview" : "My Account"}
+          </h1>
+          {currentBroker.name && isAdmin && (
+            <p className="text-sm font-semibold text-slate-500 mt-1">Viewing ledger for {currentBroker.name}</p>
+          )}
+        </div>
+        
+        <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner w-full sm:w-auto">
+          <button 
+            onClick={() => setMainTab("ledger")}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-lg transition-all ${mainTab === "ledger" ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            Broker Ledger
+          </button>
+          <button 
+            onClick={() => setMainTab("records")}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-lg transition-all ${mainTab === "records" ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            My Personal Records
+          </button>
+        </div>
+      </div>
+
+      {mainTab === "records" ? (
+        <PersonalRecordsTab personnelId={activeBrokerId} personnelName={currentBroker?.name} />
+      ) : (
+        <div className="space-y-5">
+          {/* ── Ledger Header ─────────────────────────────────────────────────────────── */}
+          <div className="bg-white p-5 lg:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
         {/* Top: Title + Action */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
@@ -899,7 +940,12 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-emerald-100 focus-within:border-emerald-400 transition-all">
               <span className="text-slate-400">🏢</span>
-              <select value={activeBrokerId} onChange={e => setActiveBrokerId(e.target.value)} className="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none min-w-[140px]">
+              <select 
+                value={activeBrokerId} 
+                onChange={e => setActiveBrokerId(e.target.value)} 
+                disabled={!isAdmin}
+                className="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none min-w-[140px] disabled:opacity-75 disabled:cursor-not-allowed"
+              >
                 {brokers.map(b => <option key={b.id} value={b.id}>{b.name}{b.company ? ` — ${b.company}` : ""}</option>)}
               </select>
             </div>
@@ -1304,6 +1350,9 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
           </div>
         )}
       </div>
+        </div>
+      )}
+
 
       {/* ── Entry Detail Panel ──────────────────────────────────────────────── */}
       <EntryDetailPanel 
