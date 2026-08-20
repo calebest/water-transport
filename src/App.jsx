@@ -203,14 +203,14 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     locations: <LocationsPage locations={locations} />,
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} brokers={brokers} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
-    "broker-account": <BrokerAccountPage isAdmin={isAdmin} brokers={brokers} vehicles={vehicles} trips={trips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
+    "broker-account": <BrokerAccountPage isAdmin={isAdmin} brokers={brokers} vehicles={vehicles} trips={trips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} linkedBrokerId={personnelId} />,
     "broker-reconcile": <BrokerReconciliationPage brokers={brokers} />,
     "personnel-account": <PersonnelAccountPage isAdmin={isAdmin} personnelId={personnelId} personnelList={personnel} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} complaints={complaints} settings={settings} />,
     settings: <SettingsPage settings={settings} />,
-    users: <UsersPage personnel={personnel} />,
+    users: <UsersPage personnel={personnel} brokers={brokers} />,
     brokers: <BrokersPage brokers={brokers} />
   };
 

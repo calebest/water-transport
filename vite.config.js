@@ -2,9 +2,57 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import dotenv from 'dotenv'
+import path from 'path'
+
+// Load env vars at startup (for API handlers running in vite dev server)
+dotenv.config({ path: '.env.local' });
+dotenv.config(); // fallback to .env
+
+// Custom plugin to serve API routes locally in dev mode
+const apiFallback = () => ({
+  name: 'api-fallback',
+  configureServer(server) {
+    server.middlewares.use(async (req, res, next) => {
+      if (req.url.startsWith('/api/')) {
+        try {
+          dotenv.config({ path: '.env.local' });
+          dotenv.config();
+
+          const handlerPath = path.resolve('.' + req.url.split('?')[0] + '.js');
+          const { default: handler } = await import(`file://${handlerPath}?update=${Date.now()}`);
+          
+          let body = '';
+          req.on('data', chunk => { body += chunk.toString(); });
+          req.on('end', async () => {
+            if (body) {
+              try { req.body = JSON.parse(body); } catch(e) {}
+            }
+            
+            res.status = (code) => { res.statusCode = code; return res; };
+            res.json = (data) => {
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify(data));
+            };
+            
+            await handler(req, res);
+          });
+          return;
+        } catch (err) {
+          console.error('API Error:', err);
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+          return;
+        }
+      }
+      next();
+    });
+  }
+});
 
 export default defineConfig({
   plugins: [
+    apiFallback(),
     tailwindcss(),
     react(),
     VitePWA({

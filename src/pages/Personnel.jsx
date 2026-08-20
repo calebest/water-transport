@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { personnelService } from "../services/personnel";
 import { Badge, Modal } from "../components/ui";
-import { fmt, summarize } from "../utils/helpers";
+import { fmt, summarize } from "../utils/helpers"; // fmt/summarize kept for card stats if needed
 
 const ROLES = ["Driver", "Conductor", "Both"];
 
@@ -34,7 +34,9 @@ export default function PersonnelPage({ personnel, trips }) {
     const personTrips = trips.filter(t =>
       t.driverId === selected.id || t.conductorId === selected.id
     );
-    const sum = summarize(personTrips);
+    const lastTrip = personTrips.length > 0
+      ? [...personTrips].sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+      : null;
     return (
       <div className="space-y-6">
         <button onClick={() => setSelected(null)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-emerald-600 transition-colors bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 w-fit">
@@ -50,8 +52,8 @@ export default function PersonnelPage({ personnel, trips }) {
           
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-              <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-3xl font-black text-white shadow-lg border-2 border-emerald-400/50 flex-shrink-0">
-                {selected.name.charAt(0)}
+              <div className={`h-20 w-20 rounded-2xl bg-gradient-to-br ${selected.role === "Driver" ? "from-blue-400 to-blue-600" : selected.role === "Conductor" ? "from-amber-400 to-amber-600" : "from-emerald-400 to-emerald-600"} flex items-center justify-center text-3xl font-black text-white shadow-lg border-2 border-white/20 flex-shrink-0`}>
+                {selected.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
                 <h2 className="text-3xl font-black text-white tracking-tight truncate">{selected.name}</h2>
@@ -64,88 +66,87 @@ export default function PersonnelPage({ personnel, trips }) {
                 </div>
               </div>
             </div>
-            
-            <div className="flex gap-4 lg:gap-8 bg-slate-800/50 backdrop-blur-md rounded-2xl p-4 border border-slate-700/50">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Total Trips</p>
-                <p className="text-2xl font-black text-white">{sum.count}</p>
-              </div>
-              <div className="w-px bg-slate-700/50"></div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Generated</p>
-                <p className="text-2xl font-black text-emerald-400">{fmt(sum.revenue)}</p>
-              </div>
-            </div>
+            <p className="text-slate-500 text-sm mt-1 font-medium">{personTrips.length} trip{personTrips.length !== 1 ? "s" : ""} on record</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Phone */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
             </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Phone Number</p>
-              <p className="text-lg font-bold text-slate-800">{selected.phone || "Not provided"}</p>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Phone Number</p>
+              <p className="text-base font-bold text-slate-800 truncate">{selected.phone || "Not provided"}</p>
             </div>
           </div>
-          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" /></svg>
+
+          {/* ID Number */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" /></svg>
             </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">ID Number</p>
-              <p className="text-lg font-bold text-slate-800">{selected.idNumber || "Not provided"}</p>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">National ID</p>
+              <p className="text-base font-bold text-slate-800 truncate">{selected.idNumber || "Not provided"}</p>
+            </div>
+          </div>
+
+          {/* Role */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Role / Position</p>
+              <p className="text-base font-bold text-slate-800">{selected.role}</p>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
+            <div className={`p-3 rounded-xl flex-shrink-0 ${selected.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"}`}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Employment Status</p>
+              <p className={`text-base font-bold ${selected.status === "Active" ? "text-emerald-600" : "text-slate-500"}`}>{selected.status || "Unknown"}</p>
+            </div>
+          </div>
+
+          {/* Total Trips */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Total Trips</p>
+              <p className="text-base font-bold text-slate-800">{personTrips.length} trip{personTrips.length !== 1 ? "s" : ""}</p>
+            </div>
+          </div>
+
+          {/* Last Active Trip */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Last Active Trip</p>
+              <p className="text-base font-bold text-slate-800">{lastTrip ? lastTrip.date : "No trips yet"}</p>
             </div>
           </div>
         </div>
 
         {selected.notes && (
-          <div className="rounded-3xl border border-slate-100 bg-amber-50 p-6 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-widest text-amber-600/80 mb-2">Internal Notes</p>
+          <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-600">Internal Notes</p>
+            </div>
             <p className="text-sm font-medium text-amber-900 leading-relaxed">{selected.notes}</p>
           </div>
         )}
-
-        <div className="rounded-3xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-          <div className="p-5 lg:p-6 bg-slate-50/50 border-b border-slate-100">
-            <h3 className="text-lg font-black text-slate-800">Trip History</h3>
-          </div>
-          <div className="table-scroll-container">
-            <table className="w-full min-w-[700px] text-sm">
-              <thead className="bg-slate-50/50">
-                <tr>
-                  {["Date", "Vehicle", "Trip #", "Location", "Role Played", "Revenue"].map(h => (
-                    <th key={h} className="px-6 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-400">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {personTrips.length === 0 ? (
-                  <tr><td colSpan={6} className="py-16 text-center text-slate-400 font-medium">No trips logged yet for this person</td></tr>
-                ) : personTrips.map(t => (
-                  <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-slate-700">{t.date}</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700">
-                        🚛 {t.lorry}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 font-medium">{t.tripNumber}</td>
-                    <td className="px-6 py-4 text-slate-600">{t.location || "N/A"}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider bg-slate-100 px-2.5 py-1 rounded-md">
-                        {t.driverId === selected.id && t.conductorId === selected.id ? "Driver & Cond" :
-                         t.driverId === selected.id ? "Driver" : "Conductor"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-black text-emerald-600">{fmt(t.revenue)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     );
   }

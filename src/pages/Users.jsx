@@ -7,7 +7,7 @@ const ROLES = ["viewer", "driver", "conductor", "broker", "owner", "admin"];
 
 const emptyForm = { email: "", password: "", name: "", phone: "", role: "driver" };
 
-export default function UsersPage({ personnel = [] }) {
+export default function UsersPage({ personnel = [], brokers = [] }) {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [err, setErr] = useState("");
@@ -262,16 +262,26 @@ export default function UsersPage({ personnel = [] }) {
                       className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:border-emerald-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer max-w-[140px] truncate"
                       title={
                         u.personnel_id
-                          ? personnel.find((p) => p.id === u.personnel_id)?.name || "Linked"
+                          ? (u.role === 'broker' 
+                              ? brokers.find(b => b.id === u.personnel_id)?.name 
+                              : personnel.find((p) => p.id === u.personnel_id)?.name) || "Linked"
                           : "Not linked"
                       }
                     >
                       <option value="">— Not linked —</option>
-                      {personnel.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
+                      {u.role === 'broker' ? (
+                        brokers.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))
+                      ) : (
+                        personnel.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </td>
                   <td className="px-4 py-3">
