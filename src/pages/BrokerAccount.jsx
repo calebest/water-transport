@@ -33,7 +33,7 @@ const isWithinPeriod = (dateStr, period, customStart, customEnd) => {
 // ─── Record Transaction Modal ──────────────────────────────────────────────
 function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSuccess, vehicles = [], brokerTrips = [] }) {
   const [direction, setDirection] = useState("IN");
-  const [txType, setTxType] = useState("direct_credit");
+  const [txType, setTxType] = useState("direct_charge");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today());
   const [method, setMethod] = useState("Cash");
@@ -49,12 +49,12 @@ function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSucces
 
   const handleDirection = (dir) => {
     setDirection(dir);
-    setTxType(dir === "IN" ? "settlement" : "expense");
+    setTxType(dir === "IN" ? "direct_charge" : "settlement");
   };
 
   const reset = () => {
     setAmount(""); setNotes(""); setCategory(""); setLinkedTripId("");
-    setDate(today()); setDirection("IN"); setTxType("settlement"); setMethod("Cash");
+    setDate(today()); setDirection("IN"); setTxType("direct_charge"); setMethod("Cash");
     setSelectedVehicle(globalVehicle !== "all" ? globalVehicle : "");
   };
 
@@ -63,35 +63,71 @@ function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSucces
     setSaving(true);
     try {
       const lorry = selectedVehicle || null;
-      if (txType === "settlement") {
-        await financeService.makeBrokerSettlement(broker.id, amount, { date, method, notes, lorry });
-      } else if (txType === "adjustment") {
-        await financeService.makeBrokerSettlement(broker.id, amount, {
-          date, method: "Adjustment", notes, entryType: "write_off", lorry,
+      if (direction === "IN") {
+        // Money IN increases outstanding balance (type: "revenue")
+        const defaultNotes = txType === "advance_given" ? "Advance / Loan Given" : "Direct Charge";
+        await financeService.addDirectBrokerEntry(broker.id, {
+          date,
+          type: "revenue",
+          amount: Number(amount),
+          notes: notes.trim() ? (category ? `[${category}] ${notes}` : notes) : (category || defaultNotes),
+          lorry,
+          trip_id: linkedTripId || null,
+          category: category || defaultNotes,
         });
       } else {
-        const typeMap = { direct_credit: "remittance", expense: "expense_paid" };
-        await financeService.addDirectBrokerEntry(broker.id, {
-          date, type: typeMap[txType] || "remittance", amount, notes, lorry,
-          trip_id: linkedTripId || null,
-          category: category || null,
-        });
+        // Money OUT reduces outstanding balance (payments, expenses, write-offs)
+        if (txType === "settlement") {
+          await financeService.makeBrokerSettlement(broker.id, amount, { date, method, notes, lorry });
+        } else if (txType === "adjustment") {
+          await financeService.makeBrokerSettlement(broker.id, amount, {
+            date, method: "Adjustment", notes, entryType: "write_off", lorry,
+          });
+        } else if (txType === "expense") {
+          await financeService.addDirectBrokerEntry(broker.id, {
+            date,
+            type: "expense_paid",
+            amount: Number(amount),
+            notes: notes.trim() ? (category ? `[${category}] ${notes}` : notes) : (category || "Broker Expense"),
+            lorry,
+            trip_id: linkedTripId || null,
+            category: category || "Broker Expense",
+          });
+        } else {
+          // direct_payment
+          await financeService.addDirectBrokerEntry(broker.id, {
+            date,
+            type: "remittance",
+            amount: Number(amount),
+            notes: notes.trim() ? `${method} Payment - ${notes}` : `${method} Payment`,
+            lorry,
+            trip_id: linkedTripId || null,
+            category: "Payment",
+          });
+        }
       }
-      reset(); onSuccess?.(); onClose();
-    } catch (e) { alert("Error: " + e.message); }
-    finally { setSaving(false); }
+      reset();
+      onSuccess?.();
+      onClose();
+    } catch (e) {
+      alert("Error: " + e.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inp = "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-100 transition-all";
 
   const typeOptions = direction === "IN"
     ? [
-        { id: "settlement", label: "🏦 Settlement", desc: "Auto-distributes across oldest unpaid trips (FIFO)" },
-        { id: "direct_credit", label: "💵 Direct Credit", desc: "Manual credit — no trip distribution" },
+        { id: "direct_charge", label: "📄 Direct Charge / Bill", desc: "Adds revenue or amount billed to broker (Increases Balance)" },
+        { id: "advance_given", label: "💸 Advance / Loan Given", desc: "Money given/advanced to broker (Increases Balance)" },
       ]
     : [
-        { id: "expense", label: "📉 Broker Expense", desc: "Expense paid by the broker (can link to a trip)" },
-        { id: "adjustment", label: "⚖️ Adjustment / Write-Off", desc: "FIFO write-off against oldest unpaid trips" },
+        { id: "settlement", label: "🏦 Settlement (FIFO)", desc: "Auto-distributes payment across oldest unpaid trips (Reduces Balance)" },
+        { id: "direct_payment", label: "💵 Direct Payment / Remittance", desc: "Direct payment received from broker (Reduces Balance)" },
+        { id: "expense", label: "📉 Broker Expense", desc: "Expense paid by broker, e.g. fuel (Reduces Balance)" },
+        { id: "adjustment", label: "⚖️ Adjustment / Write-Off", desc: "FIFO write-off against oldest unpaid trips (Reduces Balance)" },
       ];
 
   const linkableTrips = brokerTrips.filter(t =>
@@ -99,12 +135,12 @@ function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSucces
   );
 
   const quickCategories = direction === "IN"
-    ? ["Commission", "Advance Return", "Loan Repayment", "Other Income"]
+    ? ["Trip Revenue", "Freight Charge", "Advance Given", "Handling Fee", "Commission", "Other Charge"]
     : ["Fuel / Diesel", "Toll Charges", "Driver Allowance", "Loading Fee", "Weighbridge", "Repairs", "Other Expense"];
 
-  const showLinkTrip = txType === "expense" || txType === "direct_credit";
-  const showCategory = txType === "expense" || txType === "direct_credit";
-  const showMethod = txType === "settlement" || txType === "direct_credit";
+  const showLinkTrip = direction === "IN" || txType === "expense" || txType === "direct_payment";
+  const showCategory = direction === "IN" || txType === "expense";
+  const showMethod = direction === "OUT" && (txType === "settlement" || txType === "direct_payment");
 
   // Unique vehicle plates from broker's trips
   const vehiclePlates = [...new Set(brokerTrips.map(t => t.lorry).filter(Boolean))].sort();
@@ -119,15 +155,21 @@ function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSucces
       <div className="space-y-5">
         {/* IN / OUT */}
         <div className="flex gap-2">
-          {[["IN", "↓ Money IN"], ["OUT", "↑ Money OUT"]].map(([dir, label]) => (
+          {[
+            ["IN", "+ Money IN", "Increases Balance"],
+            ["OUT", "− Money OUT", "Reduces Balance"]
+          ].map(([dir, label, sub]) => (
             <button key={dir} type="button" onClick={() => handleDirection(dir)}
-              className={`flex-1 py-3.5 rounded-xl text-sm font-black transition-all border-2 ${
+              className={`flex-1 py-3 px-2 rounded-xl text-center transition-all border-2 ${
                 direction === dir
-                  ? dir === "IN" ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-200/60"
-                                 : "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-200/60"
+                  ? dir === "IN" ? "bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-200/60"
+                                 : "bg-rose-600 text-white border-rose-600 shadow-lg shadow-rose-200/60"
                   : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
               }`}
-            >{label}</button>
+            >
+              <p className="text-sm font-black">{label}</p>
+              <p className={`text-[10px] font-semibold mt-0.5 ${direction === dir ? "text-white/80" : "text-slate-400"}`}>{sub}</p>
+            </button>
           ))}
         </div>
 
@@ -219,7 +261,7 @@ function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSucces
               {["Cash", "M-Pesa", "Bank Transfer"].map(m => (
                 <button key={m} type="button" onClick={() => setMethod(m)}
                   className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all ${
-                    method === m ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                    method === m ? "border-rose-400 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
                   }`}
                 >{METHOD_ICON[m]} {m}</button>
               ))}
@@ -234,7 +276,7 @@ function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSucces
         </div>
 
         {/* FIFO warning */}
-        {(txType === "settlement" || txType === "adjustment") && amount && (
+        {direction === "OUT" && (txType === "settlement" || txType === "adjustment") && amount && (
           <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
             <strong>Auto-distribution:</strong> KES {Number(amount).toLocaleString()} will be applied to the oldest unpaid trips for <strong>{broker?.name}</strong>{selectedVehicle ? ` (${selectedVehicle})` : ""} (FIFO).
           </div>
@@ -246,9 +288,9 @@ function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSucces
           <button type="button" onClick={handleSave} disabled={saving || !amount}
             className={`flex-1 rounded-xl py-2.5 text-sm font-black text-white disabled:opacity-50 transition-all ${
               direction === "IN" ? "bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20"
-                                 : "bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-500/20"
+                                 : "bg-rose-600 hover:bg-rose-700 shadow-md shadow-rose-500/20"
             }`}
-          >{saving ? "Saving…" : direction === "IN" ? "Record Payment" : "Record Deduction"}</button>
+          >{saving ? "Saving…" : direction === "IN" ? "+ Save Money IN" : "− Save Money OUT"}</button>
         </div>
       </div>
     </Modal>
@@ -287,10 +329,10 @@ function EntryDetailPanel({ entry, onClose, onUndo, onEdit, onDelete, vehicles }
   const isSettlement = !!entry.settlement_id; // settlements use FIFO logic on delete
 
   const TYPE_OPTIONS = [
-    { value: "revenue",      label: "↑ Trip Revenue" },
-    { value: "remittance",   label: "✔ Settlement / Payment" },
-    { value: "expense_paid", label: "↓ Broker Expense" },
-    { value: "write_off",    label: "⚖ Adjustment / Write-Off" },
+    { value: "revenue",      label: "+ Money IN (Revenue / Charge)" },
+    { value: "remittance",   label: "− Money OUT (Settlement / Payment)" },
+    { value: "expense_paid", label: "− Money OUT (Broker Expense)" },
+    { value: "write_off",    label: "− Money OUT (Adjustment / Write-Off)" },
   ];
 
   const handleSave = async () => {
@@ -402,8 +444,8 @@ function EntryDetailPanel({ entry, onClose, onUndo, onEdit, onDelete, vehicles }
               {/* ── VIEW MODE ── */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Type</p>
-                <Badge color={isIn ? "blue" : isPayment ? "green" : isWriteOff ? "slate" : "amber"}>
-                  {isIn ? "Trip Revenue" : isPayment ? "Settlement / Payment" : isWriteOff ? "Adjustment" : "Broker Expense"}
+                <Badge color={isIn ? "emerald" : isPayment ? "blue" : isWriteOff ? "slate" : "amber"}>
+                  {isIn ? "+ Money IN (Revenue / Charge)" : isPayment ? "− Money OUT (Payment)" : isWriteOff ? "− Money OUT (Adjustment)" : "− Money OUT (Expense)"}
                 </Badge>
               </div>
 
@@ -1106,10 +1148,10 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Type</p>
               <select value={filterType} onChange={e => setFilterType(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold focus:outline-none">
                 <option value="all">All Entries</option>
-                <option value="revenue">Revenue</option>
-                <option value="payment">Payments</option>
-                <option value="expense">Expenses</option>
-                <option value="adjustment">Adjustments</option>
+                <option value="revenue">Money IN (Revenue / Charges)</option>
+                <option value="payment">Money OUT (Payments)</option>
+                <option value="expense">Money OUT (Expenses)</option>
+                <option value="adjustment">Money OUT (Adjustments)</option>
               </select>
             </div>
             {filterPeriod === "custom" && (
@@ -1156,8 +1198,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
-          <StatCard label="Total Revenue" value={fmt(totalRevenue)} icon="💰" color="blue" />
-          <StatCard label="Expenses Paid" value={fmt(totalExpenses + totalRemitted + totalWriteOff)} icon="📉" color="amber" />
+          <StatCard label="Total Money IN" value={fmt(totalRevenue)} icon="💰" color="blue" />
+          <StatCard label="Total Money OUT" value={fmt(totalExpenses + totalRemitted + totalWriteOff)} icon="📉" color="amber" />
         </div>
       </div>
 
@@ -1359,8 +1401,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
                   <th className="px-4 py-3 font-semibold">Date</th>
                   <th className="px-4 py-3 font-semibold">Type</th>
                   <th className="px-4 py-3 font-semibold">Details</th>
-                  <th className="px-4 py-3 font-semibold text-right">Debit (−)</th>
-                  <th className="px-4 py-3 font-semibold text-right">Credit (+)</th>
+                  <th className="px-4 py-3 font-semibold text-right">Money OUT (−)</th>
+                  <th className="px-4 py-3 font-semibold text-right">Money IN (+)</th>
                   <th className="px-4 py-3 font-semibold text-right">Balance</th>
                 </tr>
               </thead>
