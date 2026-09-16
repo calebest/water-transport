@@ -29,6 +29,8 @@ import PersonnelAccountPage from "./pages/PersonnelAccount";
 import MaintenancePage from "./pages/Maintenance";
 import SettingsPage from "./pages/Settings";
 import BrokersPage from "./pages/Brokers";
+import PublicWebsite from "./pages/PublicWebsite";
+import WebsiteCMS from "./pages/WebsiteCMS";
 
 import "./App.css";
 
@@ -48,6 +50,7 @@ const NAV_ITEMS = [
   { id: "brokers", label: "Brokers", icon: "🤝", adminOnly: true, group: "Team & Contacts" },
   { id: "users", label: "Users", icon: "👥", adminOnly: true, group: "Team & Contacts" },
 
+  { id: "website-cms", label: "Website CMS", icon: "🌐", adminOnly: true, group: "System" },
   { id: "settings", label: "Settings", icon: "⚙️", adminOnly: true, group: "System" },
   { id: "backup", label: "Backup", icon: "💾", adminOnly: true, group: "System" },
 ];
@@ -55,7 +58,7 @@ const NAV_ITEMS = [
 const ROUTE_BY_PATH = NAV_ITEMS.reduce((routes, item) => {
   routes[`/${item.id}`] = item.id;
   return routes;
-}, { "/": "dashboard", "/dashboard": "dashboard" });
+}, { "/": "dashboard", "/dashboard": "dashboard", "/website": "website-cms" });
 
 const getPageFromPath = () => {
   const normalized = window.location.pathname.replace(/\/+$/, "") || "/";
@@ -70,6 +73,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [reviewTrip, setReviewTrip] = useState(null);
   const [tripEditTrip, setTripEditTrip] = useState(null);
+  const [viewingWebsite, setViewingWebsite] = useState(false);
 
   const [globalVehicle, setGlobalVehicle] = useState(() => {
     return localStorage.getItem("wt_global_vehicle") || "all";
@@ -211,8 +215,18 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} complaints={complaints} settings={settings} />,
     settings: <SettingsPage settings={settings} />,
     users: <UsersPage personnel={personnel} brokers={brokers} />,
-    brokers: <BrokersPage brokers={brokers} />
+    brokers: <BrokersPage brokers={brokers} />,
+    "website-cms": <WebsiteCMS onPreviewWebsite={() => setViewingWebsite(true)} />
   };
+
+  if (viewingWebsite) {
+    return (
+      <PublicWebsite
+        user={user}
+        onReturnToDashboard={() => setViewingWebsite(false)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen w-full min-w-0 overflow-x-clip bg-slate-50 flex">
@@ -249,6 +263,19 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
               </div>
             </div>
+          </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setViewingWebsite(true);
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200/70 transition-all shadow-xs cursor-pointer"
+            >
+              <span>🌐</span>
+              <span>View Public Website</span>
+            </button>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -517,6 +544,12 @@ function AppInner() {
     return rawVehicles; 
   }, [rawVehicles, isPrivileged]);
 
+  const [viewMode, setViewMode] = useState(() => {
+    const p = window.location.pathname.toLowerCase().replace(/\/+$/, "");
+    if (p === "/login") return "login";
+    return "website";
+  });
+
   if (loading) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
       <div className="text-center">
@@ -526,7 +559,13 @@ function AppInner() {
     </div>
   );
 
-  if (!user) return <LoginPage />;
+  if (!user) {
+    if (viewMode === "login") {
+      return <LoginPage onBackToWebsite={() => setViewMode("website")} />;
+    }
+    return <PublicWebsite onOpenLogin={() => setViewMode("login")} user={null} />;
+  }
+
   return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} brokers={brokers} refreshTrips={refreshTrips} />;
 }
 

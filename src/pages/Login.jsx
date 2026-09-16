@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import bgImage from '../images/bg.png';
 
-export default function LoginPage() {
+export default function LoginPage({ onBackToWebsite }) {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
@@ -72,6 +72,16 @@ export default function LoginPage() {
 
         {/* Right: Glass Login Card */}
         <div className="w-full max-w-[420px] bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl shadow-2xl p-8 sm:p-10">
+          {onBackToWebsite && (
+            <button
+              onClick={onBackToWebsite}
+              className="mb-6 inline-flex items-center gap-2 text-xs font-bold text-emerald-300 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/10 transition-all cursor-pointer"
+            >
+              <span>←</span>
+              <span>Back to Public Website</span>
+            </button>
+          )}
+
           {/* Mobile logo */}
           <div className="flex flex-col items-center mb-8 lg:items-start">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-600/90 shadow-xl mb-5 backdrop-blur-sm">
