@@ -256,15 +256,24 @@ function BrokerTransactionModal({ open, onClose, broker, globalVehicle, onSucces
 }
 
 // ─── Entry Detail Panel ───────────────────────────────────────────────────────
-function EntryDetailPanel({ entry, onClose, onUndo, onEdit, vehicles }) {
+function EntryDetailPanel({ entry, onClose, onUndo, onEdit, onDelete, vehicles }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [editAmount, setEditAmount] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editType, setEditType] = useState("");
   const [editLorry, setEditLorry] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (entry) {
       setIsEditing(false);
+      setConfirmDelete(false);
+      setEditAmount(entry.amount != null ? String(entry.amount) : "");
+      setEditDate(entry.date || "");
+      setEditType(entry.type || "");
       setEditLorry(entry.lorry || "");
       setEditNotes(entry.notes || "");
     }
@@ -275,20 +284,52 @@ function EntryDetailPanel({ entry, onClose, onUndo, onEdit, vehicles }) {
   const isIn = entry.type === "revenue";
   const isPayment = entry.type === "remittance";
   const isWriteOff = entry.type === "write_off";
+  const isSettlement = !!entry.settlement_id; // settlements use FIFO logic on delete
+
+  const TYPE_OPTIONS = [
+    { value: "revenue",      label: "↑ Trip Revenue" },
+    { value: "remittance",   label: "✔ Settlement / Payment" },
+    { value: "expense_paid", label: "↓ Broker Expense" },
+    { value: "write_off",    label: "⚖ Adjustment / Write-Off" },
+  ];
 
   const handleSave = async () => {
+    if (!editAmount || Number(editAmount) <= 0) return alert("Enter a valid amount.");
     try {
       setIsSaving(true);
-      console.log("Saving entry...", entry.id, editLorry, editNotes);
-      await onEdit(entry.id, { lorry: editLorry || null, notes: editNotes });
-      console.log("Save completed in panel");
+      await onEdit(entry.id, {
+        amount:  Number(editAmount),
+        date:    editDate,
+        type:    editType,
+        lorry:   editLorry || null,
+        notes:   editNotes,
+      });
       setIsEditing(false);
     } catch (err) {
-      console.error("Error in handleSave:", err);
+      alert("Failed to save: " + err.message);
     } finally {
       setIsSaving(false);
     }
   };
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+      if (isSettlement && entry.settlement_id) {
+        await onUndo(entry.settlement_id);       // reverses FIFO trip payments
+      } else {
+        await onDelete(entry.id);                // direct ledger row delete
+      }
+      onClose();
+    } catch (err) {
+      alert("Failed to delete: " + err.message);
+    } finally {
+      setIsDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
+  const inp = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-100 transition-all";
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -297,12 +338,16 @@ function EntryDetailPanel({ entry, onClose, onUndo, onEdit, vehicles }) {
         style={{ animation: "slideInRight 0.2s ease-out" }}
       >
         <style>{`@keyframes slideInRight { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }`}</style>
+
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50">
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-black text-slate-800">Entry Details</h3>
-              {!isEditing && onEdit && (
-                <button onClick={() => setIsEditing(true)} className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full hover:bg-slate-300 transition-colors font-bold">Edit</button>
+              {!isEditing && (
+                <button onClick={() => setIsEditing(true)} className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full hover:bg-emerald-200 transition-colors font-bold">
+                  ✏ Edit
+                </button>
               )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">{entry.date}</p>
@@ -310,99 +355,139 @@ function EntryDetailPanel({ entry, onClose, onUndo, onEdit, vehicles }) {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors">✕</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+          {/* ── EDIT FORM ── */}
           {isEditing ? (
             <div className="space-y-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+              <p className="text-xs font-bold uppercase tracking-widest text-emerald-700 mb-1">Edit Entry</p>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1 block">Amount (KES)</label>
+                <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)} min="0" step="0.01" className={inp} />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1 block">Date</label>
+                <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className={inp} />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1 block">Type</label>
+                <select value={editType} onChange={e => setEditType(e.target.value)} className={inp}>
+                  {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1 block">Vehicle</label>
-                <select value={editLorry} onChange={e => setEditLorry(e.target.value)} className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
+                <select value={editLorry} onChange={e => setEditLorry(e.target.value)} className={inp}>
                   <option value="">— No specific vehicle —</option>
                   {vehicles?.map(v => <option key={v.id} value={v.plate}>{v.plate}</option>)}
                 </select>
               </div>
+
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1 block">Notes</label>
-                <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} rows="3" className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+                <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} rows="3" className={inp} />
               </div>
-              <div className="flex gap-2 pt-2">
+
+              <div className="flex gap-2 pt-1">
                 <button onClick={() => setIsEditing(false)} className="flex-1 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
-                <button onClick={handleSave} disabled={isSaving} className="flex-1 py-2 text-sm font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 shadow-sm shadow-emerald-600/20">{isSaving ? "Saving..." : "Save Changes"}</button>
+                <button onClick={handleSave} disabled={isSaving} className="flex-1 py-2 text-sm font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 shadow-sm shadow-emerald-600/20">{isSaving ? "Saving…" : "Save Changes"}</button>
               </div>
             </div>
           ) : (
             <>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Type</p>
-            <Badge color={isIn ? "blue" : isPayment ? "green" : isWriteOff ? "slate" : "amber"}>
-              {isIn ? "Trip Revenue" : isPayment ? "Settlement / Payment" : isWriteOff ? "Adjustment" : "Broker Expense"}
-            </Badge>
-          </div>
-
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Amount</p>
-            <p className={`text-3xl font-black ${isIn ? "text-emerald-600" : "text-rose-600"}`}>
-              {isIn ? "+" : "−"} {fmt(entry.amount)}
-            </p>
-          </div>
-
-          {(isPayment || isWriteOff) && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Method</p>
-              <div className="flex items-center gap-2 font-semibold text-slate-700">
-                <span className="text-xl">{METHOD_ICON[method] || "💵"}</span>
-                <span>{method}</span>
+              {/* ── VIEW MODE ── */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Type</p>
+                <Badge color={isIn ? "blue" : isPayment ? "green" : isWriteOff ? "slate" : "amber"}>
+                  {isIn ? "Trip Revenue" : isPayment ? "Settlement / Payment" : isWriteOff ? "Adjustment" : "Broker Expense"}
+                </Badge>
               </div>
-            </div>
-          )}
 
-          {entry.lorry && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Vehicle</p>
-              <p className="text-slate-700 font-semibold">{entry.lorry}</p>
-            </div>
-          )}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Amount</p>
+                <p className={`text-3xl font-black ${isIn ? "text-emerald-600" : "text-rose-600"}`}>
+                  {isIn ? "+" : "−"} {fmt(entry.amount)}
+                </p>
+              </div>
 
-          {entry.trips?.location && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Location</p>
-              <p className="text-slate-700 font-semibold">📍 {entry.trips.location}</p>
-            </div>
-          )}
+              {(isPayment || isWriteOff) && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Method</p>
+                  <div className="flex items-center gap-2 font-semibold text-slate-700">
+                    <span className="text-xl">{METHOD_ICON[method] || "💵"}</span>
+                    <span>{method}</span>
+                  </div>
+                </div>
+              )}
 
-          {entry.trips?.trip_number && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Trip Reference</p>
-              <p className="text-slate-700 font-semibold">Trip #{entry.trips.trip_number}</p>
-            </div>
-          )}
+              {entry.lorry && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Vehicle</p>
+                  <p className="text-slate-700 font-semibold">🚛 {entry.lorry}</p>
+                </div>
+              )}
 
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Notes</p>
-            <p className="text-slate-700 bg-slate-50 rounded-xl p-3.5 text-sm leading-relaxed border border-slate-100">{entry.notes || "No notes."}</p>
-          </div>
+              {entry.trips?.location && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Location</p>
+                  <p className="text-slate-700 font-semibold">📍 {entry.trips.location}</p>
+                </div>
+              )}
 
-          {entry.runningBalance !== undefined && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Running Balance</p>
-              <p className={`text-xl font-black ${entry.runningBalance > 0 ? "text-rose-600" : "text-emerald-600"}`}>{fmt(entry.runningBalance)}</p>
-            </div>
-          )}
+              {entry.trips?.trip_number && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Trip Reference</p>
+                  <p className="text-slate-700 font-semibold">Trip #{entry.trips.trip_number}</p>
+                </div>
+              )}
 
-          {entry.statement_id && (
-            <div className="rounded-xl bg-slate-100 border border-slate-200 px-4 py-3 text-xs text-slate-600">
-              📂 This entry belongs to a <strong>closed period</strong>.
-            </div>
-          )}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Notes</p>
+                <p className="text-slate-700 bg-slate-50 rounded-xl p-3.5 text-sm leading-relaxed border border-slate-100">{entry.notes || "No notes."}</p>
+              </div>
 
-          {(isPayment || isWriteOff) && entry.settlement_id && (
-            <button
-              onClick={() => { onClose(); onUndo(entry.settlement_id); }}
-              className="w-full rounded-xl border-2 border-rose-200 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors"
-            >
-              Undo / Delete this Settlement
-            </button>
-          )}
-          </>
+              {entry.runningBalance !== undefined && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Running Balance</p>
+                  <p className={`text-xl font-black ${entry.runningBalance > 0 ? "text-rose-600" : "text-emerald-600"}`}>{fmt(entry.runningBalance)}</p>
+                </div>
+              )}
+
+              {entry.statement_id && (
+                <div className="rounded-xl bg-slate-100 border border-slate-200 px-4 py-3 text-xs text-slate-600">
+                  📂 This entry belongs to a <strong>closed period</strong>.
+                </div>
+              )}
+
+              {/* ── DELETE / UNDO ── */}
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="w-full mt-2 rounded-xl border-2 border-rose-200 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+                >
+                  {isSettlement ? "🔄 Undo Settlement" : "🗑 Delete This Entry"}
+                </button>
+              ) : (
+                <div className="rounded-xl border-2 border-rose-300 bg-rose-50 p-4 space-y-3">
+                  <p className="text-sm font-bold text-rose-800 text-center">
+                    {isSettlement
+                      ? "This will reverse all trip payments linked to this settlement."
+                      : "This will permanently delete this ledger entry."}
+                  </p>
+                  <p className="text-xs text-rose-600 text-center">This action cannot be undone.</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+                    <button onClick={handleDelete} disabled={isDeleting} className="flex-1 py-2 text-sm font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700 disabled:opacity-50">
+                      {isDeleting ? "Deleting…" : "Yes, Delete"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -410,6 +495,7 @@ function EntryDetailPanel({ entry, onClose, onUndo, onEdit, vehicles }) {
     </div>
   );
 }
+
 
 // ─── Broker Statement Modal ────────────────────────────────────────────────
 function BrokerStatementModal({ open, onClose, broker, availableLorries, currentLorry, ledger }) {
@@ -853,8 +939,14 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
       alert("Failed to update entry: " + (e.message || JSON.stringify(e)));
     }
   };
+  const handleDeleteEntry = async (entryId) => {
+    try { await financeService.deleteBrokerLedgerEntry(entryId); }
+    catch (e) { alert("Error deleting entry: " + e.message); }
+  };
+
 
   const paidRatio = totalRevenue > 0 ? Math.min(100, ((totalRevenue - currentBalance) / totalRevenue) * 100) : 100;
+
   const inp = "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-100";
 
   if (brokers.length === 0) {
@@ -1360,6 +1452,7 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
         onClose={() => setSelectedEntry(null)} 
         onUndo={handleDeleteSettlement}
         onEdit={handleEditEntry}
+        onDelete={handleDeleteEntry}
         vehicles={vehicles}
       />
 

@@ -204,7 +204,15 @@ export const financeService = {
     }
   },
 
+  // Delete a single broker_ledger row that is NOT a settlement (revenue, expense, direct credit)
+  deleteBrokerLedgerEntry: async (entryId) => {
+    if (!entryId) throw new Error("Entry ID required");
+    const { error } = await supabase.from('broker_ledger').delete().eq('id', entryId);
+    if (error) throw error;
+  },
+
   subscribeBrokerLedger: (brokerId, callback) => {
+
     if (!brokerId) {
         callback([]);
         return () => {};
