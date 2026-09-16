@@ -179,6 +179,7 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
   const [customEnd, setCustomEnd] = useState(() => localStorage.getItem("wt_personnel_customEnd") || "");
   const [selectedPersonnelId, setSelectedPersonnelId] = useState(() => localStorage.getItem("wt_personnel_selectedId") || "");
   const [ledgerStartDate, setLedgerStartDate] = useState(() => localStorage.getItem("wt_personnel_ledgerStartDate") || "");
+  const [viewFilter, setViewFilter] = useState(() => localStorage.getItem("wt_personnel_viewFilter") || "unsettled");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("admin_ledger"); // 'admin_ledger' or 'personal_records'
 
@@ -189,7 +190,8 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
     localStorage.setItem("wt_personnel_customEnd", customEnd);
     localStorage.setItem("wt_personnel_selectedId", selectedPersonnelId);
     localStorage.setItem("wt_personnel_ledgerStartDate", ledgerStartDate);
-  }, [period, customStart, customEnd, selectedPersonnelId, ledgerStartDate]);
+    localStorage.setItem("wt_personnel_viewFilter", viewFilter);
+  }, [period, customStart, customEnd, selectedPersonnelId, ledgerStartDate, viewFilter]);
 
   const activePersonnelId = isAdmin && personnelList.length > 0 
     ? (selectedPersonnelId || personnelId || personnelList[0]?.id) 
@@ -227,12 +229,10 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
   };
 
   // Filter & Group Ledger
-  const { totalEarned, totalPaid, currentBalance, filteredGroupedLedger } = useMemo(() => {
+  const { totalEarned, totalPaid, currentBalance, filteredGroupedLedger, unsettledCount, allCount } = useMemo(() => {
     let te = 0, tp = 0, cb = 0;
-    const groups = [];
-    const tripMap = new Map();
 
-    // Calculate balances for ALL entries to get true current balance
+    // 1. Calculate running balances across ALL entries
     ledger.forEach(entry => {
       const amt = Number(entry.amount || 0);
       if (entry.type === "earning") { te += amt; cb += amt; }
@@ -240,18 +240,64 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
       entry.runningBalance = cb;
     });
 
-    // Then filter what is DISPLAYED based on the period filter and ledgerStartDate setting
-    const filteredLedger = ledger.filter(entry => {
+    // 2. FIFO Settlement Allocation
+    let paymentPool = tp;
+    const annotatedLedger = ledger.map(entry => {
+      const amt = Number(entry.amount || 0);
+      if (entry.type === "earning") {
+        if (paymentPool >= amt) {
+          paymentPool -= amt;
+          return {
+            ...entry,
+            settledStatus: "settled",
+            settledAmount: amt,
+            unpaidAmount: 0,
+          };
+        } else if (paymentPool > 0) {
+          const covered = paymentPool;
+          paymentPool = 0;
+          return {
+            ...entry,
+            settledStatus: "partial",
+            settledAmount: covered,
+            unpaidAmount: amt - covered,
+          };
+        } else {
+          return {
+            ...entry,
+            settledStatus: "pending",
+            settledAmount: 0,
+            unpaidAmount: amt,
+          };
+        }
+      } else {
+        return {
+          ...entry,
+          settledStatus: "settled",
+        };
+      }
+    });
+
+    // 3. Filter by period & ledgerStartDate
+    const periodFiltered = annotatedLedger.filter(entry => {
       if (ledgerStartDate && new Date(entry.date) < new Date(ledgerStartDate)) return false;
       return isWithinPeriod(entry.date, period, customStart, customEnd);
     });
 
-    // Group the filtered ledger
-    filteredLedger.forEach(entry => {
+    // 4. Group by trip
+    const groups = [];
+    const tripMap = new Map();
+
+    periodFiltered.forEach(entry => {
       const amt = Number(entry.amount || 0);
       
       if (entry.type === "payment" || !entry.trip_id) {
-        groups.push({ isGroup: false, ...entry });
+        groups.push({
+          isGroup: false,
+          ...entry,
+          settledStatus: entry.settledStatus || "settled",
+          unpaidAmount: entry.type === "payment" ? 0 : (entry.unpaidAmount ?? amt),
+        });
       } else {
         if (!tripMap.has(entry.trip_id)) {
           const tripName = entry.notes.split(' - ')[0].replace(' Earnings', '').replace(' Expenses Reimbursed', '');
@@ -262,21 +308,63 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
             date: entry.date,
             notes: tripName,
             earnings: 0,
+            settledAmount: 0,
+            unpaidAmount: 0,
             items: [],
-            runningBalance: entry.runningBalance // use latest
+            runningBalance: entry.runningBalance
           };
           tripMap.set(entry.trip_id, newGroup);
           groups.push(newGroup);
         }
         const group = tripMap.get(entry.trip_id);
         group.items.push(entry);
-        if (entry.type === "earning") group.earnings += amt;
+        if (entry.type === "earning") {
+          group.earnings += amt;
+          group.settledAmount += (entry.settledAmount || 0);
+          group.unpaidAmount += (entry.unpaidAmount != null ? entry.unpaidAmount : amt);
+        }
         group.runningBalance = entry.runningBalance; 
       }
     });
 
-    return { totalEarned: te, totalPaid: tp, currentBalance: cb, filteredGroupedLedger: groups.reverse() };
-  }, [ledger, period, customStart, customEnd]);
+    // Determine group settledStatus
+    groups.forEach(g => {
+      if (g.isGroup) {
+        if (g.unpaidAmount <= 0) {
+          g.settledStatus = "settled";
+        } else if (g.settledAmount > 0) {
+          g.settledStatus = "partial";
+        } else {
+          g.settledStatus = "pending";
+        }
+      }
+    });
+
+    const totalUnsettled = groups.filter(g => g.settledStatus !== "settled").length;
+    const totalAll = groups.length;
+
+    // 5. Filter by viewFilter (unsettled vs all vs settled)
+    let displayGroups = groups;
+    if (viewFilter === "unsettled") {
+      displayGroups = groups.filter(g => {
+        if (g.type === "payment") {
+          return cb < 0;
+        }
+        return g.settledStatus !== "settled";
+      });
+    } else if (viewFilter === "settled") {
+      displayGroups = groups.filter(g => g.settledStatus === "settled");
+    }
+
+    return {
+      totalEarned: te,
+      totalPaid: tp,
+      currentBalance: cb,
+      filteredGroupedLedger: displayGroups.reverse(),
+      unsettledCount: totalUnsettled,
+      allCount: totalAll
+    };
+  }, [ledger, period, customStart, customEnd, ledgerStartDate, viewFilter]);
 
   if (!activePersonnelId) {
     return (
@@ -404,25 +492,103 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
           {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard label="Total Earned (All Time)" value={fmt(totalEarned)} icon="💰" color="blue" />
-        <StatCard label="Total Paid (All Time)" value={fmt(totalPaid)} icon="📉" color="slate" />
-        <StatCard label="Current Balance" value={fmt(currentBalance)} icon="💵" color={currentBalance > 0 ? "emerald" : "red"} />
+        <StatCard label="Total Paid (Settled)" value={fmt(totalPaid)} icon="📉" color="slate" />
+        <StatCard 
+          label={currentBalance <= 0 ? "Account Balance (Fully Settled)" : "Pending to Pay (Outstanding)"} 
+          value={fmt(currentBalance)} 
+          icon={currentBalance > 0 ? "⏳" : "✅"} 
+          color={currentBalance > 0 ? "emerald" : "slate"} 
+        />
       </div>
 
       {/* Ledger List */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="font-bold text-slate-800">Transaction History</h3>
+        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-slate-800">Transaction History</h3>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 text-slate-600">
+              {filteredGroupedLedger.length} {filteredGroupedLedger.length === 1 ? "entry" : "entries"}
+            </span>
+          </div>
+
+          {/* Status View Toggle */}
+          <div className="flex bg-slate-200/60 p-1 rounded-xl shadow-inner text-xs font-bold self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setViewFilter("unsettled")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewFilter === "unsettled"
+                  ? "bg-white text-emerald-700 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>⏳ Unsettled Only</span>
+              {unsettledCount > 0 ? (
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">
+                  {unsettledCount}
+                </span>
+              ) : (
+                <span className="text-emerald-500 font-normal">✓</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewFilter("all")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewFilter === "all"
+                  ? "bg-white text-blue-700 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>📋 All History</span>
+              <span className="text-[10px] text-slate-400 font-semibold">({allCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewFilter("settled")}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                viewFilter === "settled"
+                  ? "bg-white text-slate-700 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              ✓ Settled Only
+            </button>
+          </div>
         </div>
         
         {/* Mobile View: Cards */}
         <div className="md:hidden divide-y divide-slate-100">
           {filteredGroupedLedger.map((row, idx) => {
+            const isSettled = row.settledStatus === "settled";
+            const isPartial = row.settledStatus === "partial";
+            const isPayment = row.type === "payment";
+
             if (!row.isGroup) {
               return (
-                <div key={row.id || idx} className="p-4 bg-white">
+                <div key={row.id || idx} className={`p-4 transition-all ${
+                  isSettled 
+                    ? "bg-slate-50/40 opacity-70 hover:opacity-100 border-l-2 border-slate-300" 
+                    : isPartial 
+                    ? "bg-amber-50/30 border-l-4 border-amber-400 shadow-sm" 
+                    : isPayment
+                    ? "bg-blue-50/20 border-l-4 border-blue-400 shadow-sm"
+                    : "bg-white border-l-4 border-emerald-500 shadow-sm"
+                }`}>
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <div className="text-xs font-black text-slate-400 mb-1">{row.date}</div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-xs font-black text-slate-400">{row.date}</span>
+                        {isSettled ? (
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">✓ Settled</span>
+                        ) : isPartial ? (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">⏳ Partial ({fmt(row.unpaidAmount)} left)</span>
+                        ) : isPayment ? (
+                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">💸 Paid</span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">⏳ Unpaid</span>
+                        )}
+                      </div>
                       <Badge color={row.type === "earning" ? "emerald" : "rose"}>
                         {row.type === "earning" ? "Earning" : "Payment"}
                       </Badge>
@@ -448,13 +614,28 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
 
             const isExpanded = expandedTrips.has(row.trip_id);
             return (
-              <div key={row.trip_id} className="p-4 bg-slate-50/50">
+              <div key={row.trip_id} className={`p-4 transition-all ${
+                isSettled 
+                  ? "bg-slate-50/40 opacity-70 hover:opacity-100 border-l-2 border-slate-300" 
+                  : isPartial
+                  ? "bg-amber-50/30 border-l-4 border-amber-400 shadow-sm"
+                  : "bg-white border-l-4 border-emerald-500 shadow-sm"
+              }`}>
                 <div 
                   className="flex items-start justify-between cursor-pointer"
                   onClick={() => toggleTrip(row.trip_id)}
                 >
                   <div>
-                    <div className="text-xs font-black text-slate-400 mb-1">{row.date}</div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-black text-slate-400">{row.date}</span>
+                      {isSettled ? (
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">✓ Settled</span>
+                      ) : isPartial ? (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">⏳ Partial ({fmt(row.unpaidAmount)} left)</span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">⏳ Unpaid</span>
+                      )}
+                    </div>
                     <Badge color="purple">Trip Earnings</Badge>
                     <p className="text-sm font-semibold text-slate-800 mt-1">{row.notes}</p>
                   </div>
@@ -480,7 +661,20 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
             );
           })}
           {filteredGroupedLedger.length === 0 && (
-            <div className="p-8 text-center text-slate-400">No transactions found for this period.</div>
+            <div className="p-8 text-center text-slate-400">
+              {viewFilter === "unsettled" ? (
+                <div>
+                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-2">
+                    ✓
+                  </div>
+                  <p className="text-sm font-bold text-slate-700">All Caught Up!</p>
+                  <p className="text-xs text-slate-500 mt-1">All earnings are settled. No pending payments.</p>
+                  <button onClick={() => setViewFilter("all")} className="mt-3 text-xs font-bold text-blue-600 underline">View all history</button>
+                </div>
+              ) : (
+                <p>No transactions found for this period.</p>
+              )}
+            </div>
           )}
         </div>
 
@@ -490,6 +684,7 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
             <thead className="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100">
               <tr>
                 <th className="px-5 py-3.5">Date</th>
+                <th className="px-5 py-3.5">Status</th>
                 <th className="px-5 py-3.5">Type</th>
                 <th className="px-5 py-3.5">Notes</th>
                 <th className="px-5 py-3.5 text-right">Debit (-)</th>
@@ -500,10 +695,27 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredGroupedLedger.map((row, idx) => {
+                const isSettled = row.settledStatus === "settled";
+                const isPartial = row.settledStatus === "partial";
+                const isPayment = row.type === "payment";
+
                 if (!row.isGroup) {
                   return (
-                    <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors group">
+                    <tr key={row.id || idx} className={`transition-colors group ${
+                      isSettled ? "opacity-65 hover:opacity-100 bg-slate-50/20 hover:bg-slate-50" : "hover:bg-slate-50"
+                    }`}>
                       <td className="px-5 py-3.5 whitespace-nowrap font-semibold text-slate-700">{row.date}</td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        {isSettled ? (
+                          <span className="inline-flex items-center text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">✓ Settled</span>
+                        ) : isPartial ? (
+                          <span className="inline-flex items-center text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">⏳ Partial ({fmt(row.unpaidAmount)} left)</span>
+                        ) : isPayment ? (
+                          <span className="inline-flex items-center text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">💸 Paid</span>
+                        ) : (
+                          <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">⏳ Unpaid</span>
+                        )}
+                      </td>
                       <td className="px-5 py-3.5">
                         <Badge color={row.type === "earning" ? "emerald" : "rose"}>
                           {row.type === "earning" ? "Earning" : "Payment"}
@@ -538,10 +750,21 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
                   <React.Fragment key={row.trip_id}>
                     <tr 
                       onClick={() => toggleTrip(row.trip_id)} 
-                      className="hover:bg-slate-100 transition-colors cursor-pointer border-b border-slate-100 bg-slate-50/40"
+                      className={`transition-colors cursor-pointer border-b border-slate-100 ${
+                        isSettled ? "opacity-65 hover:opacity-100 bg-slate-50/20 hover:bg-slate-100" : "bg-slate-50/50 hover:bg-slate-100"
+                      }`}
                     >
                       <td className="px-5 py-3.5 whitespace-nowrap font-semibold text-slate-700">
                         {row.date}
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        {isSettled ? (
+                          <span className="inline-flex items-center text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">✓ Settled</span>
+                        ) : isPartial ? (
+                          <span className="inline-flex items-center text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">⏳ Partial ({fmt(row.unpaidAmount)} left)</span>
+                        ) : (
+                          <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">⏳ Unpaid</span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5">
                         <Badge color="purple">Trip Earnings</Badge>
@@ -563,6 +786,7 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
                     {isExpanded && row.items.map(item => (
                       <tr key={item.id} className="bg-white text-xs border-b border-slate-50 last:border-b-0">
                         <td className="px-5 py-2 pl-10 text-slate-400 font-medium">{item.date}</td>
+                        <td className="px-5 py-2"></td>
                         <td className="px-5 py-2">
                           <span className="px-2 py-0.5 rounded border border-slate-200 text-slate-500 bg-slate-50 font-semibold uppercase tracking-wider">
                             Item
@@ -580,8 +804,19 @@ export default function PersonnelAccountPage({ isAdmin, personnelId, personnelLi
               })}
               {filteredGroupedLedger.length === 0 && (
                 <tr>
-                  <td colSpan={isAdmin ? 7 : 6} className="px-5 py-12 text-center text-slate-400">
-                    No transactions found for this period.
+                  <td colSpan={isAdmin ? 8 : 7} className="px-5 py-12 text-center text-slate-400">
+                    {viewFilter === "unsettled" ? (
+                      <div>
+                        <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-2">
+                          ✓
+                        </div>
+                        <p className="text-base font-bold text-slate-700">All Caught Up!</p>
+                        <p className="text-xs text-slate-500 mt-1">All earnings are settled. No pending payments.</p>
+                        <button onClick={() => setViewFilter("all")} className="mt-3 text-xs font-bold text-blue-600 underline">View all transaction history</button>
+                      </div>
+                    ) : (
+                      "No transactions found for this period."
+                    )}
                   </td>
                 </tr>
               )}
