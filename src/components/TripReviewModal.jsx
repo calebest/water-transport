@@ -25,13 +25,19 @@ export default function TripReviewModal({
   const [currentTrip, setCurrentTrip] = useState(trip);
   const [activeTab, setActiveTab] = useState("overview");
   const [saving, setSaving] = useState(false);
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     queueMicrotask(() => setCurrentTrip(trip));
   }, [trip]);
 
   useEffect(() => {
-    if (open) queueMicrotask(() => setActiveTab("overview"));
+    if (open) {
+      queueMicrotask(() => setActiveTab("overview"));
+      setShowRejectInput(false);
+      setRejectReason("");
+    }
   }, [open, trip?.id]);
 
   const expenseItems = useMemo(() => {
@@ -169,13 +175,9 @@ export default function TripReviewModal({
                   {onReject && (
                     <button
                       type="button"
-                      onClick={async () => {
-                        setSaving(true);
-                        try {
-                          await onReject(currentTrip);
-                        } finally {
-                          setSaving(false);
-                        }
+                      onClick={() => {
+                        setActiveTab("actions");
+                        setShowRejectInput(true);
                       }}
                       disabled={saving}
                       className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-60"
@@ -184,6 +186,26 @@ export default function TripReviewModal({
                     </button>
                   )}
                 </div>
+              )}
+            </div>
+          )}
+
+          {currentTrip.approvalStatus === "rejected" && (
+            <div className="rounded-xl border border-rose-300 bg-rose-50/90 p-4 text-sm text-rose-900 flex flex-col gap-2 shadow-xs">
+              <p className="font-bold flex items-center gap-1.5">
+                <span>❌</span>
+                <span>Trip Rejected</span>
+              </p>
+              {currentTrip.rejectionReason ? (
+                <div className="mt-1 rounded-lg bg-rose-100/60 border border-rose-200 px-3 py-2 text-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-500 mb-0.5">Reason from admin</p>
+                  <p className="text-rose-800 font-medium">{currentTrip.rejectionReason}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-rose-700/70">No reason provided.</p>
+              )}
+              {!onApprove && (
+                <p className="text-xs text-rose-700/70 mt-1">You may edit and resubmit this trip for review.</p>
               )}
             </div>
           )}
@@ -419,22 +441,56 @@ export default function TripReviewModal({
                     </button>
                   )}
                   {onReject && (currentTrip.approvalStatus === "pending" || currentTrip.approvalStatus === "pending_edit") && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setSaving(true);
-                        try {
-                          await onReject(currentTrip);
-                          onClose?.();
-                        } finally {
-                          setSaving(false);
-                        }
-                      }}
-                      disabled={saving}
-                      className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-60"
-                    >
-                      {saving ? "Rejecting..." : currentTrip.approvalStatus === "pending_edit" ? "Discard Proposed Edit" : "Reject Trip"}
-                    </button>
+                    <div className="space-y-2">
+                      {showRejectInput ? (
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 space-y-2">
+                          <label className="block text-xs font-bold uppercase tracking-widest text-rose-500">Rejection Reason</label>
+                          <textarea
+                            value={rejectReason}
+                            onChange={e => setRejectReason(e.target.value)}
+                            placeholder="e.g. Revenue amount doesn't match records..."
+                            rows={3}
+                            className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 resize-none"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => { setShowRejectInput(false); setRejectReason(""); }}
+                              className="flex-1 rounded-lg border border-slate-200 py-2 text-xs font-bold text-slate-600 hover:bg-white"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setSaving(true);
+                                try {
+                                  await onReject(currentTrip, rejectReason.trim() || "Rejected by administrator.");
+                                  onClose?.();
+                                } finally {
+                                  setSaving(false);
+                                  setShowRejectInput(false);
+                                  setRejectReason("");
+                                }
+                              }}
+                              disabled={saving}
+                              className="flex-1 rounded-lg bg-rose-600 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-60"
+                            >
+                              {saving ? "Rejecting..." : "Confirm Rejection"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowRejectInput(true)}
+                          disabled={saving}
+                          className="w-full rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-60"
+                        >
+                          {currentTrip.approvalStatus === "pending_edit" ? "Discard Proposed Edit" : "Reject Trip"}
+                        </button>
+                      )}
+                    </div>
                   )}
                   {onMarkPaid && currentTrip.status !== "Paid" && currentTrip.approvalStatus !== "pending" && (
                     <button

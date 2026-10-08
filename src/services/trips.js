@@ -106,6 +106,13 @@ const syncLedgers = async (tripId, data, isApproved) => {
 const toDB = (obj) => {
   const result = { ...obj };
 
+  if (result.rejectionReason !== undefined) {
+    result.expenses = {
+      ...(result.expenses || {}),
+      _rejectionReason: result.rejectionReason
+    };
+  }
+
   const mapping = {
     driverId: 'driver_id', conductorId: 'conductor_id', odometerStart: 'odometer_start',
     odometerEnd: 'odometer_end', approvalStatus: 'approval_status', submittedBy: 'created_by',
@@ -122,7 +129,7 @@ const toDB = (obj) => {
   // Remove any fields not in the trips table schema
   const stripKeys = [
     "totalExpenses", "profit", "operatingExpenses", "operatingProfit",
-    "totalDeductions", "netPayable", "pendingEdits", "pending_edits"
+    "totalDeductions", "netPayable", "pendingEdits", "pending_edits", "rejectionReason"
   ];
   stripKeys.forEach(k => delete result[k]);
 
@@ -144,6 +151,7 @@ const fromDB = (obj) => {
       delete result[dbKey];
     }
   }
+  result.rejectionReason = result.expenses?._rejectionReason || null;
   return result;
 };
 
@@ -196,20 +204,30 @@ export const tripService = {
     }, earningsRate);
 
     if (isAdmin) {
+      const cleanedExpenses = { ...(tripData.expenses || {}) };
+      delete cleanedExpenses._rejectionReason;
+
       const finalTripData = {
         ...tripData,
+        expenses: cleanedExpenses,
         approvalStatus: "approved",
         pendingEdits: null,
+        rejectionReason: null,
       };
 
       const { error } = await supabase.from('trips').update(toDB(finalTripData)).eq('id', id);
       if (error) throw error;
       await syncLedgers(id, finalTripData, true);
     } else if (isPending) {
-      // Driver updating an unapproved pending trip: update in place, keep pending
+      // Driver updating an unapproved pending or rejected trip: update in place, keep/reset to pending, clear rejectionReason
+      const cleanedExpenses = { ...(tripData.expenses || {}) };
+      delete cleanedExpenses._rejectionReason;
+
       const finalTripData = {
         ...tripData,
+        expenses: cleanedExpenses,
         approvalStatus: "pending",
+        rejectionReason: null,
       };
 
       const { error } = await supabase.from('trips').update(toDB(finalTripData)).eq('id', id);
@@ -228,9 +246,13 @@ export const tripService = {
     if (trip.pendingEdits) {
       const data = trip.pendingEdits;
       const fields = calcFields(data);
+      const cleanedExpenses = { ...(data.expenses || {}) };
+      delete cleanedExpenses._rejectionReason;
+
       const tripData = applyEarningsSnapshot({
         ...data,
         ...fields,
+        expenses: cleanedExpenses,
         brokerId: data.brokerId || null,
         driverId: data.driverId || null,
         conductorId: data.conductorId || null,
@@ -238,14 +260,20 @@ export const tripService = {
         odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
         approvalStatus: "approved",
         pendingEdits: null,
+        rejectionReason: null,
       }, earningsRate ?? trip.earningsRate ?? trip.earningsAmount);
 
       const { error } = await supabase.from('trips').update(toDB(tripData)).eq('id', id);
       if (error) throw error;
       await syncLedgers(id, tripData, true);
     } else {
+      const cleanedExpenses = { ...(trip.expenses || {}) };
+      delete cleanedExpenses._rejectionReason;
+
       const tripData = applyEarningsSnapshot({
+        expenses: cleanedExpenses,
         approvalStatus: "approved",
+        rejectionReason: null,
       }, earningsRate ?? trip.earningsRate ?? trip.earningsAmount);
       
       const { error } = await supabase.from('trips').update(toDB(tripData)).eq('id', id);
@@ -254,7 +282,7 @@ export const tripService = {
     }
   },
 
-  reject: async (id, trip) => {
+  reject: async (id, trip, reason = "Rejected by administrator.") => {
     if (trip.approvalStatus === "pending_edit") {
       const { error } = await supabase.from('trips').update({
         approval_status: "approved",
@@ -262,7 +290,11 @@ export const tripService = {
       }).eq('id', id);
       if (error) throw error;
     } else {
-      const { error } = await supabase.from('trips').delete().eq('id', id);
+      const exp = { ...(trip.expenses || {}), _rejectionReason: reason || "Rejected by administrator." };
+      const { error } = await supabase.from('trips').update({
+        approval_status: "rejected",
+        expenses: exp,
+      }).eq('id', id);
       if (error) throw error;
       await syncLedgers(id, trip, false);
     }

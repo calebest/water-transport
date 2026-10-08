@@ -22,6 +22,9 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
   const [editTrip, setEditTrip] = useState(null);
   const [delTrip, setDelTrip] = useState(null);
   const [markingPaid, setMarkingPaid] = useState(null);
+  const [rejectPending, setRejectPending] = useState(null); // { trip } — awaiting reason input
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
   const [search, setSearch] = useState(() => localStorage.getItem("wt_trips_search") || "");
   const [filterDate, setFilterDate] = useState(() => localStorage.getItem("wt_trips_filterDate") || "");
   const [deleting, setDeleting] = useState(false);
@@ -113,7 +116,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
     await tripService.update(editTrip.id, form, { 
       isAdmin, 
       directApproval: settings?.directApproval,
-      isPending: editTrip?.approvalStatus === "pending",
+      isPending: editTrip?.approvalStatus === "pending" || editTrip?.approvalStatus === "rejected",
     });
     if (refreshTrips) refreshTrips();
   };
@@ -126,12 +129,31 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
     catch (e) { alert(e.message); }
   };
 
-  const handleReject = async (trip) => {
+  const handleReject = async (trip, reason) => {
     try { 
-      await tripService.reject(trip.id, trip); 
+      await tripService.reject(trip.id, trip, reason || "Rejected by administrator."); 
       if (refreshTrips) refreshTrips();
     }
     catch (e) { alert(e.message); }
+  };
+
+  // Opens the reject reason modal
+  const openRejectModal = (trip) => {
+    setRejectPending(trip);
+    setRejectReason("");
+  };
+
+  // Confirms rejection with the entered reason
+  const confirmReject = async () => {
+    if (!rejectPending) return;
+    setRejecting(true);
+    try {
+      await handleReject(rejectPending, rejectReason.trim() || "Rejected by administrator.");
+      setRejectPending(null);
+      setRejectReason("");
+    } finally {
+      setRejecting(false);
+    }
   };
 
   const handleStatusChange = async (trip, newStatus) => {
@@ -184,7 +206,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
           open={approvalsOpen}
           onToggle={() => setApprovalsOpen(v => !v)}
           onApprove={handleApprove}
-          onReject={handleReject}
+          onReject={openRejectModal}
         />
       )}
 
@@ -257,13 +279,52 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
         )}
       </div>
 
-      {/* Modals */}
+      {/* Rejection reason modal */}
+      <Modal open={!!rejectPending} onClose={() => setRejectPending(null)} title="Reject Trip">
+        {rejectPending && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              You are rejecting trip <strong>#{rejectPending.tripNumber}</strong> ({rejectPending.lorry}, {rejectPending.date}).
+              Please provide a reason so the driver/conductor can make corrections.
+            </p>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Rejection Reason</label>
+              <textarea
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                placeholder="e.g. Revenue amount doesn't match records, please verify and resubmit..."
+                rows={3}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 resize-none"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRejectPending(null)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={rejecting}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-60"
+              >
+                {rejecting ? "Rejecting…" : "Confirm Rejection"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
       <Modal open={addOpen} onClose={() => setAddOpen(false)}
         title={isAdmin ? "Add New Trip" : "Submit Trip for Approval"} wide>
         <TripForm locations={locations} personnel={personnel} vehicles={vehicles} brokers={brokers} onSave={handleAdd} onCancel={() => setAddOpen(false)} />
       </Modal>
       <Modal open={!!editTrip} onClose={() => setEditTrip(null)}
-        title={isAdmin ? "Edit Trip" : "Propose Trip Edit (requires approval)"} wide>
+        title={
+          isAdmin ? "Edit Trip" 
+          : editTrip?.approvalStatus === "rejected" ? "Resubmit Trip (Rejected — Edit & Resubmit for Approval)"
+          : "Propose Trip Edit (requires approval)"
+        } wide>
         {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} brokers={brokers} initial={editTrip} onSave={handleEdit} onCancel={() => setEditTrip(null)} />}
       </Modal>
       <Modal open={!!delTrip} onClose={() => setDelTrip(null)} title="Delete Trip">
@@ -471,9 +532,9 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
   // Who can edit/delete each trip row
   const canEditTrip = (t) =>
     isAdmin ||
-    (canAddTrips && t.submittedBy === userId && (t.approvalStatus === "approved" || t.approvalStatus === "pending"));
+    (canAddTrips && t.submittedBy === userId && (t.approvalStatus === "approved" || t.approvalStatus === "pending" || t.approvalStatus === "rejected"));
   const canDelTrip = (t) =>
-    isAdmin || (canAddTrips && t.submittedBy === userId && t.approvalStatus === "pending");
+    isAdmin || (canAddTrips && t.submittedBy === userId && (t.approvalStatus === "pending" || t.approvalStatus === "rejected"));
 
   const paymentBadgeColor = (status) =>
     status === "Paid" ? "green" : status === "Partial" ? "amber" : "red";

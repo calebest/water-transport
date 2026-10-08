@@ -185,10 +185,10 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     }
   }, [refreshTrips]);
 
-  const handleRejectTrip = useCallback(async (trip) => {
+  const handleRejectTrip = useCallback(async (trip, reason) => {
     if (!trip) return;
     try {
-      await tripService.reject(trip.id, trip);
+      await tripService.reject(trip.id, trip, reason || "Rejected by administrator.");
       if (refreshTrips) refreshTrips();
       setReviewTrip(null);
     } catch (e) {
