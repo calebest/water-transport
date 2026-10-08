@@ -100,6 +100,9 @@ export default function ReportsPage({ trips, vehicles, complaints = [], globalVe
     }
     if (filterTripStatus !== "All Trip Statuses") {
       filtered = filtered.filter(t => (t.approvalStatus || "approved") === filterTripStatus);
+    } else {
+      // By default in reports, only count approved trips
+      filtered = filtered.filter(t => !t.approvalStatus || t.approvalStatus === "approved" || t.approvalStatus === "pending_edit");
     }
     if (filterPaymentStatus !== "All Payment Statuses") {
       filtered = filtered.filter(t => (t.status || "Pending") === filterPaymentStatus);

@@ -35,8 +35,8 @@ import WebsiteCMS from "./pages/WebsiteCMS";
 import "./App.css";
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: "📊", roleAccess: ["admin", "owner", "broker"], group: "Dashboard" },
-  { id: "trips", label: "Trips", icon: "🚛", roleAccess: ["admin", "owner", "broker"], group: "Operations" },
+  { id: "dashboard", label: "Dashboard", icon: "📊", roleAccess: ["admin", "owner", "broker", "driver", "conductor"], group: "Dashboard" },
+  { id: "trips", label: "Trips", icon: "🚛", roleAccess: ["admin", "owner", "broker", "driver", "conductor"], group: "Operations" },
   { id: "locations", label: "Locations", icon: "📍", roleAccess: ["admin", "owner"], group: "Operations" },
   { id: "vehicles", label: "Vehicles", icon: "🚚", roleAccess: ["admin", "owner", "broker"], group: "Operations" },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true, group: "Operations" },
@@ -172,6 +172,28 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     if (!trip) return;
     await tripService.markPaid(trip.id, Number(trip.revenue || 0), "Paid");
     if (refreshTrips) refreshTrips();
+  }, [refreshTrips]);
+
+  const handleApproveTrip = useCallback(async (trip) => {
+    if (!trip) return;
+    try {
+      await tripService.approve(trip.id, trip, {});
+      if (refreshTrips) refreshTrips();
+      setReviewTrip(null);
+    } catch (e) {
+      alert("Error approving trip: " + e.message);
+    }
+  }, [refreshTrips]);
+
+  const handleRejectTrip = useCallback(async (trip) => {
+    if (!trip) return;
+    try {
+      await tripService.reject(trip.id, trip);
+      if (refreshTrips) refreshTrips();
+      setReviewTrip(null);
+    } catch (e) {
+      alert("Error rejecting trip: " + e.message);
+    }
   }, [refreshTrips]);
 
   const handleSaveTripEdit = useCallback(async (form) => {
@@ -422,6 +444,8 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onClose={() => setReviewTrip(null)}
           onMarkPaid={isAdmin ? handleMarkTripPaid : undefined}
           onEditTrip={isAdmin ? (trip) => openTripReview(trip, true) : undefined}
+          onApprove={isAdmin ? handleApproveTrip : undefined}
+          onReject={isAdmin ? handleRejectTrip : undefined}
           brokers={brokers}
         />
 
@@ -533,8 +557,13 @@ function AppInner() {
   const trips = useMemo(() => {
     if (!user) return [];
     if (isPrivileged) return rawTrips;
-    return rawTrips.filter(t => t.driverId === personnelId || t.conductorId === personnelId || t.submittedBy === user.uid);
-  }, [rawTrips, isPrivileged, personnelId, user?.uid]);
+    const currentUserId = user?.id || user?.uid;
+    return rawTrips.filter(t => 
+      t.driverId === personnelId || 
+      t.conductorId === personnelId || 
+      (currentUserId && t.submittedBy === currentUserId)
+    );
+  }, [rawTrips, isPrivileged, personnelId, user?.id, user?.uid]);
 
   const vehicles = useMemo(() => {
     if (!user) return [];

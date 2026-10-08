@@ -17,6 +17,8 @@ export default function TripReviewModal({
   onClose,
   onMarkPaid,
   onEditTrip,
+  onApprove,
+  onReject,
   ratePerTrip = 200,
   brokers = [],
 }) {
@@ -111,6 +113,15 @@ export default function TripReviewModal({
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Badge color="slate">{currentTrip.lorry || "N/A"}</Badge>
                   <Badge color={statusColors[currentTrip.status] || "slate"}>{currentTrip.status || "Pending"}</Badge>
+                  {currentTrip.approvalStatus === "pending" && (
+                    <Badge color="amber">⏳ Awaiting Approval</Badge>
+                  )}
+                  {currentTrip.approvalStatus === "pending_edit" && (
+                    <Badge color="amber">⚠️ Edit Pending</Badge>
+                  )}
+                  {currentTrip.approvalStatus === "rejected" && (
+                    <Badge color="red">❌ Rejected</Badge>
+                  )}
                   <span className="text-sm text-white/80">{currentTrip.date || "No date"}</span>
                 </div>
               </div>
@@ -126,6 +137,56 @@ export default function TripReviewModal({
               </div>
             </div>
           </div>
+
+          {currentTrip.approvalStatus === "pending" && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-4 text-sm text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div>
+                <p className="font-bold flex items-center gap-1.5">
+                  <span>⏳</span>
+                  <span>Pending Admin Approval</span>
+                </p>
+                <p className="text-xs text-amber-800/80 mt-0.5">
+                  This trip was submitted by driver/staff and is not stored in ledgers or financial totals until approved.
+                </p>
+              </div>
+              {onApprove && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setSaving(true);
+                      try {
+                        await onApprove(currentTrip);
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    disabled={saving}
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm cursor-pointer disabled:opacity-60"
+                  >
+                    {saving ? "Approving..." : "✓ Approve Trip"}
+                  </button>
+                  {onReject && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSaving(true);
+                        try {
+                          await onReject(currentTrip);
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                      disabled={saving}
+                      className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-60"
+                    >
+                      Reject
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {currentTrip.overrideReason && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -339,7 +400,43 @@ export default function TripReviewModal({
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {onMarkPaid && currentTrip.status !== "Paid" && (
+                  {onApprove && (currentTrip.approvalStatus === "pending" || currentTrip.approvalStatus === "pending_edit") && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSaving(true);
+                        try {
+                          await onApprove(currentTrip);
+                          onClose?.();
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                      disabled={saving}
+                      className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      {saving ? "Approving..." : currentTrip.approvalStatus === "pending_edit" ? "Apply Proposed Edit" : "Approve Trip"}
+                    </button>
+                  )}
+                  {onReject && (currentTrip.approvalStatus === "pending" || currentTrip.approvalStatus === "pending_edit") && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSaving(true);
+                        try {
+                          await onReject(currentTrip);
+                          onClose?.();
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                      disabled={saving}
+                      className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-60"
+                    >
+                      {saving ? "Rejecting..." : currentTrip.approvalStatus === "pending_edit" ? "Discard Proposed Edit" : "Reject Trip"}
+                    </button>
+                  )}
+                  {onMarkPaid && currentTrip.status !== "Paid" && currentTrip.approvalStatus !== "pending" && (
                     <button
                       type="button"
                       onClick={handleMarkPaid}

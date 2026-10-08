@@ -154,9 +154,10 @@ const fetchTrips = async () => {
 };
 
 export const tripService = {
-  add: async (data, { userId = null, isAdmin = false, directApproval = false, earningsRate = null } = {}) => {
+  add: async (data, { userId = null, isAdmin = false, earningsRate = null } = {}) => {
     const fields = calcFields(data);
-    const isApproved = isAdmin || directApproval;
+    // Non-admin (driver / conductor) submissions must always be approved by admin before being stored
+    const isApproved = Boolean(isAdmin);
     
     let tripData = applyEarningsSnapshot({
       ...data,
@@ -182,36 +183,39 @@ export const tripService = {
     return { id: inserted.id };
   },
 
-  update: async (id, data, { isAdmin = false, directApproval = false, isPending = false, earningsRate = null } = {}) => {
-    if (isAdmin || directApproval) {
-      const fields = calcFields(data);
-      const tripData = applyEarningsSnapshot({
-        ...data,
-        ...fields,
-        brokerId: data.brokerId || null,
-        driverId: data.driverId || null,
-        conductorId: data.conductorId || null,
-        odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
-        odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
+  update: async (id, data, { isAdmin = false, isPending = false, earningsRate = null } = {}) => {
+    const fields = calcFields(data);
+    const tripData = applyEarningsSnapshot({
+      ...data,
+      ...fields,
+      brokerId: data.brokerId || null,
+      driverId: data.driverId || null,
+      conductorId: data.conductorId || null,
+      odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
+      odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
+    }, earningsRate);
+
+    if (isAdmin) {
+      const finalTripData = {
+        ...tripData,
         approvalStatus: "approved",
         pendingEdits: null,
-      }, earningsRate);
+      };
 
-      const { error } = await supabase.from('trips').update(toDB(tripData)).eq('id', id);
+      const { error } = await supabase.from('trips').update(toDB(finalTripData)).eq('id', id);
       if (error) throw error;
-      await syncLedgers(id, tripData, true);
+      await syncLedgers(id, finalTripData, true);
     } else if (isPending) {
-      const fields = calcFields(data);
-      const tripData = applyEarningsSnapshot({
-        ...data,
-        ...fields,
-        brokerId: data.brokerId || null,
-        driverId: data.driverId || null,
-        conductorId: data.conductorId || null,
-        odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
-        odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
-      }, earningsRate);
+      // Driver updating an unapproved pending trip: update in place, keep pending
+      const finalTripData = {
+        ...tripData,
+        approvalStatus: "pending",
+      };
 
+      const { error } = await supabase.from('trips').update(toDB(finalTripData)).eq('id', id);
+      if (error) throw error;
+    } else {
+      // Non-admin proposing an edit to an already approved trip
       const { error } = await supabase.from('trips').update({
         pending_edits: toDB(tripData),
         approval_status: "pending_edit"

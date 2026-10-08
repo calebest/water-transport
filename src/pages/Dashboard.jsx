@@ -122,9 +122,15 @@ export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, 
   const [weekStart, weekEnd] = getWeekRange();
   const [monthStart, monthEnd] = getMonthRange();
 
-  const todayTrips = useMemo(() => filterByRange(trips, todayStr, todayStr), [trips, todayStr]);
-  const weekTrips = useMemo(() => filterByRange(trips, weekStart, weekEnd), [trips, weekStart, weekEnd]);
-  const monthTrips = useMemo(() => filterByRange(trips, monthStart, monthEnd), [trips, monthStart, monthEnd]);
+  // Only count approved trips in operational financials and revenue metrics
+  const approvedTrips = useMemo(() =>
+    trips.filter(t => !t.approvalStatus || t.approvalStatus === "approved" || t.approvalStatus === "pending_edit"),
+    [trips]
+  );
+
+  const todayTrips = useMemo(() => filterByRange(approvedTrips, todayStr, todayStr), [approvedTrips, todayStr]);
+  const weekTrips = useMemo(() => filterByRange(approvedTrips, weekStart, weekEnd), [approvedTrips, weekStart, weekEnd]);
+  const monthTrips = useMemo(() => filterByRange(approvedTrips, monthStart, monthEnd), [approvedTrips, monthStart, monthEnd]);
 
   const todaySummary = useMemo(() => summarize(todayTrips), [todayTrips]);
   const weekSummary = useMemo(() => summarize(weekTrips), [weekTrips]);
@@ -137,7 +143,7 @@ export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, 
       const key = d.toISOString().slice(0, 10);
       days[key] = { date: key.slice(5), revenue: 0, expenses: 0, operatingProfit: 0, netProfit: 0 };
     }
-    trips.forEach(t => {
+    approvedTrips.forEach(t => {
       if (days[t.date]) {
         const f = getTripFinancials(t);
         days[t.date].revenue += f.revenue;
@@ -147,7 +153,7 @@ export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, 
       }
     });
     return Object.values(days);
-  }, [trips, chartRange]);
+  }, [approvedTrips, chartRange]);
 
   const vehicleTodayStats = useMemo(() =>
     vehicles.map(v => ({ ...v, summary: summarize(todayTrips.filter(t => t.lorry === v.plate)) })),

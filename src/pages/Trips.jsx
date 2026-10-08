@@ -473,7 +473,7 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
     isAdmin ||
     (canAddTrips && t.submittedBy === userId && (t.approvalStatus === "approved" || t.approvalStatus === "pending"));
   const canDelTrip = (t) =>
-    isAdmin && (!t.approvalStatus || t.approvalStatus === "approved");
+    isAdmin || (canAddTrips && t.submittedBy === userId && t.approvalStatus === "pending");
 
   const paymentBadgeColor = (status) =>
     status === "Paid" ? "green" : status === "Partial" ? "amber" : "red";
@@ -612,12 +612,12 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                       </button>
                     )}
-                    {isAdmin && isPendingEdit && onApprove && onReject && (
+                    {isAdmin && (isPending || isPendingEdit) && onApprove && onReject && (
                       <>
-                        <button onClick={() => onApprove(t)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Apply Edit">
+                        <button onClick={() => onApprove(t)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title={isPendingEdit ? "Apply Proposed Edit" : "Approve Trip"}>
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                         </button>
-                        <button onClick={() => onReject(t)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Discard Edit">
+                        <button onClick={() => onReject(t)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" title={isPendingEdit ? "Discard Edit" : "Reject Trip"}>
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       </>
