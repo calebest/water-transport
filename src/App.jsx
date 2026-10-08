@@ -68,7 +68,7 @@ const getPageFromPath = () => {
 const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
 
 function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, brokers = [], refreshTrips }) {
-  const { user, profile, logout, isAdmin, isOwner, isPrivileged, personnelId } = useAuth();
+  const { user, profile, logout, isAdmin, isOwner, isPrivileged, personnelId, canAddTrips, userId } = useAuth();
   const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [reviewTrip, setReviewTrip] = useState(null);
@@ -196,12 +196,21 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     }
   }, [refreshTrips]);
 
+  const canEditTrip = useCallback((trip) => {
+    if (!trip) return false;
+    if (isAdmin || isOwner) return true;
+    if (canAddTrips && trip.submittedBy === userId) {
+      return !trip.approvalStatus || trip.approvalStatus === "approved" || trip.approvalStatus === "pending" || trip.approvalStatus === "rejected";
+    }
+    return false;
+  }, [isAdmin, isOwner, canAddTrips, userId]);
+
   const handleSaveTripEdit = useCallback(async (form) => {
     if (!tripEditTrip) return;
     await tripService.update(tripEditTrip.id, form, {
       isAdmin,
       directApproval: settings?.directApproval,
-      isPending: tripEditTrip?.approvalStatus === "pending",
+      isPending: tripEditTrip?.approvalStatus === "pending" || tripEditTrip?.approvalStatus === "rejected",
     });
     if (refreshTrips) refreshTrips();
   }, [isAdmin, settings?.directApproval, tripEditTrip, refreshTrips]);
@@ -443,13 +452,26 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           trip={reviewTrip}
           onClose={() => setReviewTrip(null)}
           onMarkPaid={isAdmin ? handleMarkTripPaid : undefined}
-          onEditTrip={isAdmin ? (trip) => openTripReview(trip, true) : undefined}
+          onEditTrip={canEditTrip(reviewTrip) ? (trip) => openTripReview(trip, true) : undefined}
           onApprove={isAdmin ? handleApproveTrip : undefined}
           onReject={isAdmin ? handleRejectTrip : undefined}
           brokers={brokers}
         />
 
-        <Modal open={!!tripEditTrip} onClose={() => setTripEditTrip(null)} title="Edit Trip" wide>
+        <Modal
+          open={!!tripEditTrip}
+          onClose={() => setTripEditTrip(null)}
+          title={
+            isAdmin
+              ? "Edit Trip"
+              : tripEditTrip?.approvalStatus === "rejected"
+              ? "Resubmit Trip (Rejected — Edit & Resubmit)"
+              : tripEditTrip?.approvalStatus === "pending"
+              ? "Edit Pending Trip"
+              : "Propose Trip Edit"
+          }
+          wide
+        >
           {tripEditTrip && (
             <TripForm
               initial={tripEditTrip}

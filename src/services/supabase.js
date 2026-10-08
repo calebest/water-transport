@@ -7,7 +7,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error("Supabase URL and Anon Key are required! Please set them in your .env.local file.")
 }
 
-const notifyDbMutated = (tableName = null, method = null) => {
+export const notifyDbMutated = (tableName = null, method = null) => {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent('db_mutated', {
     detail: { table: tableName, method },

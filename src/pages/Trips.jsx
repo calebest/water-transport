@@ -323,6 +323,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
         title={
           isAdmin ? "Edit Trip" 
           : editTrip?.approvalStatus === "rejected" ? "Resubmit Trip (Rejected — Edit & Resubmit for Approval)"
+          : editTrip?.approvalStatus === "pending" ? "Edit Pending Trip (Submit for Approval)"
           : "Propose Trip Edit (requires approval)"
         } wide>
         {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} brokers={brokers} initial={editTrip} onSave={handleEdit} onCancel={() => setEditTrip(null)} />}

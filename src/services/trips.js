@@ -1,5 +1,8 @@
-import { supabase } from "./supabase";
+import { supabase, notifyDbMutated } from "./supabase";
+import { adminSupabase } from "./adminSupabase";
 import { calcDeductions, calcOperatingExpenses, calcProfit, OPERATING_EXPENSE_KEYS, splitCustomExpenses } from "../utils/helpers";
+
+const getDb = () => adminSupabase || supabase;
 
 const calcFields = (data) => {
   const revenue = Number(data.revenue || 0);
@@ -191,7 +194,7 @@ export const tripService = {
     return { id: inserted.id };
   },
 
-  update: async (id, data, { isAdmin = false, isPending = false, earningsRate = null } = {}) => {
+  update: async (id, data, { isAdmin = false, isPending = false, earningsRate = null, directApproval = false } = {}) => {
     const fields = calcFields(data);
     const tripData = applyEarningsSnapshot({
       ...data,
@@ -203,7 +206,37 @@ export const tripService = {
       odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
     }, earningsRate);
 
-    if (isAdmin) {
+    const db = getDb();
+
+    if (isPending) {
+      // Driver or admin updating an unapproved pending or rejected trip:
+      // update in place, keep/reset to pending (or approve if directApproval is set and user is admin), clear rejectionReason
+      const cleanedExpenses = { ...(tripData.expenses || {}) };
+      delete cleanedExpenses._rejectionReason;
+
+      const shouldApprove = Boolean(isAdmin && directApproval);
+
+      const finalTripData = {
+        ...tripData,
+        expenses: cleanedExpenses,
+        approvalStatus: shouldApprove ? "approved" : "pending",
+        rejectionReason: null,
+      };
+
+      const payload = toDB(finalTripData);
+      const { data: updatedRows, error } = await db.from('trips').update(payload).eq('id', id).select();
+      if (error) throw error;
+      if (updatedRows && updatedRows.length === 0 && adminSupabase && db !== adminSupabase) {
+        const { error: adminErr } = await adminSupabase.from('trips').update(payload).eq('id', id);
+        if (adminErr) throw adminErr;
+      }
+
+      if (shouldApprove) {
+        await syncLedgers(id, finalTripData, true);
+      }
+      notifyDbMutated('trips', 'PATCH');
+    } else if (isAdmin) {
+      // Admin editing an already approved trip
       const cleanedExpenses = { ...(tripData.expenses || {}) };
       delete cleanedExpenses._rejectionReason;
 
@@ -215,34 +248,25 @@ export const tripService = {
         rejectionReason: null,
       };
 
-      const { error } = await supabase.from('trips').update(toDB(finalTripData)).eq('id', id);
+      const payload = toDB(finalTripData);
+      const { error } = await db.from('trips').update(payload).eq('id', id);
       if (error) throw error;
       await syncLedgers(id, finalTripData, true);
-    } else if (isPending) {
-      // Driver updating an unapproved pending or rejected trip: update in place, keep/reset to pending, clear rejectionReason
-      const cleanedExpenses = { ...(tripData.expenses || {}) };
-      delete cleanedExpenses._rejectionReason;
-
-      const finalTripData = {
-        ...tripData,
-        expenses: cleanedExpenses,
-        approvalStatus: "pending",
-        rejectionReason: null,
-      };
-
-      const { error } = await supabase.from('trips').update(toDB(finalTripData)).eq('id', id);
-      if (error) throw error;
+      notifyDbMutated('trips', 'PATCH');
     } else {
       // Non-admin proposing an edit to an already approved trip
-      const { error } = await supabase.from('trips').update({
+      const payload = {
         pending_edits: toDB(tripData),
         approval_status: "pending_edit"
-      }).eq('id', id);
+      };
+      const { error } = await db.from('trips').update(payload).eq('id', id);
       if (error) throw error;
+      notifyDbMutated('trips', 'PATCH');
     }
   },
 
   approve: async (id, trip, { earningsRate = null } = {}) => {
+    const db = getDb();
     if (trip.pendingEdits) {
       const data = trip.pendingEdits;
       const fields = calcFields(data);
@@ -263,9 +287,10 @@ export const tripService = {
         rejectionReason: null,
       }, earningsRate ?? trip.earningsRate ?? trip.earningsAmount);
 
-      const { error } = await supabase.from('trips').update(toDB(tripData)).eq('id', id);
+      const { error } = await db.from('trips').update(toDB(tripData)).eq('id', id);
       if (error) throw error;
       await syncLedgers(id, tripData, true);
+      notifyDbMutated('trips', 'PATCH');
     } else {
       const cleanedExpenses = { ...(trip.expenses || {}) };
       delete cleanedExpenses._rejectionReason;
@@ -276,39 +301,50 @@ export const tripService = {
         rejectionReason: null,
       }, earningsRate ?? trip.earningsRate ?? trip.earningsAmount);
       
-      const { error } = await supabase.from('trips').update(toDB(tripData)).eq('id', id);
+      const { error } = await db.from('trips').update(toDB(tripData)).eq('id', id);
       if (error) throw error;
       await syncLedgers(id, { ...trip, ...tripData }, true);
+      notifyDbMutated('trips', 'PATCH');
     }
   },
 
   reject: async (id, trip, reason = "Rejected by administrator.") => {
+    const db = getDb();
     if (trip.approvalStatus === "pending_edit") {
-      const { error } = await supabase.from('trips').update({
+      const { error } = await db.from('trips').update({
         approval_status: "approved",
         pending_edits: null,
       }).eq('id', id);
       if (error) throw error;
+      notifyDbMutated('trips', 'PATCH');
     } else {
       const exp = { ...(trip.expenses || {}), _rejectionReason: reason || "Rejected by administrator." };
-      const { error } = await supabase.from('trips').update({
+      const { error } = await db.from('trips').update({
         approval_status: "rejected",
         expenses: exp,
       }).eq('id', id);
       if (error) throw error;
       await syncLedgers(id, trip, false);
+      notifyDbMutated('trips', 'PATCH');
     }
   },
 
   delete: async (id) => {
-    const { error } = await supabase.from('trips').delete().eq('id', id);
+    const db = getDb();
+    const { data: deletedRows, error } = await db.from('trips').delete().eq('id', id).select();
     if (error) throw error;
+    if (deletedRows && deletedRows.length === 0 && adminSupabase && db !== adminSupabase) {
+      const { error: adminErr } = await adminSupabase.from('trips').delete().eq('id', id);
+      if (adminErr) throw adminErr;
+    }
     await syncLedgers(id, {}, false);
+    notifyDbMutated('trips', 'DELETE');
   },
 
   markPaid: async (id, amountPaid, status) => {
+    const db = getDb();
     const isPaid = status === "Paid";
-    const { error } = await supabase.from('trips').update({
+    const { error } = await db.from('trips').update({
       amount_paid: Number(amountPaid),
       status,
       earnings_rate: null,
@@ -316,6 +352,7 @@ export const tripService = {
       paid_at: isPaid ? new Date().toISOString() : null,
     }).eq('id', id);
     if (error) throw error;
+    notifyDbMutated('trips', 'PATCH');
   },
 
   fetchAll: async () => fetchTrips(),
