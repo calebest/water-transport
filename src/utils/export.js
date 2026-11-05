@@ -325,22 +325,67 @@ export const generateReportText = (trips, filterVehicle, dateTitle) => {
   return lines.join("\n");
 };
 
-export const handleShareText = async (trips, filterVehicle, dateTitle) => {
-  const text = generateReportText(trips, filterVehicle, dateTitle);
-  if (navigator.share) {
+const copyToClipboard = async (text) => {
+  if (typeof window !== "undefined" && navigator?.clipboard?.writeText && window.isSecureContext) {
     try {
-      await navigator.share({
-        title: 'Mount Kenya Water Distributors Report',
-        text: text
-      });
-    } catch (err) {
-      console.log('Error sharing', err);
-      // fallback to clipboard
       await navigator.clipboard.writeText(text);
-      alert('Report copied to clipboard!');
+      return true;
+    } catch (e) {
+      console.warn("Clipboard writeText failed, trying fallback:", e);
     }
-  } else {
-    await navigator.clipboard.writeText(text);
-    alert('Report copied to clipboard!');
+  }
+
+  // Fallback for non-secure HTTP contexts or older browsers
+  if (typeof document !== "undefined") {
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      textArea.setAttribute("readonly", "");
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand("copy");
+      document.body.removeChild(textArea);
+      if (successful) return true;
+    } catch (err) {
+      console.warn("execCommand fallback failed:", err);
+    }
+  }
+  return false;
+};
+
+export const handleShareText = async (trips, filterVehicle, dateTitle) => {
+  try {
+    const vehicleLabel = !filterVehicle || filterVehicle === "all" ? "All Vehicles" : filterVehicle;
+    const text = generateReportText(trips, vehicleLabel, dateTitle);
+
+    if (typeof navigator !== "undefined" && navigator?.share) {
+      try {
+        await navigator.share({
+          title: "Mount Kenya Water Distributors Report",
+          text: text,
+        });
+        return;
+      } catch (err) {
+        if (err?.name === "AbortError") {
+          // User closed share dialog, do not show error
+          return;
+        }
+        console.log("Error sharing via navigator.share, falling back to clipboard:", err);
+      }
+    }
+
+    const copied = await copyToClipboard(text);
+    if (copied) {
+      alert("Report copied to clipboard! You can now paste and share it via WhatsApp or SMS.");
+    } else {
+      window.prompt("Copy report text to share:", text);
+    }
+  } catch (err) {
+    console.error("handleShareText exception:", err);
+    alert("Could not share report text: " + (err?.message || err));
   }
 };

@@ -108,13 +108,13 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handleAdd = async (form) => {
-    await tripService.add(form, { userId, isAdmin, directApproval: settings?.directApproval });
+    await tripService.add(form, { userId, isAdmin: isPrivileged, directApproval: settings?.directApproval });
     if (refreshTrips) refreshTrips();
   };
 
   const handleEdit = async (form) => {
     await tripService.update(editTrip.id, form, { 
-      isAdmin, 
+      isAdmin: isPrivileged, 
       directApproval: settings?.directApproval,
       isPending: editTrip?.approvalStatus === "pending" || editTrip?.approvalStatus === "rejected",
     });
@@ -262,7 +262,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
                 <TripGroup
                   key={group.date}
                   group={group}
-                  isAdmin={isAdmin}
+                  isAdmin={isPrivileged}
                   onEdit={setEditTrip}
                   onDel={setDelTrip}
                   onStatusChange={handleStatusChange}
@@ -321,7 +321,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       </Modal>
       <Modal open={!!editTrip} onClose={() => setEditTrip(null)}
         title={
-          isAdmin ? "Edit Trip" 
+          isPrivileged ? "Edit Trip" 
           : editTrip?.approvalStatus === "rejected" ? "Resubmit Trip (Rejected — Edit & Resubmit for Approval)"
           : editTrip?.approvalStatus === "pending" ? "Edit Pending Trip (Submit for Approval)"
           : "Propose Trip Edit (requires approval)"

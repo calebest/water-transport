@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' ? process.env : {});
+const supabaseUrl = env.VITE_SUPABASE_URL;
+const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error("Supabase URL and Anon Key are required! Please set them in your .env.local file.")
@@ -15,14 +16,15 @@ export const notifyDbMutated = (tableName = null, method = null) => {
 };
 
 // 1. Intercept fetch to detect mutations (fallback for missing DB Realtime config)
-const originalFetch = window.fetch;
+const originalFetch = typeof window !== 'undefined' ? window.fetch : globalThis.fetch;
 const customFetch = async (url, options) => {
   const response = await originalFetch(url, options);
   const method = options?.method?.toUpperCase?.();
 
   if (response.ok && method && ['POST', 'PATCH', 'DELETE'].includes(method) && typeof url === 'string' && url.includes('/rest/v1/')) {
     try {
-      const parsedUrl = new URL(url, window.location.origin);
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+      const parsedUrl = new URL(url, origin);
       const pathSegments = parsedUrl.pathname.split('/').filter(Boolean);
       const tableName = pathSegments[2] || null;
 
@@ -45,11 +47,13 @@ const originalRemoveChannel = supabase.removeChannel.bind(supabase);
 
 const customListeners = new Map();
 
-window.addEventListener('db_mutated', () => {
-  customListeners.forEach((callbacks) => {
-    callbacks.forEach(cb => cb());
+if (typeof window !== 'undefined') {
+  window.addEventListener('db_mutated', () => {
+    customListeners.forEach((callbacks) => {
+      callbacks.forEach(cb => cb());
+    });
   });
-});
+}
 
 supabase.channel = (name, opts) => {
   const chan = originalChannel(name, opts);

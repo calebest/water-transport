@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Badge } from "../components/ui";
 import { fmt } from "../utils/helpers";
@@ -13,7 +13,7 @@ const downloadJson = (payload, filename) => {
   URL.revokeObjectURL(url);
 };
 
-export default function BackupPage({ trips = [], locations = [], vehicles = [], personnel = [], maintenance = [], complaints = [], settings = {} }) {
+export default function BackupPage({ trips = [], locations = [], vehicles = [], personnel = [], maintenance = [], complaints = [], settings = {}, paymentRecords = [] }) {
   const { isAdmin } = useAuth();
 
   const payload = useMemo(() => ({
@@ -25,13 +25,15 @@ export default function BackupPage({ trips = [], locations = [], vehicles = [], 
     maintenance,
     complaints,
     settings,
-  }), [trips, locations, vehicles, personnel, maintenance, complaints, settings]);
+    paymentRecords,
+  }), [trips, locations, vehicles, personnel, maintenance, complaints, settings, paymentRecords]);
 
   const summary = [
     { label: "Trips", value: trips.length, color: "blue" },
     { label: "Locations", value: locations.length, color: "green" },
     { label: "Vehicles", value: vehicles.length, color: "amber" },
     { label: "Personnel", value: personnel.length, color: "purple" },
+    { label: "Payments", value: paymentRecords.length, color: "emerald" },
   ];
 
   return (

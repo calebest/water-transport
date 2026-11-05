@@ -9,6 +9,7 @@ import { settingsService } from "./services/settings";
 import { complaintService } from "./services/complaints";
 
 import { brokerService } from "./services/brokers";
+import { paymentRecordsService } from "./services/paymentRecords";
 import { Badge, Modal } from "./components/ui";
 import TripReviewModal from "./components/TripReviewModal";
 import TripForm from "./components/TripForm";
@@ -18,6 +19,7 @@ import DashboardPage from "./pages/Dashboard";
 import TripsPage from "./pages/Trips";
 import LocationsPage from "./pages/Locations";
 import ReportsPage from "./pages/Reports";
+import PaymentRecordsPage from "./pages/PaymentRecords";
 
 import BackupPage from "./pages/Backup";
 import UsersPage from "./pages/Users";
@@ -41,6 +43,7 @@ const NAV_ITEMS = [
   { id: "vehicles", label: "Vehicles", icon: "🚚", roleAccess: ["admin", "owner", "broker"], group: "Operations" },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true, group: "Operations" },
   
+  { id: "payment-records", label: "Payment Records", icon: "💰", roleAccess: ["admin", "owner"], group: "Finance" },
   { id: "broker-account", label: "Broker Ledger", icon: "🏢", roleAccess: ["admin", "owner", "broker"], group: "Finance" },
   { id: "broker-reconcile", label: "Close Period", icon: "✔️", roleAccess: ["admin", "owner"], group: "Finance" },
   { id: "reports", label: "Reports", icon: "📄", roleAccess: ["admin", "owner"], group: "Finance" },
@@ -67,7 +70,7 @@ const getPageFromPath = () => {
 
 const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
 
-function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, brokers = [], refreshTrips }) {
+function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, brokers = [], paymentRecords = [], refreshTrips, refreshPaymentRecords }) {
   const { user, profile, logout, isAdmin, isOwner, isPrivileged, personnelId, canAddTrips, userId } = useAuth();
   const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -230,6 +233,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onOpenTripReview={openTripReview}
           onMarkTripPaid={handleMarkTripPaid}
           onGoToTrips={() => navigateToPage("trips")}
+          onGoToPayments={() => navigateToPage("payment-records")}
           globalVehicle={globalVehicle}
           setGlobalVehicle={handleSetGlobalVehicle}
         />
@@ -238,12 +242,13 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     locations: <LocationsPage locations={locations} />,
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} brokers={brokers} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
+    "payment-records": <PaymentRecordsPage paymentRecords={paymentRecords} refreshPaymentRecords={refreshPaymentRecords} />,
     "broker-account": <BrokerAccountPage isAdmin={isAdmin} brokers={brokers} vehicles={vehicles} trips={trips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} linkedBrokerId={personnelId} />,
     "broker-reconcile": <BrokerReconciliationPage brokers={brokers} />,
     "personnel-account": <PersonnelAccountPage isAdmin={isAdmin} personnelId={personnelId} personnelList={personnel} />,
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
-    backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} complaints={complaints} settings={settings} />,
+    backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} complaints={complaints} settings={settings} paymentRecords={paymentRecords} />,
     settings: <SettingsPage settings={settings} />,
     users: <UsersPage personnel={personnel} brokers={brokers} />,
     brokers: <BrokersPage brokers={brokers} />,
@@ -532,13 +537,18 @@ function AppInner() {
   const [maintenance, setMaintenance] = useState([]);
   const [settings, setSettings] = useState({ directApproval: false });
   const [complaints, setComplaints] = useState([]);
-
   const [brokers, setBrokers] = useState([]);
+  const [paymentRecords, setPaymentRecords] = useState([]);
 
   // Manual refresh — called right after add/delete/approve so UI updates instantly
   const refreshTrips = useCallback(async () => {
     const data = await tripService.fetchAll();
     setRawTrips(data);
+  }, []);
+
+  const refreshPaymentRecords = useCallback(async () => {
+    const data = await paymentRecordsService.fetchAll();
+    setPaymentRecords(data);
   }, []);
 
   useEffect(() => {
@@ -551,6 +561,7 @@ function AppInner() {
       setSettings({ directApproval: false });
       setComplaints([]);
       setBrokers([]);
+      setPaymentRecords([]);
       return;
     }
 
@@ -562,6 +573,7 @@ function AppInner() {
     const unsubSettings = settingsService.subscribe(setSettings);
     const unsubComplaints = complaintService.subscribe(setComplaints);
     const unsubBrokers = brokerService.subscribeBrokers(setBrokers);
+    const unsubPayments = paymentRecordsService.subscribe(setPaymentRecords);
     
     return () => {
       unsubTrips();
@@ -572,8 +584,9 @@ function AppInner() {
       if (unsubSettings) unsubSettings();
       if (unsubComplaints) unsubComplaints();
       if (unsubBrokers) unsubBrokers();
+      if (unsubPayments) unsubPayments();
     };
-  }, [user, refreshTrips]);
+  }, [user, refreshTrips, refreshPaymentRecords]);
 
   // Data Isolation for non-admins
   const trips = useMemo(() => {
@@ -617,7 +630,7 @@ function AppInner() {
     return <PublicWebsite onOpenLogin={() => setViewMode("login")} user={null} />;
   }
 
-  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} brokers={brokers} refreshTrips={refreshTrips} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} brokers={brokers} paymentRecords={paymentRecords} refreshTrips={refreshTrips} refreshPaymentRecords={refreshPaymentRecords} />;
 }
 
 export default function App() {

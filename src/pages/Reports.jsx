@@ -599,8 +599,8 @@ export default function ReportsPage({ trips, vehicles, complaints = [], globalVe
                 className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 transition-colors hover:bg-emerald-700">
                 📄 Export PDF
               </button>
-              <button onClick={() => handleShareText(rangeTrips, filterVehicle, dateTitle)}
-                className="flex-1 rounded-xl bg-slate-800 py-3 text-sm font-bold text-white shadow-lg shadow-slate-800/20 transition-colors hover:bg-slate-900">
+              <button onClick={() => handleShareText(rangeTrips, globalVehicle === "all" ? "All Vehicles" : globalVehicle, dateTitle)}
+                className="flex-1 rounded-xl bg-slate-800 py-3 text-sm font-bold text-white shadow-lg shadow-slate-800/20 transition-colors hover:bg-slate-900 cursor-pointer">
                 💬 Share Text
               </button>
             </div>
