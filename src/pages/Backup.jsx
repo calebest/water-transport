@@ -13,7 +13,7 @@ const downloadJson = (payload, filename) => {
   URL.revokeObjectURL(url);
 };
 
-export default function BackupPage({ trips = [], locations = [], vehicles = [], personnel = [], maintenance = [], complaints = [], settings = {}, paymentRecords = [] }) {
+export default function BackupPage({ trips = [], locations = [], vehicles = [], personnel = [], maintenance = [], complaints = [], settings = {}, paymentRecords = [], financialDeductions = [] }) {
   const { isAdmin } = useAuth();
 
   const payload = useMemo(() => ({
@@ -26,7 +26,8 @@ export default function BackupPage({ trips = [], locations = [], vehicles = [], 
     complaints,
     settings,
     paymentRecords,
-  }), [trips, locations, vehicles, personnel, maintenance, complaints, settings, paymentRecords]);
+    financialDeductions,
+  }), [trips, locations, vehicles, personnel, maintenance, complaints, settings, paymentRecords, financialDeductions]);
 
   const summary = [
     { label: "Trips", value: trips.length, color: "blue" },
@@ -34,6 +35,7 @@ export default function BackupPage({ trips = [], locations = [], vehicles = [], 
     { label: "Vehicles", value: vehicles.length, color: "amber" },
     { label: "Personnel", value: personnel.length, color: "purple" },
     { label: "Payments", value: paymentRecords.length, color: "emerald" },
+    { label: "Deductions", value: financialDeductions.length, color: "rose" },
   ];
 
   return (

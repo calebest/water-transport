@@ -92,7 +92,7 @@ const LegendDot = ({ color, label }) => (
   </div>
 );
 
-export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, onMarkTripPaid, onGoToTrips, onGoToPayments }) {
+export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, onMarkTripPaid, onGoToTrips, onGoToPayments, onGoToReconciliation }) {
   const { profile, isAdmin, isOwner } = useAuth();
   const [pendingOpen, setPendingOpen] = useState(() => localStorage.getItem("wt_dash_pendingOpen") !== "false");
   const [brokerLedger, setBrokerLedger] = useState([]);
@@ -291,6 +291,25 @@ export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, 
                         </div>
                       </div>
                       <span className="text-slate-400 group-hover:text-emerald-600 text-sm font-bold">→</span>
+                    </button>
+                  )}
+
+                  {onGoToReconciliation && (isAdmin || isOwner) && (
+                    <button
+                      type="button"
+                      onClick={onGoToReconciliation}
+                      className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 hover:bg-sky-50 border border-slate-100 hover:border-sky-200 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+                          ⚖️
+                        </div>
+                        <div>
+                          <p className="font-bold text-xs text-slate-800 group-hover:text-sky-900">Financial Reconciliation</p>
+                          <p className="text-[11px] text-slate-400">Audit profit vs deductions & boss balance</p>
+                        </div>
+                      </div>
+                      <span className="text-slate-400 group-hover:text-sky-600 text-sm font-bold">→</span>
                     </button>
                   )}
                 </div>
