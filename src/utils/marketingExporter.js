@@ -161,22 +161,36 @@ export const downloadBusinessCardPDF = async ({
 };
 
 /**
- * Export Marketing Poster as full-bleed A4 PDF
+ * Export Marketing Poster as print-ready PDF for various paper sizes:
+ * Supports:
+ * - "a5": Standard Handout / Promotional Flyer (148mm x 210mm) - RECOMMENDED
+ * - "a6": Postcard / Pocket Flyer (105mm x 148mm)
+ * - "a2": Large Wall / Depot Display Poster (420mm x 594mm)
+ * - "a4": Standard Document Sheet (210mm x 297mm)
  */
 export const downloadPosterPDF = async ({
   posterElement,
-  filename = "Mount_Kenya_Water_Poster_A4.pdf",
+  filename,
+  paperSize = "a5", // "a5" | "a6" | "a2" | "a4"
 }) => {
   if (!posterElement) {
     throw new Error("Target poster element is required");
   }
 
+  const validSizes = ["a5", "a6", "a2", "a4"];
+  const sizeKey = validSizes.includes(paperSize?.toLowerCase()) ? paperSize.toLowerCase() : "a5";
+
+  const defaultFilename = `Mount_Kenya_Water_Poster_${sizeKey.toUpperCase()}.pdf`;
+  const finalFilename = filename || defaultFilename;
+
   const canvas = await html2canvas(posterElement, {
-    scale: 3,
+    scale: sizeKey === "a2" ? 2 : 3, // Scale 2 for A2 to stay within memory limits while remaining ultra-sharp, scale 3 for A5/A6/A4
     useCORS: true,
     allowTaint: true,
     backgroundColor: null,
     logging: false,
+    windowWidth: posterElement.scrollWidth,
+    windowHeight: posterElement.scrollHeight,
   });
 
   const imgData = canvas.toDataURL("image/png");
@@ -184,12 +198,15 @@ export const downloadPosterPDF = async ({
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
-    format: "a4",
+    format: sizeKey,
   });
 
-  // A4 is 210mm x 297mm
-  doc.addImage(imgData, "PNG", 0, 0, 210, 297);
-  doc.save(filename);
-  return filename;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Full-bleed placement across the exact page dimensions
+  doc.addImage(imgData, "PNG", 0, 0, pageWidth, pageHeight);
+  doc.save(finalFilename);
+  return finalFilename;
 };
 
