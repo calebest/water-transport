@@ -4,8 +4,8 @@
  * model fallbacks, and provider error classification.
  */
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
-const FALLBACK_MODEL = "gemini-1.5-flash";
+const DEFAULT_MODEL = "gemini-3.8-flash";
+const FALLBACK_MODEL = "gemini-2.5-flash";
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 export const getStoredApiKey = () => {
@@ -35,7 +35,13 @@ export const setStoredApiKey = (key) => {
 
 export const getStoredModel = () => {
   if (typeof window !== "undefined") {
-    return localStorage.getItem("wt_gemini_model") || DEFAULT_MODEL;
+    const stored = localStorage.getItem("wt_gemini_model");
+    // Auto-migrate legacy deprecated gemini-2.0-flash to gemini-3.8-flash
+    if (!stored || stored === "gemini-2.0-flash") {
+      localStorage.setItem("wt_gemini_model", DEFAULT_MODEL);
+      return DEFAULT_MODEL;
+    }
+    return stored;
   }
   return DEFAULT_MODEL;
 };
@@ -47,16 +53,38 @@ export const setStoredModel = (model) => {
 };
 
 /**
+ * Extract suggested model identifier from Google's error messages
+ * e.g. "This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash..."
+ */
+export const extractSuggestedModel = (message = "") => {
+  if (!message || typeof message !== "string") return null;
+  const match = message.match(/models\/([a-zA-Z0-9._-]+)/i) || message.match(/use\s+([a-zA-Z0-9._-]+flash)/i);
+  if (match && match[1]) {
+    const candidate = match[1].replace(/^models\//, "").trim();
+    if (candidate.toLowerCase() !== "gemini-2.0-flash") {
+      return candidate;
+    }
+  }
+  return null;
+};
+
+/**
  * Test API key connectivity with Google Gemini
  */
-export const testGeminiConnection = async (apiKey, model = DEFAULT_MODEL) => {
+export const testGeminiConnection = async (apiKey, model) => {
   const keyToTest = apiKey || getStoredApiKey();
   if (!keyToTest) {
     return { ok: false, error: "No API key provided. Please enter your Google Gemini API key." };
   }
 
+  let activeModel = model || getStoredModel();
+  if (!activeModel || activeModel === "gemini-2.0-flash") {
+    activeModel = DEFAULT_MODEL;
+    setStoredModel(DEFAULT_MODEL);
+  }
+
   try {
-    const url = `${API_BASE}/${model}:generateContent?key=${keyToTest}`;
+    const url = `${API_BASE}/${activeModel}:generateContent?key=${keyToTest}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -71,6 +99,15 @@ export const testGeminiConnection = async (apiKey, model = DEFAULT_MODEL) => {
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
       const message = errData?.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+
+      // Auto-detect and switch if Google recommends a newer model in the error message
+      const suggested = extractSuggestedModel(message);
+      if (suggested && suggested !== activeModel) {
+        console.info(`[Bolas AI] Auto-switching from deprecated ${activeModel} to recommended model: ${suggested}`);
+        setStoredModel(suggested);
+        return testGeminiConnection(keyToTest, suggested);
+      }
+
       if (res.status === 400 && message.includes("API key not valid")) {
         return { ok: false, error: "Invalid API key. Please check your key from Google AI Studio." };
       }
@@ -82,7 +119,7 @@ export const testGeminiConnection = async (apiKey, model = DEFAULT_MODEL) => {
 
     const data = await res.json();
     const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return { ok: true, model, reply: reply ? reply.trim() : "Connected" };
+    return { ok: true, model: activeModel, reply: reply ? reply.trim() : "Connected" };
   } catch (err) {
     return { ok: false, error: err.message || "Network error connecting to Gemini API." };
   }
@@ -96,12 +133,18 @@ export const sendGeminiChat = async ({
   messages,
   systemInstruction,
   apiKey,
-  model = getStoredModel(),
+  model,
   temperature = 0.2
 }) => {
   const activeKey = apiKey || getStoredApiKey();
   if (!activeKey) {
     throw new Error("KEY_REQUIRED: No Gemini API key found. Please configure your free Google AI Studio key.");
+  }
+
+  let initialModel = model || getStoredModel();
+  if (!initialModel || initialModel === "gemini-2.0-flash") {
+    initialModel = DEFAULT_MODEL;
+    setStoredModel(DEFAULT_MODEL);
   }
 
   // Format messages for Gemini API
@@ -141,6 +184,14 @@ export const sendGeminiChat = async ({
       const errData = await res.json().catch(() => ({}));
       const errMsg = errData?.error?.message || `HTTP ${res.status}: ${res.statusText}`;
 
+      // Check if Google suggested a newer replacement model
+      const suggested = extractSuggestedModel(errMsg);
+      if (suggested && suggested !== targetModel) {
+        console.info(`[Bolas AI] Model ${targetModel} deprecated. Auto-migrating to Google recommended model: ${suggested}`);
+        setStoredModel(suggested);
+        return callApiWithModel(suggested);
+      }
+
       // Handle specific HTTP status codes
       if (res.status === 429) {
         throw new Error("RATE_LIMIT: Google Gemini free-tier rate limit reached (15 RPM / 1,500 RPD). Please wait a few seconds before trying again.");
@@ -148,9 +199,8 @@ export const sendGeminiChat = async ({
       if (res.status === 400 && errMsg.includes("API key not valid")) {
         throw new Error("INVALID_KEY: Your Google Gemini API key is invalid or has expired. Please update it in Settings.");
       }
-      if (res.status === 404 && targetModel === DEFAULT_MODEL) {
-        // Fallback to gemini-1.5-flash if 2.0 is not recognized in this region/key
-        console.warn(`Model ${DEFAULT_MODEL} unavailable, falling back to ${FALLBACK_MODEL}...`);
+      if ((res.status === 404 || errMsg.includes("no longer available") || errMsg.includes("not found")) && targetModel !== FALLBACK_MODEL) {
+        console.warn(`Model ${targetModel} unavailable, falling back to ${FALLBACK_MODEL}...`);
         return callApiWithModel(FALLBACK_MODEL);
       }
       throw new Error(`API_ERROR: ${errMsg}`);
@@ -169,5 +219,6 @@ export const sendGeminiChat = async ({
     return candidate.content.parts[0].text;
   };
 
-  return callApiWithModel(model);
+  return callApiWithModel(initialModel);
 };
+

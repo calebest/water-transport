@@ -146,3 +146,4 @@ export const executeReportDownload = ({
     return { ok: false, error: err.message };
   }
 };
+

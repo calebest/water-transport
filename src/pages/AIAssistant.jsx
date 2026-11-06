@@ -625,8 +625,9 @@ ${businessContext}
                   onChange={(e) => setSelectedModel(e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-sky-500"
                 >
-                  <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fastest & Free Tier Recommended)</option>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash (Reliable Fallback)</option>
+                  <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recommended · Latest Free Tier)</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Standard Flash)</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash (Legacy Fallback)</option>
                 </select>
               </div>
 
@@ -666,3 +667,4 @@ ${businessContext}
     </div>
   );
 }
+

@@ -354,8 +354,9 @@ export default function SettingsPage({
                 onChange={(e) => handleModelChange(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
               >
-                <option value="gemini-2.0-flash">gemini-2.0-flash (Recommended · Fast & Smart)</option>
-                <option value="gemini-1.5-flash">gemini-1.5-flash (Reliable Fallback)</option>
+                <option value="gemini-3.8-flash">gemini-3.8-flash (Recommended · Latest Google Free Tier)</option>
+                <option value="gemini-2.5-flash">gemini-2.5-flash (Standard Flash)</option>
+                <option value="gemini-1.5-flash">gemini-1.5-flash (Legacy Fallback)</option>
               </select>
             </div>
 

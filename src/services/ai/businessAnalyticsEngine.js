@@ -307,3 +307,4 @@ When asked "why actual payments are lower than total profit":
 4. Any difference between Net Payable and Actual Payments Sent is the "Outstanding Balance" currently held or pending transfer.
 `.trim();
 };
+
