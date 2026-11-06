@@ -10,67 +10,113 @@ import {
 } from "../utils/marketingExporter";
 import { Badge } from "../components/ui";
 
-// Available Themes for Business Cards & Posters
-const THEMES = [
+// Available Themes for Marketing Posters
+const POSTER_THEMES = [
   {
     id: "geo-cyan",
     name: "Cyan & Slate (Reference Match)",
     badgeColor: "blue",
-    cardBg: "bg-gradient-to-br from-slate-950 via-sky-950 to-slate-900 text-white border-sky-500/40",
-    cardAccent: "text-cyan-400",
-    cardPill: "bg-sky-800/80 text-sky-200 border border-sky-600/40",
-    qrDark: "#0284c7",
     posterBg: "bg-white text-slate-900",
     bannerBg: "bg-sky-600 text-white",
     quoteBg: "bg-[#2d1b33] text-white", // deep plum like reference
     accentColor: "text-sky-600",
     accentBorder: "border-sky-500",
+    qrDark: "#0284c7",
     buttonBg: "bg-sky-600 hover:bg-sky-700 text-white",
   },
   {
     id: "emerald",
     name: "Emerald Signature & White",
     badgeColor: "green",
-    cardBg: "bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 text-white border-emerald-500/40",
-    cardAccent: "text-amber-400",
-    cardPill: "bg-emerald-800/80 text-emerald-200 border border-emerald-600/40",
-    qrDark: "#064e3b",
     posterBg: "bg-white text-slate-900",
     bannerBg: "bg-emerald-600 text-white",
     quoteBg: "bg-slate-900 text-white",
     accentColor: "text-emerald-600",
     accentBorder: "border-emerald-500",
+    qrDark: "#064e3b",
     buttonBg: "bg-emerald-600 hover:bg-emerald-700 text-white",
   },
   {
     id: "royal-blue",
     name: "Royal Water Blue & White",
     badgeColor: "blue",
-    cardBg: "bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 text-white border-blue-500/40",
-    cardAccent: "text-blue-300",
-    cardPill: "bg-blue-800/80 text-blue-200 border border-blue-600/40",
-    qrDark: "#1e40af",
     posterBg: "bg-white text-slate-900",
     bannerBg: "bg-blue-700 text-white",
     quoteBg: "bg-slate-900 text-white",
     accentColor: "text-blue-600",
     accentBorder: "border-blue-500",
+    qrDark: "#1e40af",
     buttonBg: "bg-blue-600 hover:bg-blue-700 text-white",
   },
   {
     id: "obsidian-dark",
     name: "Midnight Obsidian (Dark Luxe)",
     badgeColor: "slate",
-    cardBg: "bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-950 text-white border-slate-700",
-    cardAccent: "text-emerald-400",
-    cardPill: "bg-slate-800 text-slate-300 border border-slate-700",
-    qrDark: "#0f172a",
     posterBg: "bg-slate-950 text-white",
     bannerBg: "bg-slate-900 text-white border-t border-slate-800",
     quoteBg: "bg-slate-900/90 text-white border border-slate-700",
     accentColor: "text-emerald-400",
     accentBorder: "border-emerald-400",
+    qrDark: "#0f172a",
     buttonBg: "bg-slate-800 hover:bg-slate-700 text-white",
+  },
+];
+
+// Rich Mixed Card Styles (Light, Two-Tone Split, and Dark Luxury)
+const CARD_THEMES = [
+  {
+    id: "geo-split-white",
+    name: "Modern Geo-Split (White & Cyan)",
+    tag: "Two-Tone Split",
+    category: "mixed",
+    qrDark: "#0284c7",
+    accentText: "text-sky-600",
+    description: "Clean white left panel with dark typography + angled vibrant cyan right panel with QR code.",
+  },
+  {
+    id: "crisp-white-emerald",
+    name: "Crisp Executive White & Emerald",
+    tag: "Clean Corporate",
+    category: "light",
+    qrDark: "#064e3b",
+    accentText: "text-emerald-700",
+    description: "Bright white cardstock with charcoal typography, emerald branding, and gold accents.",
+  },
+  {
+    id: "ice-blue-modern",
+    name: "Minimalist Ice Blue & Slate",
+    tag: "Modern Tech",
+    category: "light",
+    qrDark: "#0284c7",
+    accentText: "text-sky-600",
+    description: "Pure white card with architectural ice-blue accent bar and high-contrast dark text.",
+  },
+  {
+    id: "emerald-ribbon-white",
+    name: "Emerald Diagonal Ribbon & White",
+    tag: "Two-Tone Split",
+    category: "mixed",
+    qrDark: "#064e3b",
+    accentText: "text-emerald-600",
+    description: "Clean white base with angled deep emerald corner geometry and gold executive stars.",
+  },
+  {
+    id: "emerald-dark-luxe",
+    name: "Emerald Signature (Dark Luxe)",
+    tag: "Dark Luxury",
+    category: "dark",
+    qrDark: "#064e3b",
+    accentText: "text-amber-400",
+    description: "Deep emerald velvet gradient with glowing amber typography and dark styling.",
+  },
+  {
+    id: "obsidian-dark-gold",
+    name: "Midnight Obsidian (Dark Gold)",
+    tag: "Dark Luxury",
+    category: "dark",
+    qrDark: "#0f172a",
+    accentText: "text-emerald-400",
+    description: "Ultra-dark midnight slate with emerald accents and high-contrast night styling.",
   },
 ];
 
@@ -163,7 +209,8 @@ const DEFAULT_CONFIG = {
   tagline: "Pure, Reliable Bulk Water Delivery",
   accreditation: "Licensed Clean Bulk Water Transporter",
 
-  // Business Cardholder Profile
+  // Business Card Settings
+  cardTheme: "geo-split-white", // "geo-split-white" | "crisp-white-emerald" | "ice-blue-modern" | "emerald-ribbon-white" | "emerald-dark-luxe" | "obsidian-dark-gold"
   personName: "Caleb Bollus",
   personTitle: "Managing Director / Fleet Dispatch",
 
@@ -237,16 +284,19 @@ const DEFAULT_CONFIG = {
   ],
 };
 
-const STORAGE_KEY = "mk_marketing_studio_config_v2";
+const STORAGE_KEY = "mk_marketing_studio_config_v3";
 
 export default function MarketingStudioPage() {
   const { isPrivileged } = useAuth();
 
-  // Active view tab: 'poster' (primary) or 'card'
-  const [activeTab, setActiveTab] = useState("poster");
+  // Active view tab: 'card' or 'poster'
+  const [activeTab, setActiveTab] = useState("card");
 
   // Card view side: 'front' or 'back'
   const [cardSide, setCardSide] = useState("front");
+
+  // Card category filter for theme selector: 'all' | 'light' | 'dark'
+  const [cardFilter, setCardFilter] = useState("all");
 
   // Customization Configuration
   const [config, setConfig] = useState(() => {
@@ -278,9 +328,10 @@ export default function MarketingStudioPage() {
   const posterRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Active theme & size
-  const currentTheme = THEMES.find((t) => t.id === config.themeId) || THEMES[0];
-  const currentSize = POSTER_SIZES.find((s) => s.id === config.posterSize) || POSTER_SIZES[0];
+  // Active Poster theme, Poster size, & Card theme
+  const currentPosterTheme = POSTER_THEMES.find((t) => t.id === config.themeId) || POSTER_THEMES[0];
+  const currentPosterSize = POSTER_SIZES.find((s) => s.id === config.posterSize) || POSTER_SIZES[0];
+  const currentCardTheme = CARD_THEMES.find((t) => t.id === config.cardTheme) || CARD_THEMES[0];
 
   // Save config to localStorage on change
   useEffect(() => {
@@ -326,9 +377,11 @@ export default function MarketingStudioPage() {
     }
   }, []);
 
+  // Re-generate QR when URL or active theme changes
   useEffect(() => {
-    generateQrCode(config.websiteUrl, currentTheme.qrDark);
-  }, [config.websiteUrl, currentTheme.qrDark, generateQrCode]);
+    const darkColor = activeTab === "card" ? currentCardTheme.qrDark : currentPosterTheme.qrDark;
+    generateQrCode(config.websiteUrl, darkColor);
+  }, [config.websiteUrl, activeTab, currentCardTheme.qrDark, currentPosterTheme.qrDark, generateQrCode]);
 
   // Auto-fill from Boss profile
   const handleSelectBoss = (bossId) => {
@@ -479,7 +532,7 @@ export default function MarketingStudioPage() {
     }
   };
 
-  // Gradient transparency styles based on intensity
+  // Gradient transparency styles for poster
   const getGradientOverlayClass = () => {
     switch (config.gradientIntensity) {
       case "subtle":
@@ -492,6 +545,13 @@ export default function MarketingStudioPage() {
     }
   };
 
+  // Filtered card themes
+  const filteredCardThemes = CARD_THEMES.filter((t) => {
+    if (cardFilter === "light") return t.category === "light" || t.category === "mixed";
+    if (cardFilter === "dark") return t.category === "dark";
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       {/* Top Banner Header */}
@@ -499,29 +559,17 @@ export default function MarketingStudioPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-              Marketing & Flyer Studio
+              Marketing & Business Card Studio
             </h1>
             <Badge color="green">Print Ready</Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Design professional A5/A6/A2 flyers & business cards with customizable photos, bottom-to-top gradients, and live scannable website QR codes.
+            Design professional business cards & flyers with mixed light/dark/two-tone layouts and live scannable website QR codes.
           </p>
         </div>
 
         {/* View Mode Tabs */}
         <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab("poster")}
-            className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "poster"
-                ? "bg-white text-emerald-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span>🖼️</span>
-            <span>Posters & Flyers</span>
-          </button>
           <button
             type="button"
             onClick={() => setActiveTab("card")}
@@ -533,6 +581,18 @@ export default function MarketingStudioPage() {
           >
             <span>📇</span>
             <span>Business Cards</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("poster")}
+            className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "poster"
+                ? "bg-white text-emerald-800 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <span>🖼️</span>
+            <span>Posters & Flyers</span>
           </button>
         </div>
       </div>
@@ -563,34 +623,13 @@ export default function MarketingStudioPage() {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black uppercase tracking-widest text-slate-500">
                   {activeTab === "card"
-                    ? "Business Card Preview (3.5\" × 2.0\")"
-                    : `${currentSize.label} Preview (${currentSize.dimensions})`}
+                    ? `Business Card (3.5" × 2.0" • ${currentCardTheme.tag})`
+                    : `${currentPosterSize.label} Preview (${currentPosterSize.dimensions})`}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
                   300 DPI
                 </span>
               </div>
-
-              {/* Poster Paper Size Pill Selector (When in poster tab) */}
-              {activeTab === "poster" && (
-                <div className="inline-flex p-0.5 bg-white rounded-lg border border-slate-200 shadow-xs">
-                  {POSTER_SIZES.map((sz) => (
-                    <button
-                      key={sz.id}
-                      type="button"
-                      onClick={() => updateField("posterSize", sz.id)}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                        config.posterSize === sz.id
-                          ? "bg-slate-900 text-white shadow-xs"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                      }`}
-                    >
-                      {sz.id.toUpperCase()}
-                      {sz.id === "a5" && <span className="ml-1 text-[9px] text-emerald-400 font-normal">★</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
 
               {/* Front/Back Flip Toggle for Business Card */}
               {activeTab === "card" && (
@@ -615,14 +654,538 @@ export default function MarketingStudioPage() {
                   </button>
                 </div>
               )}
+
+              {/* Poster Paper Size Selector (When in poster tab) */}
+              {activeTab === "poster" && (
+                <div className="inline-flex p-0.5 bg-white rounded-lg border border-slate-200 shadow-xs">
+                  {POSTER_SIZES.map((sz) => (
+                    <button
+                      key={sz.id}
+                      type="button"
+                      onClick={() => updateField("posterSize", sz.id)}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                        config.posterSize === sz.id
+                          ? "bg-slate-900 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                      }`}
+                    >
+                      {sz.id.toUpperCase()}
+                      {sz.id === "a5" && <span className="ml-1 text-[9px] text-emerald-400 font-normal">★</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* -------------------------------------------------------------------
-                TAB 1: POSTERS & FLYERS CANVAS (With Reference Geo-Split Layout)
+                TAB 1: LIVE BUSINESS CARD CANVAS (Front & Back with Mixed Themes)
+               ------------------------------------------------------------------- */}
+            {activeTab === "card" && (
+              <div className="w-full flex justify-center py-2 overflow-x-auto">
+                <div className="w-full max-w-[540px] aspect-[1.75/1] relative select-none">
+                  {/* ==========================================
+                      CARD FRONT SIDE: THEME-AWARE RENDERING
+                     ========================================== */}
+                  <div
+                    ref={frontCardRef}
+                    className={`w-full h-full rounded-2xl relative overflow-hidden transition-all duration-300 ${
+                      cardSide === "front" ? "block" : "hidden"
+                    }`}
+                    style={{ minHeight: "295px" }}
+                  >
+                    {/* STYLE 1: TWO-TONE GEO-SPLIT (White & Cyan) */}
+                    {config.cardTheme === "geo-split-white" && (
+                      <div className="w-full h-full bg-white text-slate-900 border border-slate-200 shadow-xl flex items-stretch">
+                        {/* Left Side: Crisp White Typography & Contacts (66% Width) */}
+                        <div className="w-8/12 p-5 flex flex-col justify-between z-10">
+                          {/* Brand Header */}
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-9 w-9 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-lg shadow-2xs shrink-0">
+                              🚛
+                            </div>
+                            <div>
+                              <h3 className="font-black text-xs sm:text-sm tracking-tight leading-tight uppercase text-slate-900">
+                                {config.companyName}
+                              </h3>
+                              <p className="text-[9.5px] text-slate-500 font-semibold">
+                                {config.accreditation}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Cardholder Name & Title */}
+                          <div className="my-1.5">
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                              {config.personName}
+                            </h2>
+                            <p className="text-[11px] font-bold text-sky-600 uppercase tracking-wide">
+                              {config.personTitle}
+                            </p>
+                          </div>
+
+                          {/* Contact Details */}
+                          <div className="space-y-1 text-[9.5px] sm:text-[10px] text-slate-700 font-medium pt-1.5 border-t border-slate-100">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sky-600 font-bold">📞</span>
+                              <span className="font-bold text-slate-900">{config.primaryPhone}</span>
+                              {config.secondaryPhone && (
+                                <span className="text-slate-400">/ {config.secondaryPhone}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-emerald-600 font-bold">💬</span>
+                              <span>WhatsApp: <strong className="text-slate-900">{config.whatsappNumber}</strong></span>
+                            </div>
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="text-slate-400">✉️</span>
+                              <span className="truncate">{config.email}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 truncate text-[9px] text-slate-500">
+                              <span className="text-slate-400">📍</span>
+                              <span className="truncate">{config.address}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Side: Angled Vibrant Cyan Polygon with Scannable QR Code (34% Width) */}
+                        <div
+                          className="w-4/12 bg-sky-600 text-white p-3.5 flex flex-col items-center justify-between relative"
+                          style={{
+                            clipPath: "polygon(22% 0%, 100% 0%, 100% 100%, 0% 100%)",
+                            paddingLeft: "1.2rem",
+                          }}
+                        >
+                          {/* Top Pill */}
+                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-white self-end mr-1">
+                            Bulk Water
+                          </span>
+
+                          {/* QR Code Container */}
+                          <div className="bg-white p-1 rounded-xl shadow-md flex flex-col items-center border border-white">
+                            {qrDataUrl ? (
+                              <img
+                                src={qrDataUrl}
+                                alt="QR Code"
+                                className="w-14 h-14 sm:w-16 sm:h-16 object-contain"
+                              />
+                            ) : (
+                              <div className="w-14 h-14 bg-slate-100 flex items-center justify-center text-[7px] text-slate-400">
+                                QR
+                              </div>
+                            )}
+                            <span className="text-[7px] font-black text-slate-900 tracking-tighter uppercase mt-0.5">
+                              Scan to Visit
+                            </span>
+                          </div>
+
+                          {/* Quick delivery promise */}
+                          <span className="text-[8px] font-black tracking-tighter text-sky-100 uppercase text-center">
+                            ⚡ Same-Day Delivery
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STYLE 2: CRISP EXECUTIVE WHITE & EMERALD */}
+                    {config.cardTheme === "crisp-white-emerald" && (
+                      <div className="w-full h-full bg-white text-slate-900 border border-slate-200 shadow-xl p-5 sm:p-6 flex flex-col justify-between relative">
+                        {/* Subtle top brand accent line */}
+                        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-700" />
+
+                        {/* Top: Header & Pill */}
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-center text-lg font-bold">
+                              💧
+                            </div>
+                            <div>
+                              <h3 className="font-black text-xs sm:text-sm tracking-tight text-slate-900 uppercase">
+                                {config.companyName}
+                              </h3>
+                              <p className="text-[9.5px] text-emerald-700 font-bold">
+                                {config.accreditation}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            Licensed Transporter
+                          </span>
+                        </div>
+
+                        {/* Middle: Person Profile */}
+                        <div className="my-1 border-l-2 border-emerald-600 pl-3">
+                          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                            {config.personName}
+                          </h2>
+                          <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wide">
+                            {config.personTitle}
+                          </p>
+                        </div>
+
+                        {/* Bottom: Contacts & QR */}
+                        <div className="flex items-end justify-between gap-3 pt-2 border-t border-slate-100">
+                          <div className="space-y-1 text-[9.5px] sm:text-[10px] text-slate-700 font-medium">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-emerald-700">📞</span>
+                              <span className="font-bold text-slate-900">{config.primaryPhone}</span>
+                              {config.secondaryPhone && (
+                                <span className="text-slate-400">/ {config.secondaryPhone}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-emerald-600">💬</span>
+                              <span>WhatsApp: <strong className="text-slate-900">{config.whatsappNumber}</strong></span>
+                            </div>
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="text-slate-400">✉️</span>
+                              <span className="truncate">{config.email}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 truncate text-[9px] text-slate-500">
+                              <span className="text-slate-400">📍</span>
+                              <span className="truncate">{config.address}</span>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-50 p-1 rounded-xl shadow-xs flex flex-col items-center border border-slate-200 shrink-0">
+                            {qrDataUrl && (
+                              <img
+                                src={qrDataUrl}
+                                alt="QR Code"
+                                className="w-13 h-13 sm:w-15 sm:h-15 object-contain"
+                              />
+                            )}
+                            <span className="text-[7px] font-black text-emerald-900 uppercase mt-0.5">
+                              Scan to Visit
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STYLE 3: MINIMALIST ICE BLUE & SLATE */}
+                    {config.cardTheme === "ice-blue-modern" && (
+                      <div className="w-full h-full bg-white text-slate-900 border border-slate-200 shadow-xl p-5 sm:p-6 flex flex-col justify-between relative pl-7">
+                        {/* Modern Architectural Left Accent Bar */}
+                        <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-sky-600" />
+
+                        {/* Top: Header */}
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <span className="text-[9px] font-black text-sky-600 uppercase tracking-widest block">
+                              Potable Water Transport
+                            </span>
+                            <h3 className="font-black text-xs sm:text-sm tracking-tight text-slate-900 uppercase">
+                              {config.companyName}
+                            </h3>
+                          </div>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+                            Fast Dispatch
+                          </span>
+                        </div>
+
+                        {/* Middle: Profile */}
+                        <div className="my-1">
+                          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                            {config.personName}
+                          </h2>
+                          <p className="text-[11px] font-bold text-sky-600 uppercase">
+                            {config.personTitle}
+                          </p>
+                        </div>
+
+                        {/* Bottom: Contacts & QR */}
+                        <div className="flex items-end justify-between gap-3 pt-2 border-t border-slate-100">
+                          <div className="space-y-1 text-[9.5px] sm:text-[10px] text-slate-700 font-medium">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-sky-600">📞</span>
+                              <span className="font-bold text-slate-900">{config.primaryPhone}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-emerald-600">💬</span>
+                              <span>WhatsApp: <strong className="text-slate-900">{config.whatsappNumber}</strong></span>
+                            </div>
+                            <div className="flex items-center gap-1.5 truncate text-[9px] text-slate-500">
+                              <span className="text-slate-400">📍</span>
+                              <span className="truncate">{config.address}</span>
+                            </div>
+                          </div>
+
+                          <div className="bg-white p-1 rounded-xl shadow-xs flex flex-col items-center border border-slate-200 shrink-0">
+                            {qrDataUrl && (
+                              <img
+                                src={qrDataUrl}
+                                alt="QR Code"
+                                className="w-13 h-13 sm:w-15 sm:h-15 object-contain"
+                              />
+                            )}
+                            <span className="text-[7px] font-black text-slate-700 uppercase mt-0.5">
+                              Scan to Visit
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STYLE 4: EMERALD DIAGONAL RIBBON & WHITE */}
+                    {config.cardTheme === "emerald-ribbon-white" && (
+                      <div className="w-full h-full bg-white text-slate-900 border border-slate-200 shadow-xl flex items-stretch relative overflow-hidden">
+                        {/* Left Side Content (67% Width) */}
+                        <div className="w-8/12 p-5 flex flex-col justify-between z-10">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">🚛</span>
+                            <div>
+                              <h3 className="font-black text-xs sm:text-sm tracking-tight text-slate-900 uppercase">
+                                {config.companyName}
+                              </h3>
+                              <p className="text-[9px] text-emerald-700 font-bold">{config.accreditation}</p>
+                            </div>
+                          </div>
+
+                          <div className="my-1">
+                            <h2 className="text-base sm:text-lg font-black text-slate-900">{config.personName}</h2>
+                            <p className="text-[11px] font-bold text-emerald-700 uppercase">{config.personTitle}</p>
+                          </div>
+
+                          <div className="space-y-1 text-[9.5px] text-slate-700 font-medium pt-1.5 border-t border-slate-100">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-emerald-700">📞</span>
+                              <span className="font-bold text-slate-900">{config.primaryPhone}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-emerald-600">💬</span>
+                              <span>WhatsApp: <strong>{config.whatsappNumber}</strong></span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[9px] text-slate-500 truncate">
+                              <span>📍</span>
+                              <span className="truncate">{config.address}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Side Emerald Geometric Ribbon (33% Width) */}
+                        <div
+                          className="w-4/12 bg-gradient-to-br from-emerald-800 to-teal-900 text-white p-3.5 flex flex-col items-center justify-between"
+                          style={{
+                            clipPath: "polygon(22% 0%, 100% 0%, 100% 100%, 0% 100%)",
+                            paddingLeft: "1.2rem",
+                          }}
+                        >
+                          <span className="text-[9px] font-black uppercase text-amber-300">★ Pure Water</span>
+
+                          <div className="bg-white p-1 rounded-xl shadow-md flex flex-col items-center">
+                            {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-14 h-14 object-contain" />}
+                            <span className="text-[7px] font-black text-emerald-950 uppercase mt-0.5">Scan to Visit</span>
+                          </div>
+
+                          <span className="text-[8px] text-emerald-200 font-bold uppercase">5K - 30K Litres</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STYLE 5: EMERALD SIGNATURE (DARK LUXE) */}
+                    {config.cardTheme === "emerald-dark-luxe" && (
+                      <div className="w-full h-full p-5 sm:p-6 rounded-2xl border shadow-xl flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 text-white border-emerald-500/40">
+                        <div className="absolute -right-12 -bottom-16 w-56 h-56 rounded-full bg-white/5 pointer-events-none blur-2xl" />
+
+                        <div className="flex items-start justify-between relative z-10">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-9 w-9 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-lg">
+                              🚛
+                            </div>
+                            <div>
+                              <h3 className="font-black text-xs sm:text-sm tracking-tight uppercase text-white">
+                                {config.companyName}
+                              </h3>
+                              <p className="text-[9.5px] opacity-80 font-medium">{config.accreditation}</p>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-800 text-emerald-200 border border-emerald-600/40">
+                            Bulk Water
+                          </span>
+                        </div>
+
+                        <div className="relative z-10 my-1">
+                          <h2 className="text-base sm:text-lg font-black text-white">{config.personName}</h2>
+                          <p className="text-xs font-bold text-amber-400 uppercase">{config.personTitle}</p>
+                        </div>
+
+                        <div className="flex items-end justify-between gap-3 relative z-10 pt-2 border-t border-white/10">
+                          <div className="space-y-1 text-[9.5px] font-medium opacity-90">
+                            <div className="flex items-center gap-1.5">
+                              <span>📞</span>
+                              <span className="font-bold">{config.primaryPhone}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span>💬</span>
+                              <span>WhatsApp: <strong>{config.whatsappNumber}</strong></span>
+                            </div>
+                            <div className="flex items-center gap-1.5 truncate text-[9px] opacity-75">
+                              <span>📍</span>
+                              <span className="truncate">{config.address}</span>
+                            </div>
+                          </div>
+
+                          <div className="bg-white p-1 rounded-xl shadow-md flex flex-col items-center shrink-0">
+                            {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-14 h-14 object-contain" />}
+                            <span className="text-[7px] font-black text-slate-800 uppercase mt-0.5">Scan to Visit</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STYLE 6: MIDNIGHT OBSIDIAN (DARK GOLD) */}
+                    {config.cardTheme === "obsidian-dark-gold" && (
+                      <div className="w-full h-full p-5 sm:p-6 rounded-2xl border shadow-xl flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-950 text-white border-slate-700">
+                        <div className="flex items-start justify-between relative z-10">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-9 w-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-lg">
+                              🚛
+                            </div>
+                            <div>
+                              <h3 className="font-black text-xs sm:text-sm tracking-tight uppercase text-white">
+                                {config.companyName}
+                              </h3>
+                              <p className="text-[9.5px] text-slate-400 font-medium">{config.accreditation}</p>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                            Pure Water
+                          </span>
+                        </div>
+
+                        <div className="relative z-10 my-1">
+                          <h2 className="text-base sm:text-lg font-black text-white">{config.personName}</h2>
+                          <p className="text-xs font-bold text-emerald-400 uppercase">{config.personTitle}</p>
+                        </div>
+
+                        <div className="flex items-end justify-between gap-3 relative z-10 pt-2 border-t border-white/10">
+                          <div className="space-y-1 text-[9.5px] font-medium text-slate-300">
+                            <div className="flex items-center gap-1.5">
+                              <span>📞</span>
+                              <span className="font-bold text-white">{config.primaryPhone}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span>💬</span>
+                              <span>WhatsApp: {config.whatsappNumber}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[9px] text-slate-400 truncate">
+                              <span>📍</span>
+                              <span className="truncate">{config.address}</span>
+                            </div>
+                          </div>
+
+                          <div className="bg-white p-1 rounded-xl shadow-md flex flex-col items-center shrink-0">
+                            {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-14 h-14 object-contain" />}
+                            <span className="text-[7px] font-black text-slate-900 uppercase mt-0.5">Scan to Visit</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ==========================================
+                      CARD BACK SIDE: THEME-AWARE RENDERING
+                     ========================================== */}
+                  <div
+                    ref={backCardRef}
+                    className={`w-full h-full rounded-2xl relative overflow-hidden transition-all duration-300 ${
+                      cardSide === "back" ? "block" : "hidden"
+                    }`}
+                    style={{ minHeight: "295px" }}
+                  >
+                    {/* BACK SIDE FOR LIGHT & TWO-TONE THEMES */}
+                    {currentCardTheme.category !== "dark" && (
+                      <div className="w-full h-full p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xl flex flex-col justify-between bg-white text-slate-900 relative">
+                        {/* Top Slogan & Mission Strip */}
+                        <div className="text-center border-b border-slate-100 pb-2.5">
+                          <span className={`text-[10px] font-black uppercase tracking-wider block ${currentCardTheme.accentText}`}>
+                            {config.companyName}
+                          </span>
+                          <h4 className="text-xs sm:text-sm font-black text-slate-900 mt-0.5">
+                            "{config.tagline}"
+                          </h4>
+                        </div>
+
+                        {/* Middle: 6 Key Services Checklist */}
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[10px] my-2">
+                          {config.services.map((s, idx) => (
+                            <div key={idx} className="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 border border-slate-100">
+                              <span className="text-sm shrink-0">{s.icon || "💧"}</span>
+                              <span className="font-bold text-slate-800 truncate">{s.title}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Bottom: Fast Dispatch Callout & Website URL */}
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[9.5px]">
+                          <div>
+                            <span className="block font-bold text-slate-900">⚡ Same-Day Delivery Dispatch</span>
+                            <span className="text-slate-500 text-[8.5px]">5,000L to 30,000L Food-Grade Tankers</span>
+                          </div>
+
+                          <div className="text-right">
+                            <span className={`block font-black text-xs ${currentCardTheme.accentText}`}>
+                              {config.websiteUrl ? config.websiteUrl.replace(/^https?:\/\//, "") : "mountkenyawater.co.ke"}
+                            </span>
+                            <span className="text-slate-400 text-[8.5px]">Online Booking Available</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* BACK SIDE FOR DARK LUXURY THEMES */}
+                    {currentCardTheme.category === "dark" && (
+                      <div
+                        className={`w-full h-full p-5 sm:p-6 rounded-2xl border shadow-xl flex flex-col justify-between text-white relative ${
+                          config.cardTheme === "emerald-dark-luxe"
+                            ? "bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 border-emerald-500/40"
+                            : "bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-950 border-slate-700"
+                        }`}
+                      >
+                        <div className="text-center border-b border-white/10 pb-2.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider block text-amber-400">
+                            {config.companyName}
+                          </span>
+                          <h4 className="text-xs sm:text-sm font-bold text-white mt-0.5">
+                            "{config.tagline}"
+                          </h4>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[10px] my-2">
+                          {config.services.map((s, idx) => (
+                            <div key={idx} className="flex items-center gap-2 p-1.5 rounded-lg bg-white/5 border border-white/10">
+                              <span className="text-sm shrink-0">{s.icon || "💧"}</span>
+                              <span className="font-semibold text-white truncate">{s.title}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-white/10 text-[9.5px]">
+                          <div>
+                            <span className="block font-bold text-white">⚡ Same-Day Delivery Dispatch</span>
+                            <span className="opacity-75 text-[8.5px]">5,000L to 30,000L Food-Grade Tankers</span>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="block font-black text-xs text-amber-400">
+                              {config.websiteUrl ? config.websiteUrl.replace(/^https?:\/\//, "") : "mountkenyawater.co.ke"}
+                            </span>
+                            <span className="opacity-75 text-[8.5px]">Online Booking Available</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* -------------------------------------------------------------------
+                TAB 2: POSTERS & FLYERS CANVAS (With Reference Geo-Split Layout)
                ------------------------------------------------------------------- */}
             {activeTab === "poster" && (
               <div className="w-full flex justify-center py-2 overflow-x-auto">
-                {/* Visual Canvas Target Wrapper */}
                 <div
                   ref={posterRef}
                   className="w-full max-w-[500px] bg-white text-slate-900 rounded-3xl shadow-2xl relative overflow-hidden select-none flex flex-col justify-between border border-slate-200"
@@ -630,14 +1193,11 @@ export default function MarketingStudioPage() {
                     minHeight: config.posterSize === "a6" ? "640px" : "720px",
                   }}
                 >
-                  {/* =========================================================
-                      LAYOUT STYLE A: GEO-SPLIT (Exact Match to User Reference)
-                     ========================================================= */}
+                  {/* STYLE A: GEO-SPLIT (Reference Match) */}
                   {config.posterLayout === "geo-split" && (
                     <div className="relative w-full h-full flex flex-col justify-between overflow-hidden bg-white">
-                      {/* --- TOP SECTION: Split into Left Headline & Right Geometric Quote Badge --- */}
+                      {/* Top Split */}
                       <div className="relative flex items-stretch">
-                        {/* Top-Left: 4 REASONS & Main Headline Area */}
                         <div className="w-7/12 p-5 sm:p-6 z-10">
                           <div className="inline-block">
                             <span className="text-[11px] sm:text-xs font-black tracking-widest uppercase text-sky-600 block mb-0.5">
@@ -645,7 +1205,6 @@ export default function MarketingStudioPage() {
                             </span>
                             <div className="w-8 h-0.5 bg-sky-600 mb-2 rounded-full" />
                           </div>
-
                           <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight uppercase">
                             {config.posterHeadlineMain}
                           </h2>
@@ -654,18 +1213,14 @@ export default function MarketingStudioPage() {
                           </p>
                         </div>
 
-                        {/* Top-Right: Deep Plum/Slate Geometric Polygon Quote Box */}
                         <div
                           className="w-5/12 p-4 sm:p-5 relative text-white flex flex-col justify-center"
                           style={{
-                            backgroundColor: currentTheme.id === "emerald" ? "#064e3b" : "#2d1b33",
+                            backgroundColor: currentPosterTheme.id === "emerald" ? "#064e3b" : "#2d1b33",
                             clipPath: "polygon(18% 0%, 100% 0%, 100% 100%, 0% 82%)",
                           }}
                         >
-                          {/* Large quotation mark decorative element */}
-                          <div className="text-3xl sm:text-4xl font-serif text-white/30 leading-none mb-1">
-                            “
-                          </div>
+                          <div className="text-3xl sm:text-4xl font-serif text-white/30 leading-none mb-1">“</div>
                           <p className="text-[9.5px] sm:text-[10.5px] font-bold text-white/95 leading-snug tracking-tight">
                             {config.quoteText}
                           </p>
@@ -675,13 +1230,11 @@ export default function MarketingStudioPage() {
                         </div>
                       </div>
 
-                      {/* --- MIDDLE SECTION: 4 Bullet Points (Left) & Angled Photo with Bottom-to-Top Gradient (Right) --- */}
+                      {/* Middle: 4 Features + Angled Photo with Gradient */}
                       <div className="relative flex items-stretch min-h-[300px]">
-                        {/* Middle-Left: The 4 Feature Cards with Circular Icon Badges */}
                         <div className="w-6/12 p-4 sm:p-6 space-y-3 z-10 flex flex-col justify-center">
                           {config.reasons.map((item, idx) => (
                             <div key={idx} className="flex items-start gap-2.5">
-                              {/* Circular Icon Badge */}
                               <div className="w-8 h-8 rounded-full border border-slate-300 bg-slate-50 flex items-center justify-center text-sm shrink-0 shadow-xs">
                                 {item.icon || "💧"}
                               </div>
@@ -697,30 +1250,24 @@ export default function MarketingStudioPage() {
                           ))}
                         </div>
 
-                        {/* Middle-Right: Angled Photographic Container with Bottom-to-Top Gradient */}
                         <div
                           className="w-6/12 relative overflow-hidden"
                           style={{
                             clipPath: "polygon(22% 0%, 100% 0%, 100% 100%, 0% 100%)",
                           }}
                         >
-                          {/* Background Photo */}
                           <img
                             src={config.posterBgPhoto || PHOTO_PRESETS[0].url}
                             alt="Mount Kenya Water Truck"
                             crossOrigin="anonymous"
                             className="absolute inset-0 w-full h-full object-cover object-center"
                           />
-
-                          {/* Smooth Bottom-to-Top Gradient Transparency for Text Clarity */}
                           <div className={`absolute inset-0 ${getGradientOverlayClass()}`} />
 
-                          {/* Subtle Brand Watermark inside the photo container */}
                           <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-xs border border-white/20 text-[8px] font-bold text-white uppercase tracking-wider">
                             Mount Kenya Fleet
                           </div>
 
-                          {/* Photo Lower Text Overlay (Super legible thanks to bottom-to-top gradient) */}
                           <div className="absolute bottom-3 left-4 right-3 z-10 text-white">
                             <span className="text-[8px] font-bold text-sky-300 uppercase tracking-wider block">
                               Guaranteed Fresh
@@ -732,14 +1279,14 @@ export default function MarketingStudioPage() {
                         </div>
                       </div>
 
-                      {/* --- BOTTOM SECTION: Vibrant Angled Cyan / Emerald Banner & QR Code --- */}
+                      {/* Bottom Banner */}
                       <div
                         className={`relative p-5 sm:p-6 text-white overflow-hidden ${
-                          currentTheme.id === "emerald"
+                          currentPosterTheme.id === "emerald"
                             ? "bg-emerald-600"
-                            : currentTheme.id === "royal-blue"
+                            : currentPosterTheme.id === "royal-blue"
                             ? "bg-blue-700"
-                            : currentTheme.id === "obsidian-dark"
+                            : currentPosterTheme.id === "obsidian-dark"
                             ? "bg-slate-900"
                             : "bg-sky-600"
                         }`}
@@ -748,7 +1295,6 @@ export default function MarketingStudioPage() {
                           paddingTop: "2.2rem",
                         }}
                       >
-                        {/* Company Tagline / Mission */}
                         <div className="mb-3 max-w-[340px]">
                           <p className="text-xs sm:text-sm font-black leading-tight text-white">
                             "{config.bottomBannerMission}"
@@ -758,7 +1304,6 @@ export default function MarketingStudioPage() {
                           </p>
                         </div>
 
-                        {/* Contacts & Live Scannable Website QR Code Row */}
                         <div className="flex items-end justify-between gap-3 pt-2 border-t border-white/20">
                           <div className="space-y-1 text-[10px] sm:text-[11px] font-medium leading-tight">
                             <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm text-white">
@@ -768,37 +1313,29 @@ export default function MarketingStudioPage() {
                                 <span className="text-[10px] font-semibold text-white/80">/ {config.secondaryPhone}</span>
                               )}
                             </div>
-
                             <div className="flex items-center gap-1.5 text-white/95">
                               <span>💬</span>
                               <span>WhatsApp: <strong className="text-white">{config.whatsappNumber}</strong></span>
                             </div>
-
                             <div className="flex items-center gap-1.5 text-white/95">
                               <span>🌐</span>
                               <span className="font-bold underline tracking-wide">
                                 {config.websiteUrl.replace(/^https?:\/\//, "")}
                               </span>
                             </div>
-
                             <div className="flex items-center gap-1.5 text-white/80 text-[9px] pt-0.5">
                               <span>📍</span>
                               <span className="truncate max-w-[240px]">{config.address}</span>
                             </div>
                           </div>
 
-                          {/* Giant Scannable QR Code */}
                           <div className="bg-white p-1.5 rounded-2xl shadow-xl flex flex-col items-center shrink-0 border border-white">
-                            {qrDataUrl ? (
+                            {qrDataUrl && (
                               <img
                                 src={qrDataUrl}
                                 alt="Website QR Code"
                                 className="w-16 h-16 sm:w-18 sm:h-18 object-contain"
                               />
-                            ) : (
-                              <div className="w-16 h-16 bg-slate-100 flex items-center justify-center text-[8px] text-slate-400">
-                                QR Code
-                              </div>
                             )}
                             <span className="text-[7.5px] font-black text-slate-900 tracking-tighter uppercase mt-0.5 text-center">
                               Scan to Order
@@ -809,23 +1346,17 @@ export default function MarketingStudioPage() {
                     </div>
                   )}
 
-                  {/* =========================================================
-                      LAYOUT STYLE B: FULL PHOTO HERO WITH BOTTOM-TO-TOP GRADIENT
-                     ========================================================= */}
+                  {/* STYLE B: PHOTO HERO */}
                   {config.posterLayout === "photo-hero" && (
                     <div className="relative w-full h-full flex flex-col justify-between overflow-hidden min-h-[680px]">
-                      {/* Full-bleed Photo Background */}
                       <img
                         src={config.posterBgPhoto || PHOTO_PRESETS[0].url}
                         alt="Water Delivery"
                         crossOrigin="anonymous"
                         className="absolute inset-0 w-full h-full object-cover object-center"
                       />
-
-                      {/* Continuous Bottom-to-Top Gradient Overlay for Text Clarity */}
                       <div className={`absolute inset-0 ${getGradientOverlayClass()}`} />
 
-                      {/* Top Header Pill */}
                       <div className="relative z-10 p-6 text-center border-b border-white/10 backdrop-blur-xs bg-black/20">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-bold text-sky-300 mb-2">
                           <span>🚛</span>
@@ -839,7 +1370,6 @@ export default function MarketingStudioPage() {
                         </p>
                       </div>
 
-                      {/* Middle Catchy Hook & Features */}
                       <div className="relative z-10 px-6 my-auto text-center">
                         <span className="text-xs font-black uppercase tracking-widest text-sky-400 block mb-1">
                           {config.posterHeadlineLabel}
@@ -851,101 +1381,56 @@ export default function MarketingStudioPage() {
                           {config.posterSubheadline}
                         </p>
 
-                        {/* 4 Feature Badges */}
                         <div className="grid grid-cols-2 gap-2 mt-4 text-left">
                           {config.reasons.map((r, i) => (
-                            <div
-                              key={i}
-                              className="p-2.5 rounded-xl bg-slate-900/80 border border-white/10 backdrop-blur-md"
-                            >
+                            <div key={i} className="p-2.5 rounded-xl bg-slate-900/80 border border-white/10 backdrop-blur-md">
                               <div className="flex items-center gap-1.5 font-bold text-white text-xs">
                                 <span>{r.icon}</span>
                                 <span className="truncate">{r.title}</span>
                               </div>
-                              <p className="text-[9.5px] text-slate-300 mt-0.5 line-clamp-2">
-                                {r.desc}
-                              </p>
+                              <p className="text-[9.5px] text-slate-300 mt-0.5 line-clamp-2">{r.desc}</p>
                             </div>
                           ))}
                         </div>
                       </div>
 
-                      {/* Bottom Banner with QR Code */}
                       <div className="relative z-10 p-5 bg-black/80 backdrop-blur-md border-t border-white/10 flex items-center justify-between gap-3">
                         <div className="space-y-1 text-white text-xs">
-                          <p className="font-black text-base sm:text-lg text-white">
-                            📞 {config.primaryPhone}
-                          </p>
-                          <p className="text-[11px] text-sky-300 font-semibold">
-                            💬 WhatsApp: {config.whatsappNumber}
-                          </p>
-                          <p className="text-[10px] text-slate-300">
-                            🌐 {config.websiteUrl.replace(/^https?:\/\//, "")}
-                          </p>
-                          <p className="text-[9px] text-slate-400 truncate max-w-[220px]">
-                            📍 {config.address}
-                          </p>
+                          <p className="font-black text-base sm:text-lg text-white">📞 {config.primaryPhone}</p>
+                          <p className="text-[11px] text-sky-300 font-semibold">💬 WhatsApp: {config.whatsappNumber}</p>
+                          <p className="text-[10px] text-slate-300">🌐 {config.websiteUrl.replace(/^https?:\/\//, "")}</p>
+                          <p className="text-[9px] text-slate-400 truncate max-w-[220px]">📍 {config.address}</p>
                         </div>
 
                         <div className="bg-white p-1.5 rounded-2xl shadow-xl flex flex-col items-center shrink-0">
-                          {qrDataUrl && (
-                            <img
-                              src={qrDataUrl}
-                              alt="Website QR Code"
-                              className="w-16 h-16 sm:w-18 sm:h-18 object-contain"
-                            />
-                          )}
-                          <span className="text-[7.5px] font-black text-slate-900 uppercase mt-0.5">
-                            Scan to Order
-                          </span>
+                          {qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-16 h-16 sm:w-18 sm:h-18 object-contain" />}
+                          <span className="text-[7.5px] font-black text-slate-900 uppercase mt-0.5">Scan to Order</span>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* =========================================================
-                      LAYOUT STYLE C: CLEAN WHITE CORPORATE
-                     ========================================================= */}
+                  {/* STYLE C: CLEAN WHITE CORPORATE */}
                   {config.posterLayout === "clean-corporate" && (
                     <div className="relative w-full h-full flex flex-col justify-between overflow-hidden bg-white text-slate-900 p-6">
-                      {/* Top Corporate Header */}
                       <div className="border-b pb-4">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-black text-sky-600 uppercase tracking-widest">
-                            {config.accreditation}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
-                            Bulk Water Fleet
-                          </span>
+                          <span className="text-xs font-black text-sky-600 uppercase tracking-widest">{config.accreditation}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">Bulk Water Fleet</span>
                         </div>
-                        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mt-1">
-                          {config.companyName}
-                        </h2>
-                        <p className="text-xs font-bold text-slate-500">
-                          "{config.tagline}"
-                        </p>
+                        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mt-1">{config.companyName}</h2>
+                        <p className="text-xs font-bold text-slate-500">"{config.tagline}"</p>
                       </div>
 
-                      {/* Photo Section */}
                       <div className="relative h-44 rounded-2xl overflow-hidden my-3 border border-slate-200">
-                        <img
-                          src={config.posterBgPhoto || PHOTO_PRESETS[0].url}
-                          alt="Fleet"
-                          crossOrigin="anonymous"
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={config.posterBgPhoto || PHOTO_PRESETS[0].url} alt="Fleet" crossOrigin="anonymous" className="w-full h-full object-cover" />
                         <div className={`absolute inset-0 ${getGradientOverlayClass()}`} />
                         <div className="absolute bottom-3 left-4 text-white">
-                          <p className="text-sm font-black uppercase">
-                            {config.posterHeadlineMain}
-                          </p>
-                          <p className="text-[10px] text-slate-200 max-w-xs">
-                            {config.posterSubheadline}
-                          </p>
+                          <p className="text-sm font-black uppercase">{config.posterHeadlineMain}</p>
+                          <p className="text-[10px] text-slate-200 max-w-xs">{config.posterSubheadline}</p>
                         </div>
                       </div>
 
-                      {/* 4 Reasons List */}
                       <div className="grid grid-cols-2 gap-2.5 my-2">
                         {config.reasons.map((r, i) => (
                           <div key={i} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
@@ -956,7 +1441,6 @@ export default function MarketingStudioPage() {
                         ))}
                       </div>
 
-                      {/* Bottom Footer & QR */}
                       <div className="pt-3 border-t flex items-center justify-between gap-3">
                         <div className="space-y-1 text-xs text-slate-700">
                           <p className="font-black text-slate-900 text-sm">📞 {config.primaryPhone}</p>
@@ -974,144 +1458,12 @@ export default function MarketingStudioPage() {
               </div>
             )}
 
-            {/* -------------------------------------------------------------------
-                TAB 2: LIVE BUSINESS CARD CANVAS (Front & Back)
-               ------------------------------------------------------------------- */}
-            {activeTab === "card" && (
-              <div className="w-full flex justify-center py-2 overflow-x-auto">
-                <div className="w-full max-w-[540px] aspect-[1.75/1] relative select-none">
-                  {/* FRONT SIDE */}
-                  <div
-                    ref={frontCardRef}
-                    className={`w-full h-full p-5 sm:p-6 rounded-2xl border shadow-xl flex flex-col justify-between relative overflow-hidden transition-all duration-300 ${
-                      currentTheme.cardBg
-                    } ${cardSide === "front" ? "block" : "hidden"}`}
-                    style={{ minHeight: "290px" }}
-                  >
-                    <div className="absolute -right-12 -bottom-16 w-56 h-56 rounded-full bg-white/5 pointer-events-none blur-2xl" />
-                    <div className="absolute right-8 top-0 bottom-0 w-32 bg-white/[0.02] transform -skew-x-12 pointer-events-none" />
-
-                    <div className="flex items-start justify-between relative z-10">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-10 w-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-xl shadow-inner shrink-0">
-                          🚛
-                        </div>
-                        <div>
-                          <h3 className="font-black text-sm sm:text-base tracking-tight leading-tight uppercase">
-                            {config.companyName}
-                          </h3>
-                          <p className="text-[10px] sm:text-[11px] opacity-80 font-medium tracking-wide">
-                            {config.accreditation}
-                          </p>
-                        </div>
-                      </div>
-
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${currentTheme.cardPill}`}>
-                        Bulk Water
-                      </span>
-                    </div>
-
-                    <div className="relative z-10 my-2">
-                      <h2 className="text-lg sm:text-xl font-black tracking-tight flex items-center gap-1.5">
-                        <span>{config.personName}</span>
-                      </h2>
-                      <p className={`text-xs font-bold tracking-wide uppercase mt-0.5 ${currentTheme.cardAccent}`}>
-                        {config.personTitle}
-                      </p>
-                    </div>
-
-                    <div className="flex items-end justify-between gap-3 relative z-10 pt-2 border-t border-white/10">
-                      <div className="space-y-1 text-[10px] sm:text-[11px] font-medium leading-tight">
-                        <div className="flex items-center gap-1.5 opacity-90">
-                          <span>📞</span>
-                          <span className="font-bold">{config.primaryPhone}</span>
-                          {config.secondaryPhone && <span className="opacity-70">/ {config.secondaryPhone}</span>}
-                        </div>
-                        <div className="flex items-center gap-1.5 opacity-90">
-                          <span>💬</span>
-                          <span>WhatsApp: <strong className="text-white">{config.whatsappNumber}</strong></span>
-                        </div>
-                        <div className="flex items-center gap-1.5 opacity-90">
-                          <span>✉️</span>
-                          <span className="truncate max-w-[200px]">{config.email}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 opacity-80 text-[9.5px]">
-                          <span>📍</span>
-                          <span className="truncate max-w-[230px]">{config.address}</span>
-                        </div>
-                      </div>
-
-                      <div className="bg-white p-1.5 rounded-xl shadow-md flex flex-col items-center shrink-0 border border-white/80">
-                        {qrDataUrl ? (
-                          <img
-                            src={qrDataUrl}
-                            alt="Website QR Code"
-                            className="w-14 h-14 sm:w-16 sm:h-16 object-contain"
-                          />
-                        ) : (
-                          <div className="w-14 h-14 bg-slate-100 flex items-center justify-center text-[8px] text-slate-400">
-                            QR Code
-                          </div>
-                        )}
-                        <span className="text-[7.5px] font-black text-slate-700 tracking-tighter uppercase mt-0.5 text-center">
-                          Scan to Visit
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* BACK SIDE */}
-                  <div
-                    ref={backCardRef}
-                    className={`w-full h-full p-5 sm:p-6 rounded-2xl border shadow-xl flex flex-col justify-between relative overflow-hidden transition-all duration-300 ${
-                      currentTheme.cardBg
-                    } ${cardSide === "back" ? "block" : "hidden"}`}
-                    style={{ minHeight: "290px" }}
-                  >
-                    <div className="absolute -left-12 -top-16 w-56 h-56 rounded-full bg-white/5 pointer-events-none blur-2xl" />
-
-                    <div className="relative z-10 text-center border-b border-white/10 pb-2">
-                      <p className={`text-xs font-black uppercase tracking-widest ${currentTheme.cardAccent}`}>
-                        Mount Kenya Water Distributors
-                      </p>
-                      <h4 className="text-sm sm:text-base font-bold text-white tracking-tight mt-0.5">
-                        "{config.tagline}"
-                      </h4>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] sm:text-[11px] relative z-10 my-2">
-                      {config.services.map((s, idx) => (
-                        <div key={idx} className="flex items-center gap-1.5">
-                          <span className="text-xs shrink-0">{s.icon || "💧"}</span>
-                          <span className="font-semibold truncate">{s.title}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-white/10 relative z-10 text-[10px]">
-                      <div>
-                        <span className="block font-bold text-white">⚡ Same-Day Delivery Dispatch</span>
-                        <span className="opacity-75 text-[9px]">5,000L to 30,000L Food-Grade Tankers</span>
-                      </div>
-
-                      <div className="text-right">
-                        <span className={`block font-black text-xs ${currentTheme.cardAccent}`}>
-                          {config.websiteUrl ? config.websiteUrl.replace(/^https?:\/\//, "") : "mountkenyawater.co.ke"}
-                        </span>
-                        <span className="opacity-75 text-[9px]">Online Booking Available</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Quick Export Actions Bar Under Canvas */}
             <div className="w-full mt-4 pt-4 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-500">Download Assets:</span>
                 <span className="text-xs font-black text-slate-700">
-                  {activeTab === "poster" ? `Size: ${config.posterSize.toUpperCase()}` : "Card"}
+                  {activeTab === "poster" ? `Poster (${config.posterSize.toUpperCase()})` : `Card (${currentCardTheme.tag})`}
                 </span>
               </div>
 
@@ -1179,7 +1531,95 @@ export default function MarketingStudioPage() {
             RIGHT COLUMN: COMPREHENSIVE CUSTOMIZATION PANEL (5 cols on lg)
            ========================================================================= */}
         <div className="lg:col-span-5 space-y-5">
-          {/* Paper Size & Layout Selector Card (If Poster tab active) */}
+          {/* =====================================================================
+              CARD-SPECIFIC THEME / STYLE PICKER (Only visible in Business Card tab)
+             ===================================================================== */}
+          {activeTab === "card" && (
+            <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                    Business Card Theme & Style
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Select from clean white cardstock, two-tone split, or luxury dark styles.
+                  </p>
+                </div>
+                <Badge color="blue">{currentCardTheme.tag}</Badge>
+              </div>
+
+              {/* Filter Tabs: All / Light & Split / Dark */}
+              <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 w-full text-center">
+                <button
+                  type="button"
+                  onClick={() => setCardFilter("all")}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    cardFilter === "all" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  All ({CARD_THEMES.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCardFilter("light")}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    cardFilter === "light" ? "bg-white text-sky-800 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Light & Split (4) ★
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCardFilter("dark")}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    cardFilter === "dark" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Dark Luxe (2)
+                </button>
+              </div>
+
+              {/* Themes Grid */}
+              <div className="grid grid-cols-1 gap-2">
+                {filteredCardThemes.map((theme) => (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    onClick={() => updateField("cardTheme", theme.id)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                      config.cardTheme === theme.id
+                        ? "border-sky-600 bg-sky-50/60 ring-1 ring-sky-600 shadow-xs"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-3 h-3 rounded-full shrink-0 ${
+                            theme.category === "dark"
+                              ? "bg-slate-900 border border-slate-700"
+                              : theme.category === "mixed"
+                              ? "bg-sky-500 border border-sky-400"
+                              : "bg-white border-2 border-emerald-600"
+                          }`}
+                        />
+                        <span className="font-bold text-xs text-slate-900 truncate">{theme.name}</span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-semibold shrink-0">
+                          {theme.tag}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">{theme.description}</p>
+                    </div>
+                    {config.cardTheme === theme.id && <span className="text-sky-600 font-bold shrink-0">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* =====================================================================
+              POSTER-SPECIFIC SIZING & LAYOUT (Only visible in Posters tab)
+             ===================================================================== */}
           {activeTab === "poster" && (
             <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
               <div className="flex items-center justify-between">
@@ -1189,7 +1629,6 @@ export default function MarketingStudioPage() {
                 <Badge color="blue">{config.posterSize.toUpperCase()}</Badge>
               </div>
 
-              {/* Sizing Grid (A5, A6, A2, A4) */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
                   Select Target Print Format
@@ -1221,7 +1660,6 @@ export default function MarketingStudioPage() {
                 </div>
               </div>
 
-              {/* Poster Layout Switcher */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
                   Poster Layout Design
@@ -1250,7 +1688,7 @@ export default function MarketingStudioPage() {
             </div>
           )}
 
-          {/* Background Photo & Bottom-to-Top Gradient Settings */}
+          {/* Background Photo & Bottom-to-Top Gradient Settings (Posters only) */}
           {activeTab === "poster" && (
             <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
               <div className="flex items-center justify-between">
@@ -1260,7 +1698,6 @@ export default function MarketingStudioPage() {
                 <span className="text-[10px] font-bold text-sky-600">Bottom-to-Top Transparency</span>
               </div>
 
-              {/* Curated Preset Photos */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
                   Choose Photo Preset
@@ -1291,7 +1728,6 @@ export default function MarketingStudioPage() {
                 </div>
               </div>
 
-              {/* Upload Custom Local Truck/Depot Image */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
                   Or Upload Your Own Photo
@@ -1323,12 +1759,8 @@ export default function MarketingStudioPage() {
                     </button>
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Supports your real phone camera shots or company truck pictures directly.
-                </p>
               </div>
 
-              {/* Bottom-to-Top Gradient Intensity for Text Legibility */}
               <div className="pt-2 border-t border-slate-100">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
                   Bottom-to-Top Gradient Contrast (For Text Clarity)
@@ -1358,10 +1790,10 @@ export default function MarketingStudioPage() {
             </div>
           )}
 
-          {/* Quick Setup & Visual Themes */}
+          {/* Quick Setup & Director Sync */}
           <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-3.5">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
-              Color Palette & Quick Sync
+              Quick Setup & Data Sync
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1404,35 +1836,55 @@ export default function MarketingStudioPage() {
                 </select>
               </div>
             )}
-
-            {/* Visual Color Theme Selector */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
-                Color Palette Mix
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {THEMES.map((theme) => (
-                  <button
-                    key={theme.id}
-                    type="button"
-                    onClick={() => updateField("themeId", theme.id)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      config.themeId === theme.id
-                        ? "border-sky-600 bg-sky-50/50 shadow-xs ring-1 ring-sky-600"
-                        : "border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={`w-3.5 h-3.5 rounded-full ${theme.buttonBg}`} />
-                      <span className="text-xs font-bold text-slate-800 truncate">{theme.name.split(" ")[0]}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
-          {/* Editable Content: 4 Reasons, Quote & Headlines */}
+          {/* Cardholder Profile Customization (For Business Card) */}
+          {activeTab === "card" && (
+            <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                Cardholder Profile
+              </h3>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                    Contact Name
+                  </label>
+                  <input
+                    type="text"
+                    value={config.personName}
+                    onChange={(e) => updateField("personName", e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 font-bold text-slate-800 focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                    Job Title / Role
+                  </label>
+                  <input
+                    type="text"
+                    value={config.personTitle}
+                    onChange={(e) => updateField("personTitle", e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 font-bold text-slate-800 focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                  Tagline / Company Slogan
+                </label>
+                <input
+                  type="text"
+                  value={config.tagline}
+                  onChange={(e) => updateField("tagline", e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 text-slate-700 focus:outline-none focus:border-sky-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Editable Content: 4 Reasons, Quote & Headlines (Only in Posters tab) */}
           {activeTab === "poster" && (
             <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
@@ -1570,7 +2022,6 @@ export default function MarketingStudioPage() {
               Phone Lines & Scannable QR Code
             </h3>
 
-            {/* Contacts & Dispatch Lines */}
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -1653,7 +2104,7 @@ export default function MarketingStudioPage() {
                 )}
               </div>
               <p className="text-[10px] text-slate-500">
-                Any customer pointing their smartphone camera at the poster or card will immediately be redirected to this URL.
+                Any customer pointing their smartphone camera at the card will immediately open this website.
               </p>
             </div>
           </div>
