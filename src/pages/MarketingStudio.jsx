@@ -255,6 +255,9 @@ const DEFAULT_CONFIG = {
   cardTheme: "geo-split-white", // "geo-split-white" | "crisp-white-emerald" | "ice-blue-modern" | "emerald-ribbon-white" | "emerald-dark-luxe" | "obsidian-dark-gold"
   personName: "Caleb Bollus",
   personTitle: "Managing Director / Fleet Dispatch",
+  personPhoto: "", // Passport photo / headshot data URL
+  showPassportPhoto: true,
+  avatarShape: "circle", // "circle" | "rounded"
 
   // Contacts
   primaryPhone: "+254 746 346 888",
@@ -396,6 +399,7 @@ export default function MarketingStudioPage() {
   const backCardRef = useRef(null);
   const posterRef = useRef(null);
   const fileInputRef = useRef(null);
+  const passportPhotoInputRef = useRef(null);
 
   // Active Poster theme, Poster size, & Card theme
   const currentPosterTheme = POSTER_THEMES.find((t) => t.id === config.themeId) || POSTER_THEMES[0];
@@ -661,6 +665,40 @@ export default function MarketingStudioPage() {
       reader.onload = (event) => {
         if (event.target?.result) {
           updateField("posterBgPhoto", event.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle Passport Photo Upload for Business Card
+  const handlePassportPhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please select a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+
+    try {
+      // Compress avatar to 400x400 max (~25-45KB) for sharp 300 DPI display and fast storage
+      const compressedDataUrl = await compressImage(file, 400, 400, 0.85);
+      setConfig((prev) => ({
+        ...prev,
+        personPhoto: compressedDataUrl,
+        showPassportPhoto: true,
+      }));
+    } catch (err) {
+      console.warn("Passport photo compression fallback to direct reader:", err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setConfig((prev) => ({
+            ...prev,
+            personPhoto: event.target.result,
+            showPassportPhoto: true,
+          }));
         }
       };
       reader.readAsDataURL(file);
@@ -950,14 +988,25 @@ export default function MarketingStudioPage() {
                             </div>
                           </div>
 
-                          {/* Cardholder Name & Title */}
-                          <div className="my-1.5">
-                            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                              {config.personName}
-                            </h2>
-                            <p className="text-[11px] font-bold text-sky-600 uppercase tracking-wide">
-                              {config.personTitle}
-                            </p>
+                          {/* Cardholder Name & Title with optional Passport Photo */}
+                          <div className="my-1.5 flex items-center gap-2.5">
+                            {config.personPhoto && config.showPassportPhoto && (
+                              <img
+                                src={config.personPhoto}
+                                alt={config.personName}
+                                className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-sky-500 shadow-xs shrink-0 ${
+                                  config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
+                                }`}
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight truncate">
+                                {config.personName}
+                              </h2>
+                              <p className="text-[11px] font-bold text-sky-600 uppercase tracking-wide truncate">
+                                {config.personTitle}
+                              </p>
+                            </div>
                           </div>
 
                           {/* Contact Details */}
@@ -1050,14 +1099,25 @@ export default function MarketingStudioPage() {
                           </span>
                         </div>
 
-                        {/* Middle: Person Profile */}
-                        <div className="my-1 border-l-2 border-emerald-600 pl-3">
-                          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                            {config.personName}
-                          </h2>
-                          <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wide">
-                            {config.personTitle}
-                          </p>
+                        {/* Middle: Person Profile with optional Passport Photo */}
+                        <div className="my-1 border-l-2 border-emerald-600 pl-3 flex items-center gap-2.5">
+                          {config.personPhoto && config.showPassportPhoto && (
+                            <img
+                              src={config.personPhoto}
+                              alt={config.personName}
+                              className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-emerald-600 shadow-xs shrink-0 ${
+                                config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
+                              }`}
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight truncate">
+                              {config.personName}
+                            </h2>
+                            <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wide truncate">
+                              {config.personTitle}
+                            </p>
+                          </div>
                         </div>
 
                         {/* Bottom: Contacts & QR */}
@@ -1121,14 +1181,25 @@ export default function MarketingStudioPage() {
                           </span>
                         </div>
 
-                        {/* Middle: Profile */}
-                        <div className="my-1">
-                          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                            {config.personName}
-                          </h2>
-                          <p className="text-[11px] font-bold text-sky-600 uppercase">
-                            {config.personTitle}
-                          </p>
+                        {/* Middle: Profile with optional Passport Photo */}
+                        <div className="my-1 flex items-center gap-2.5">
+                          {config.personPhoto && config.showPassportPhoto && (
+                            <img
+                              src={config.personPhoto}
+                              alt={config.personName}
+                              className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-sky-600 shadow-xs shrink-0 ${
+                                config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
+                              }`}
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight truncate">
+                              {config.personName}
+                            </h2>
+                            <p className="text-[11px] font-bold text-sky-600 uppercase truncate">
+                              {config.personTitle}
+                            </p>
+                          </div>
                         </div>
 
                         {/* Bottom: Contacts & QR */}
@@ -1179,9 +1250,20 @@ export default function MarketingStudioPage() {
                             </div>
                           </div>
 
-                          <div className="my-1">
-                            <h2 className="text-base sm:text-lg font-black text-slate-900">{config.personName}</h2>
-                            <p className="text-[11px] font-bold text-emerald-700 uppercase">{config.personTitle}</p>
+                          <div className="my-1 flex items-center gap-2.5">
+                            {config.personPhoto && config.showPassportPhoto && (
+                              <img
+                                src={config.personPhoto}
+                                alt={config.personName}
+                                className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-emerald-600 shadow-xs shrink-0 ${
+                                  config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
+                                }`}
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <h2 className="text-base sm:text-lg font-black text-slate-900 leading-tight truncate">{config.personName}</h2>
+                              <p className="text-[11px] font-bold text-emerald-700 uppercase truncate">{config.personTitle}</p>
+                            </div>
                           </div>
 
                           <div className="space-y-1 text-[9.5px] text-slate-700 font-medium pt-1.5 border-t border-slate-100">
@@ -1242,9 +1324,20 @@ export default function MarketingStudioPage() {
                           </span>
                         </div>
 
-                        <div className="relative z-10 my-1">
-                          <h2 className="text-base sm:text-lg font-black text-white">{config.personName}</h2>
-                          <p className="text-xs font-bold text-amber-400 uppercase">{config.personTitle}</p>
+                        <div className="relative z-10 my-1 flex items-center gap-2.5">
+                          {config.personPhoto && config.showPassportPhoto && (
+                            <img
+                              src={config.personPhoto}
+                              alt={config.personName}
+                              className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-amber-400 shadow-md ring-2 ring-emerald-500/50 shrink-0 ${
+                                config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
+                              }`}
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <h2 className="text-base sm:text-lg font-black text-white leading-tight truncate">{config.personName}</h2>
+                            <p className="text-xs font-bold text-amber-400 uppercase truncate">{config.personTitle}</p>
+                          </div>
                         </div>
 
                         <div className="flex items-end justify-between gap-3 relative z-10 pt-2 border-t border-white/10">
@@ -1291,9 +1384,20 @@ export default function MarketingStudioPage() {
                           </span>
                         </div>
 
-                        <div className="relative z-10 my-1">
-                          <h2 className="text-base sm:text-lg font-black text-white">{config.personName}</h2>
-                          <p className="text-xs font-bold text-emerald-400 uppercase">{config.personTitle}</p>
+                        <div className="relative z-10 my-1 flex items-center gap-2.5">
+                          {config.personPhoto && config.showPassportPhoto && (
+                            <img
+                              src={config.personPhoto}
+                              alt={config.personName}
+                              className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-emerald-400 shadow-md ring-2 ring-white/10 shrink-0 ${
+                                config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
+                              }`}
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <h2 className="text-base sm:text-lg font-black text-white leading-tight truncate">{config.personName}</h2>
+                            <p className="text-xs font-bold text-emerald-400 uppercase truncate">{config.personTitle}</p>
+                          </div>
                         </div>
 
                         <div className="flex items-end justify-between gap-3 relative z-10 pt-2 border-t border-white/10">
@@ -2147,6 +2251,110 @@ export default function MarketingStudioPage() {
                   onChange={(e) => updateField("tagline", e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 text-slate-700 focus:outline-none focus:border-sky-500"
                 />
+              </div>
+
+              {/* Passport Photo / Avatar Section */}
+              <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 uppercase">
+                    Passport Photo / Headshot
+                  </span>
+                  {config.personPhoto && (
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={config.showPassportPhoto}
+                        onChange={(e) => updateField("showPassportPhoto", e.target.checked)}
+                        className="rounded text-sky-600 focus:ring-sky-500 h-3.5 w-3.5"
+                      />
+                      <span>Show on Card</span>
+                    </label>
+                  )}
+                </div>
+
+                <input
+                  type="file"
+                  ref={passportPhotoInputRef}
+                  accept="image/*"
+                  onChange={handlePassportPhotoUpload}
+                  className="hidden"
+                />
+
+                {config.personPhoto ? (
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={config.personPhoto}
+                        alt="Passport headshot"
+                        className={`w-11 h-11 object-cover border-2 border-slate-300 shadow-2xs shrink-0 ${
+                          config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">
+                          Passport Photo Active
+                        </span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => updateField("avatarShape", "circle")}
+                            className={`px-1.5 py-0.5 text-[9.5px] font-bold rounded cursor-pointer ${
+                              config.avatarShape !== "rounded"
+                                ? "bg-sky-600 text-white"
+                                : "bg-white text-slate-600 border border-slate-200"
+                            }`}
+                          >
+                            Round
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateField("avatarShape", "rounded")}
+                            className={`px-1.5 py-0.5 text-[9.5px] font-bold rounded cursor-pointer ${
+                              config.avatarShape === "rounded"
+                                ? "bg-sky-600 text-white"
+                                : "bg-white text-slate-600 border border-slate-200"
+                            }`}
+                          >
+                            Square
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => passportPhotoInputRef.current?.click()}
+                        className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg cursor-pointer transition-colors"
+                        title="Replace passport photo"
+                      >
+                        🔄 Replace
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateField("personPhoto", "")}
+                        className="px-2.5 py-1 text-[11px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg cursor-pointer transition-colors"
+                        title="Remove passport photo from card"
+                      >
+                        🗑️ Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => passportPhotoInputRef.current?.click()}
+                      className="w-full px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <span>📸</span>
+                      <span>Upload Passport Photo / Headshot</span>
+                    </button>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Adds an executive profile picture or badge headshot beside your name.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
