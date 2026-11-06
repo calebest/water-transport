@@ -37,11 +37,13 @@ import BrokersPage from "./pages/Brokers";
 import PublicWebsite from "./pages/PublicWebsite";
 import WebsiteCMS from "./pages/WebsiteCMS";
 import MarketingStudioPage from "./pages/MarketingStudio";
+import AIAssistantPage from "./pages/AIAssistant";
 
 import "./App.css";
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "📊", roleAccess: ["admin", "owner", "broker", "driver", "conductor"], group: "Dashboard" },
+  { id: "ai-assistant", label: "AI Assistant", icon: "🤖", roleAccess: ["admin", "owner"], group: "Operations" },
   { id: "trips", label: "Trips", icon: "🚛", roleAccess: ["admin", "owner", "broker", "driver", "conductor"], group: "Operations" },
   { id: "locations", label: "Locations", icon: "📍", roleAccess: ["admin", "owner"], group: "Operations" },
   { id: "vehicles", label: "Vehicles", icon: "🚚", roleAccess: ["admin", "owner", "broker"], group: "Operations" },
@@ -70,6 +72,9 @@ const ROUTE_BY_PATH = NAV_ITEMS.reduce((routes, item) => {
 }, {
   "/": "dashboard",
   "/dashboard": "dashboard",
+  "/ai": "ai-assistant",
+  "/ai-assistant": "ai-assistant",
+  "/bolas": "ai-assistant",
   "/website": "website-cms",
   "/branding": "marketing-studio",
   "/cards": "marketing-studio",
@@ -261,10 +266,24 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onGoToReconciliation={() => navigateToPage("financial-reconciliation")}
           onGoToMarketing={() => navigateToPage("marketing-studio")}
           onGoToSettings={() => navigateToPage("settings")}
+          onGoToAIAssistant={() => navigateToPage("ai-assistant")}
           globalVehicle={globalVehicle}
           setGlobalVehicle={handleSetGlobalVehicle}
         />
       ),
+    "ai-assistant": (
+      <AIAssistantPage
+        trips={trips}
+        vehicles={vehicles}
+        paymentRecords={paymentRecords}
+        financialDeductions={financialDeductions}
+        maintenance={maintenance}
+        brokers={brokers}
+        personnel={personnel}
+        settings={settings}
+        onNavigateToSettings={() => navigateToPage("settings")}
+      />
+    ),
     trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} brokers={brokers} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     locations: <LocationsPage locations={locations} />,
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} brokers={brokers} onOpenTripReview={openTripReview} />,
@@ -289,7 +308,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} complaints={complaints} settings={settings} paymentRecords={paymentRecords} financialDeductions={financialDeductions} />,
-    settings: <SettingsPage settings={settings} onNavigateToMarketing={() => navigateToPage("marketing-studio")} onNavigateToDashboard={() => navigateToPage("dashboard")} />,
+    settings: <SettingsPage settings={settings} onNavigateToMarketing={() => navigateToPage("marketing-studio")} onNavigateToDashboard={() => navigateToPage("dashboard")} onNavigateToAI={() => navigateToPage("ai-assistant")} />,
     "marketing-studio": <MarketingStudioPage onNavigateToWebsite={() => setViewingWebsite(true)} />,
     users: <UsersPage personnel={personnel} brokers={brokers} />,
     brokers: <BrokersPage brokers={brokers} />,

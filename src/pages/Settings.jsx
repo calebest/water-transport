@@ -1,17 +1,60 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { settingsService } from "../services/settings";
 import { DASHBOARD_THEMES } from "../utils/dashboardThemes";
+import {
+  getStoredApiKey,
+  setStoredApiKey,
+  getStoredModel,
+  setStoredModel,
+  testGeminiConnection
+} from "../services/ai/geminiClient";
 
-export default function SettingsPage({ settings, onNavigateToMarketing, onNavigateToDashboard }) {
+export default function SettingsPage({
+  settings,
+  onNavigateToMarketing,
+  onNavigateToDashboard,
+  onNavigateToAI
+}) {
   const { isAdmin, isOwner } = useAuth();
   const [saving, setSaving] = useState(false);
   const [themeToast, setThemeToast] = useState("");
+
+  // AI Assistant State
+  const [geminiKey, setGeminiKey] = useState(() => getStoredApiKey());
+  const [geminiModel, setGeminiModel] = useState(() => getStoredModel());
+  const [testingKey, setTestingKey] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [keyToast, setKeyToast] = useState("");
 
   const directApproval = !!settings?.directApproval;
 
   const currentThemeId = settings?.dashboardTheme || (typeof window !== "undefined" ? localStorage.getItem("wt_dashboard_theme") : "glacier") || "glacier";
   const [activeThemeId, setActiveThemeId] = useState(currentThemeId);
+
+  const handleSaveGeminiKey = () => {
+    setStoredApiKey(geminiKey);
+    setKeyToast("Gemini API key saved successfully!");
+    setTimeout(() => setKeyToast(""), 3500);
+  };
+
+  const handleTestConnection = async () => {
+    setTestingKey(true);
+    setTestResult(null);
+    try {
+      const res = await testGeminiConnection(geminiKey, geminiModel);
+      setTestResult(res);
+    } catch (err) {
+      setTestResult({ ok: false, error: err.message || "Failed to reach Gemini" });
+    } finally {
+      setTestingKey(false);
+    }
+  };
+
+  const handleModelChange = (m) => {
+    setGeminiModel(m);
+    setStoredModel(m);
+  };
 
   const toggleDirectApproval = async () => {
     if (!isAdmin || saving) return;
@@ -213,7 +256,118 @@ export default function SettingsPage({ settings, onNavigateToMarketing, onNaviga
         </div>
       )}
 
-      {/* ── SECTION 3: SYSTEM APPROVALS ── */}
+      {/* ── SECTION 3: BOLAS AI ASSISTANT & GOOGLE GEMINI CONFIGURATION ── */}
+      <div className="rounded-3xl border border-indigo-200/90 bg-white p-6 sm:p-7 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-100">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-sky-600 text-white flex items-center justify-center text-xl shadow-xs shrink-0">
+              🤖
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900">Bolas AI Assistant & Gemini Integration</h3>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Free Tier Ready
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Powered by Google Gemini Free Tier. Fully grounded in your Supabase operational ledger with zero ongoing API subscription costs.
+              </p>
+            </div>
+          </div>
+          {onNavigateToAI && (
+            <button
+              type="button"
+              onClick={onNavigateToAI}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer self-start sm:self-auto"
+            >
+              <span>Open AI Assistant</span>
+              <span>→</span>
+            </button>
+          )}
+        </div>
+
+        {keyToast && (
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold flex items-center gap-2">
+            <span>✓</span>
+            <span>{keyToast}</span>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Google Gemini API Key (Stored securely in local environment)
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="password"
+                value={geminiKey}
+                onChange={(e) => setGeminiKey(e.target.value)}
+                placeholder="AIzaSy..."
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-xs font-mono transition-all"
+              />
+              <button
+                type="button"
+                onClick={handleSaveGeminiKey}
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0"
+              >
+                Save Key
+              </button>
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={testingKey || !geminiKey}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all cursor-pointer border border-slate-200 disabled:opacity-50 shrink-0"
+              >
+                {testingKey ? "Testing..." : "Test Connection"}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Get a free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-600 underline font-semibold hover:text-indigo-800">aistudio.google.com/app/apikey</a>. Free tier limits: 15 Requests/Min, 1,500 Requests/Day.
+            </p>
+          </div>
+
+          {testResult && (
+            <div className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between ${
+              testResult.ok
+                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                : "bg-rose-50 border-rose-200 text-rose-900"
+            }`}>
+              <div className="flex items-center gap-2">
+                <span>{testResult.ok ? "✅" : "⚠️"}</span>
+                <div>
+                  <p className="font-bold">{testResult.ok ? "Connection Successful!" : "Connection Failed"}</p>
+                  <p className="text-[11px] opacity-90">{testResult.ok ? `Active model: ${testResult.model}. Gemini replied successfully.` : testResult.error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                AI Intelligence Model
+              </label>
+              <select
+                value={geminiModel}
+                onChange={(e) => handleModelChange(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+              >
+                <option value="gemini-2.0-flash">gemini-2.0-flash (Recommended · Fast & Smart)</option>
+                <option value="gemini-1.5-flash">gemini-1.5-flash (Reliable Fallback)</option>
+              </select>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex flex-col justify-center">
+              <span className="font-bold text-slate-800">🛡️ Financial Ledger Grounding</span>
+              <span>All numbers are computed on-device from your Supabase records before passing to the model. Bolas never hallucinates financial figures.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── SECTION 4: SYSTEM APPROVALS ── */}
       <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">

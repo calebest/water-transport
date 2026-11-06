@@ -93,7 +93,8 @@ export default function DashboardPage({
   onGoToPayments,
   onGoToReconciliation,
   onGoToMarketing,
-  onGoToSettings
+  onGoToSettings,
+  onGoToAIAssistant
 }) {
   const { profile, isAdmin, isOwner } = useAuth();
   const [pendingOpen, setPendingOpen] = useState(() => localStorage.getItem("wt_dash_pendingOpen") !== "false");
@@ -496,6 +497,34 @@ export default function DashboardPage({
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   System Shortcuts
                 </p>
+
+                {onGoToAIAssistant && (
+                  <button
+                    type="button"
+                    onClick={onGoToAIAssistant}
+                    className="w-full flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-indigo-50/90 to-sky-50/90 hover:from-indigo-100 hover:to-sky-100 border border-indigo-200/90 hover:border-indigo-400 transition-all text-left group cursor-pointer shadow-xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-8 w-8 shrink-0 rounded-xl bg-gradient-to-br from-indigo-600 to-sky-600 text-white flex items-center justify-center text-sm shadow-xs group-hover:scale-105 transition-transform">
+                        🤖
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-black text-indigo-950 group-hover:text-indigo-900 truncate">
+                            Ask Bolas AI Assistant
+                          </p>
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-200/70 text-indigo-900">
+                            Free Tier
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-indigo-700/90 truncate">
+                          Instant operations, financial audit & PDF reports
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-indigo-600 group-hover:text-indigo-800 text-xs font-black">→</span>
+                  </button>
+                )}
 
                 {onGoToPayments && (
                   <button
