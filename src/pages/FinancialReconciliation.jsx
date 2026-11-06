@@ -83,13 +83,23 @@ export default function FinancialReconciliationPage({
   const { user, isAdmin, isOwner } = useAuth();
   const isPrivileged = isAdmin || isOwner;
 
-  // Local state for deductions if not supplied by parent
-  const [internalDeductions, setInternalDeductions] = useState([]);
-  const deductions = financialDeductions?.length ? financialDeductions : internalDeductions;
+  // Local state for deductions, synchronized with parent prop
+  const [internalDeductions, setInternalDeductions] = useState(financialDeductions || []);
+  useEffect(() => {
+    if (financialDeductions?.length) {
+      setInternalDeductions(financialDeductions);
+    }
+  }, [financialDeductions]);
+  const deductions = internalDeductions.length > 0 ? internalDeductions : (financialDeductions || []);
 
-  // Local state for payments if not supplied by parent
-  const [internalPayments, setInternalPayments] = useState([]);
-  const payments = paymentRecords?.length ? paymentRecords : internalPayments;
+  // Local state for payments, synchronized with parent prop
+  const [internalPayments, setInternalPayments] = useState(paymentRecords || []);
+  useEffect(() => {
+    if (paymentRecords?.length) {
+      setInternalPayments(paymentRecords);
+    }
+  }, [paymentRecords]);
+  const payments = internalPayments.length > 0 ? internalPayments : (paymentRecords || []);
 
   // Bosses state
   const [bosses, setBosses] = useState([]);

@@ -84,9 +84,16 @@ export default function PaymentRecordsPage({ paymentRecords = [], refreshPayment
   const { user, isAdmin, isOwner } = useAuth();
   const isPrivileged = isAdmin || isOwner;
 
-  // Local state for records if not passed from parent
-  const [internalRecords, setInternalRecords] = useState([]);
-  const records = paymentRecords?.length ? paymentRecords : internalRecords;
+  // Local state for records, synchronized with parent prop
+  const [internalRecords, setInternalRecords] = useState(paymentRecords || []);
+
+  useEffect(() => {
+    if (paymentRecords?.length) {
+      setInternalRecords(paymentRecords);
+    }
+  }, [paymentRecords]);
+
+  const records = internalRecords.length > 0 ? internalRecords : (paymentRecords || []);
 
   const [loading, setLoading] = useState(!paymentRecords?.length);
   const [saving, setSaving] = useState(false);
@@ -308,8 +315,8 @@ export default function PaymentRecordsPage({ paymentRecords = [], refreshPayment
         setEditRecord(null);
       } else {
         await paymentRecordsService.create(payload, user?.id);
-        setAddModalOpen(false);
       }
+      setAddModalOpen(false);
 
       // If user checked "Save as a new boss"
       if (saveAsBossCheckbox && formRecipient.trim()) {
