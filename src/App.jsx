@@ -249,6 +249,9 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     "financial-reconciliation": (
       <FinancialReconciliationPage
         trips={trips}
+        vehicles={vehicles}
+        globalVehicle={globalVehicle}
+        setGlobalVehicle={handleSetGlobalVehicle}
         paymentRecords={paymentRecords}
         financialDeductions={financialDeductions}
         refreshFinancialDeductions={refreshFinancialDeductions}

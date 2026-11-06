@@ -4,7 +4,7 @@ import { financialDeductionsService } from "./src/services/financialDeductions.j
 async function runReconciliationTests() {
   console.log("=== RUNNING FINANCIAL RECONCILIATION UNIT TESTS ===");
 
-  // Mock Trips
+  // Mock Trips across multiple vehicles
   const mockTrips = [
     {
       id: "trip-1",
@@ -26,6 +26,17 @@ async function runReconciliationTests() {
       totalDeductions: 0,
       operatingProfit: 10000,
       netPayable: 10000,
+      approvalStatus: "approved",
+    },
+    {
+      id: "trip-3",
+      date: "2026-06-17",
+      lorry: "KBC 456B",
+      revenue: 30000,
+      operatingExpenses: 12000,
+      totalDeductions: 0,
+      operatingProfit: 18000,
+      netPayable: 18000,
       approvalStatus: "approved",
     },
   ];
@@ -83,16 +94,18 @@ async function runReconciliationTests() {
     },
   ];
 
-  console.log("\n--- Test 1: Math Verification & No Double Deduction ---");
+  console.log("\n--- Test 1: Math Verification & No Double Deduction (Vehicle: KDD 123A) ---");
   const recon = calculateReconciliation({
     trips: mockTrips,
     deductions: mockDeductions,
     payments: mockPayments,
     dateRange: { start: "2026-06-01", end: "2026-06-30", label: "June 2026" },
     bossFilter: "all",
+    vehicleFilter: "KDD 123A",
     allocationPercent: 100,
   });
 
+  console.log("Trip Count (KDD 123A):", recon.tripCount);
   console.log("Total Profit Generated:", recon.totalProfitGenerated);
   console.log("Sum All Deductions:", recon.totalDeductionsAll);
   console.log("Deductions Already In Trips (Informational):", recon.sumDeductionsAlreadyInTrips);
@@ -102,7 +115,12 @@ async function runReconciliationTests() {
   console.log("Outstanding Balance:", recon.outstandingBalance);
   console.log("Status Label:", recon.statusLabel);
 
-  // Assertions:
+  // Assertions for vehicle KDD 123A:
+  // Only the 2 trips for KDD 123A should be counted!
+  if (recon.tripCount !== 2) {
+    throw new Error(`Expected tripCount 2 for KDD 123A, got ${recon.tripCount}`);
+  }
+
   // Total Profit = 12,000 + 10,000 = 22,000
   if (recon.totalProfitGenerated !== 22000) {
     throw new Error(`Expected profit 22000, got ${recon.totalProfitGenerated}`);
@@ -136,9 +154,44 @@ async function runReconciliationTests() {
   if (recon.statusKey !== "due") {
     throw new Error(`Expected status 'due', got ${recon.statusKey}`);
   }
-  console.log("✓ Math and double-deduction protection verified successfully!");
+  console.log("✓ Math and vehicle isolation verified successfully!");
 
-  console.log("\n--- Test 2: Service CRUD & Cache Fallback ---");
+  console.log("\n--- Test 2: Fleet-wide vs Specific Vehicle Trip Isolation ---");
+  // 1. All Vehicles
+  const reconAll = calculateReconciliation({
+    trips: mockTrips,
+    deductions: [],
+    payments: [],
+    vehicleFilter: "all",
+  });
+  if (reconAll.tripCount !== 3 || reconAll.totalProfitGenerated !== 40000) {
+    throw new Error(`Expected 3 trips and 40000 profit for 'all', got ${reconAll.tripCount} and ${reconAll.totalProfitGenerated}`);
+  }
+
+  // 2. KBC 456B (Single vehicle)
+  const reconKBC = calculateReconciliation({
+    trips: mockTrips,
+    deductions: [],
+    payments: [],
+    vehicleFilter: "KBC 456B",
+  });
+  if (reconKBC.tripCount !== 1 || reconKBC.totalProfitGenerated !== 18000) {
+    throw new Error(`Expected 1 trip and 18000 profit for 'KBC 456B', got ${reconKBC.tripCount} and ${reconKBC.totalProfitGenerated}`);
+  }
+
+  // 3. Non-existent vehicle plate
+  const reconNone = calculateReconciliation({
+    trips: mockTrips,
+    deductions: [],
+    payments: [],
+    vehicleFilter: "KXZ 999Z",
+  });
+  if (reconNone.tripCount !== 0 || reconNone.totalProfitGenerated !== 0) {
+    throw new Error(`Expected 0 trips for non-existent vehicle, got ${reconNone.tripCount}`);
+  }
+  console.log("✓ Fleet vs Individual Vehicle trip counts isolated perfectly!");
+
+  console.log("\n--- Test 3: Service CRUD & Cache Fallback ---");
   const initialDeds = await financialDeductionsService.fetchAll();
   console.log(`Initial deductions fetched: ${initialDeds.length}`);
 
@@ -175,13 +228,13 @@ async function runReconciliationTests() {
   }
   console.log("✓ Deduction Service CRUD verified successfully!");
 
-  console.log("\n--- Test 3: PDF Generation ---");
+  console.log("\n--- Test 4: PDF Generation with Vehicle Tag ---");
   const filename = generateReconciliationPDF(recon);
   console.log("Generated PDF report filename:", filename);
-  if (!filename.includes("Mount_Kenya_Financial_Reconciliation")) {
+  if (!filename.includes("Mount_Kenya_Financial_Reconciliation") || !filename.includes("KDD123A")) {
     throw new Error(`Unexpected filename: ${filename}`);
   }
-  console.log("✓ Reconciliation PDF Generation verified successfully!");
+  console.log("✓ Reconciliation PDF Generation with Vehicle Tag verified successfully!");
 
   console.log("\n=======================================================");
   console.log("🎉 ALL FINANCIAL RECONCILIATION TESTS PASSED!");
@@ -192,3 +245,4 @@ runReconciliationTests().catch((err) => {
   console.error("Test failed:", err);
   process.exit(1);
 });
+

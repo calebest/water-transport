@@ -67,3 +67,4 @@ CREATE TRIGGER trigger_financial_deductions_updated_at
 BEFORE UPDATE ON public.financial_deductions
 FOR EACH ROW
 EXECUTE FUNCTION update_financial_deductions_updated_at();
+

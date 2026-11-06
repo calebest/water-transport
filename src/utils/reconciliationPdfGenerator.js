@@ -19,13 +19,18 @@ export const calculateReconciliation = ({
   payments = [],
   dateRange = { start: "", end: "", label: "All Dates" },
   bossFilter = "all",
+  vehicleFilter = "all",
   allocationPercent = 100,
 }) => {
-  // 1. Filter trips in date range
+  // 1. Filter trips in date range and target vehicle
   const filteredTrips = trips.filter((t) => {
     if (!t.date) return false;
     if (dateRange.start && t.date < dateRange.start) return false;
     if (dateRange.end && t.date > dateRange.end) return false;
+    if (vehicleFilter && vehicleFilter !== "all") {
+      const tripVehicle = t.lorry || t.vehicle || "";
+      if (tripVehicle !== vehicleFilter) return false;
+    }
     // Only count approved or completed trips in financial reconciliation
     if (t.approvalStatus && t.approvalStatus !== "approved") return false;
     return true;
@@ -95,6 +100,7 @@ export const calculateReconciliation = ({
   return {
     dateRange,
     bossFilter,
+    vehicleFilter,
     allocationPercent,
     // Component A: Profit
     tripCount: filteredTrips.length,
@@ -156,6 +162,7 @@ export const generateReconciliationPDF = (reconciliationData, options = {}) => {
   const {
     dateRange = { start: "", end: "", label: "Selected Period" },
     bossFilter = "all",
+    vehicleFilter = "all",
   } = reconciliationData;
 
   const startDateStr = formatDateKE(dateRange.start);
@@ -184,7 +191,8 @@ export const generateReconciliationPDF = (reconciliationData, options = {}) => {
   doc.setFontSize(8.5);
   doc.setTextColor(...colors.secondary);
   const bossText = bossFilter !== "all" ? ` | Target Boss: ${bossFilter}` : " | Target: Consolidated (All Bosses)";
-  doc.text(`Reporting Period: ${periodText}${bossText}`, marginX, currentY);
+  const vehicleText = vehicleFilter && vehicleFilter !== "all" ? ` | Vehicle: ${vehicleFilter}` : " | Fleet: All Vehicles";
+  doc.text(`Reporting Period: ${periodText}${bossText}${vehicleText}`, marginX, currentY);
 
   const genDate = new Date();
   const genDateStr = formatDateKE(genDate.toISOString().slice(0, 10));
@@ -280,8 +288,12 @@ export const generateReconciliationPDF = (reconciliationData, options = {}) => {
   doc.text("A. FINANCIAL RECONCILIATION EQUATION", marginX, currentY);
   currentY += 2;
 
+  const vehicleScopeText = reconciliationData.vehicleFilter && reconciliationData.vehicleFilter !== "all"
+    ? ` (${reconciliationData.vehicleFilter})`
+    : " (All Vehicles)";
+
   const formulaRows = [
-    ["1", "Total Profit Generated from Operations", `${reconciliationData.tripCount} completed trips in period`, `+ ${formatKESNumberOnly(reconciliationData.totalProfitGenerated)}`],
+    ["1", "Total Profit Generated from Operations", `${reconciliationData.tripCount} completed trips in period${vehicleScopeText}`, `+ ${formatKESNumberOnly(reconciliationData.totalProfitGenerated)}`],
     ["2", "Less: Additional Approved Deductions", `${reconciliationData.additionalDeductions.length} approved expenses not in trips`, `- ${formatKESNumberOnly(reconciliationData.sumAdditionalDeductions)}`],
     ["3", "Net Amount Payable to Boss", `${reconciliationData.allocationPercent}% entitlement allocation`, `= ${formatKESNumberOnly(reconciliationData.netAmountPayable)}`],
     ["4", "Less: Actual Amount Remitted to Boss", `${reconciliationData.paymentCount} transfers recorded in period`, `- ${formatKESNumberOnly(reconciliationData.actualAmountSent)}`],
@@ -340,14 +352,14 @@ export const generateReconciliationPDF = (reconciliationData, options = {}) => {
   const deductionRows = reconciliationData.allDeductions.length === 0
     ? [["—", "No deductions recorded for this period", "—", "—", "—", "0"]]
     : reconciliationData.allDeductions.map((d, i) => [
-        String(i + 1),
-        formatDateKE(d.date),
-        d.category || "General",
-        d.description || "Deduction",
-        d.reference_number || d.notes || "—",
-        d.included_in_trips ? "YES (In Trips)" : "NO (Additional)",
-        formatKESNumberOnly(d.amount),
-      ]);
+      String(i + 1),
+      formatDateKE(d.date),
+      d.category || "General",
+      d.description || "Deduction",
+      d.reference_number || d.notes || "—",
+      d.included_in_trips ? "YES (In Trips)" : "NO (Additional)",
+      formatKESNumberOnly(d.amount),
+    ]);
 
   autoTable(doc, {
     startY: currentY,
@@ -413,14 +425,14 @@ export const generateReconciliationPDF = (reconciliationData, options = {}) => {
   const paymentRows = reconciliationData.payments.length === 0
     ? [["—", "No remittances recorded for this period", "—", "—", "—", "—", "0"]]
     : reconciliationData.payments.map((p, i) => [
-        String(i + 1),
-        formatDateKE(p.date),
-        p.time || "—",
-        p.recipient_name || "Boss",
-        p.payment_method || "Cash",
-        p.reference_number || "—",
-        formatKESNumberOnly(p.amount),
-      ]);
+      String(i + 1),
+      formatDateKE(p.date),
+      p.time || "—",
+      p.recipient_name || "Boss",
+      p.payment_method || "Cash",
+      p.reference_number || "—",
+      formatKESNumberOnly(p.amount),
+    ]);
 
   autoTable(doc, {
     startY: currentY,
@@ -520,8 +532,9 @@ export const generateReconciliationPDF = (reconciliationData, options = {}) => {
   // --- Generate Clean Filename & Save ---
   const fileStart = dateRange.start ? dateRange.start.replace(/-/g, "") : "start";
   const fileEnd = dateRange.end ? dateRange.end.replace(/-/g, "") : "end";
+  const vehicleTag = vehicleFilter && vehicleFilter !== "all" ? `_${vehicleFilter.replace(/[^a-zA-Z0-9]/g, "")}` : "";
   const bossTag = bossFilter !== "all" ? `_${bossFilter.replace(/[^a-zA-Z0-9]/g, "")}` : "";
-  const filename = `Mount_Kenya_Financial_Reconciliation_${fileStart}_to_${fileEnd}${bossTag}.pdf`;
+  const filename = `Mount_Kenya_Financial_Reconciliation_${fileStart}_to_${fileEnd}${vehicleTag}${bossTag}.pdf`;
 
   doc.save(filename);
   return filename;
@@ -531,15 +544,20 @@ export const generateReconciliationPDF = (reconciliationData, options = {}) => {
  * Export reconciliation data to CSV format
  */
 export const exportReconciliationCSV = (reconciliationData, filename = "Financial_Reconciliation.csv") => {
+  const vehicleScope = reconciliationData.vehicleFilter && reconciliationData.vehicleFilter !== "all"
+    ? reconciliationData.vehicleFilter
+    : "All Vehicles (Fleet-wide)";
+
   const rows = [
     ["MOUNT KENYA WATER DISTRIBUTORS - FINANCIAL RECONCILIATION"],
     [`Reporting Period:`, `${reconciliationData.dateRange?.label || "Period"}`],
+    [`Vehicle / Scope:`, `${vehicleScope}`],
     [`Target Boss / Beneficiary:`, `${reconciliationData.bossFilter || "Consolidated"}`],
     [`Generated Date:`, `${new Date().toISOString()}`],
     [],
     ["--- RECONCILIATION SUMMARY ---"],
     ["Component", "Amount (KES)", "Notes"],
-    ["1. Total Profit Generated (Trips)", reconciliationData.totalProfitGenerated, `${reconciliationData.tripCount} completed trips`],
+    ["1. Total Profit Generated (Trips)", reconciliationData.totalProfitGenerated, `${reconciliationData.tripCount} completed trips (${vehicleScope})`],
     ["2. Additional Approved Deductions", reconciliationData.sumAdditionalDeductions, `${reconciliationData.additionalDeductions.length} deductions not in trips`],
     ["3. Net Amount Payable to Boss", reconciliationData.netAmountPayable, `${reconciliationData.allocationPercent}% entitlement`],
     ["4. Actual Amount Sent to Boss", reconciliationData.actualAmountSent, `${reconciliationData.paymentCount} remittances`],
@@ -578,3 +596,4 @@ export const exportReconciliationCSV = (reconciliationData, filename = "Financia
   link.click();
   document.body.removeChild(link);
 };
+

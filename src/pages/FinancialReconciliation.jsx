@@ -71,6 +71,9 @@ const getDateRangePresets = () => {
 
 export default function FinancialReconciliationPage({
   trips = [],
+  vehicles = [],
+  globalVehicle = "all",
+  setGlobalVehicle,
   paymentRecords = [],
   financialDeductions = [],
   refreshFinancialDeductions,
@@ -90,6 +93,24 @@ export default function FinancialReconciliationPage({
 
   // Bosses state
   const [bosses, setBosses] = useState([]);
+
+  // Local vehicle state fallback (synced with globalVehicle)
+  const [localVehicle, setLocalVehicle] = useState(globalVehicle || "all");
+
+  useEffect(() => {
+    if (globalVehicle) {
+      setLocalVehicle(globalVehicle);
+    }
+  }, [globalVehicle]);
+
+  const selectedVehicle = setGlobalVehicle ? globalVehicle : localVehicle;
+
+  const handleVehicleChange = (val) => {
+    setLocalVehicle(val);
+    if (setGlobalVehicle) {
+      setGlobalVehicle(val);
+    }
+  };
 
   // Filter & period state
   const [periodType, setPeriodType] = useState("thisMonth");
@@ -192,9 +213,10 @@ export default function FinancialReconciliationPage({
       payments,
       dateRange: activeDateRange,
       bossFilter,
+      vehicleFilter: selectedVehicle,
       allocationPercent,
     });
-  }, [trips, deductions, payments, activeDateRange, bossFilter, allocationPercent]);
+  }, [trips, deductions, payments, activeDateRange, bossFilter, selectedVehicle, allocationPercent]);
 
   // Filtered deductions for table view
   const filteredDeductionsTable = useMemo(() => {
@@ -410,7 +432,7 @@ export default function FinancialReconciliationPage({
               {formatKES(recon.totalProfitGenerated)}
             </span>
             <p className="text-[11px] text-slate-300 mt-1">
-              From {recon.tripCount} trips (Rev {formatKES(recon.tripRevenue)})
+              From {recon.tripCount} trips {recon.vehicleFilter !== "all" ? `(${recon.vehicleFilter})` : "(All Vehicles)"} (Rev {formatKES(recon.tripRevenue)})
             </p>
           </div>
 
@@ -476,7 +498,7 @@ export default function FinancialReconciliationPage({
           FILTER & PERIOD SELECTION BAR
          ========================================================================= */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-3.5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {/* Period Presets */}
           <div>
             <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Reporting Period</label>
@@ -492,6 +514,25 @@ export default function FinancialReconciliationPage({
               <option value="thisMonth">This Month</option>
               <option value="lastMonth">Last Month</option>
               <option value="custom">Custom Date Range</option>
+            </select>
+          </div>
+
+          {/* Active Vehicle Filter */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+              Vehicle Scope {selectedVehicle !== "all" && <span className="text-emerald-600 font-black">({selectedVehicle})</span>}
+            </label>
+            <select
+              value={selectedVehicle}
+              onChange={(e) => handleVehicleChange(e.target.value)}
+              className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-bold text-slate-800"
+            >
+              <option value="all">🚛 All Vehicles (Fleet-wide)</option>
+              {vehicles.map((v) => (
+                <option key={v.id || v.plate} value={v.plate}>
+                  🚛 {v.plate} {v.model ? `(${v.model})` : ""}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -587,7 +628,7 @@ export default function FinancialReconciliationPage({
           value={formatKES(recon.totalProfitGenerated)}
           icon="📈"
           color="green"
-          sub={`${recon.tripCount} completed trips`}
+          sub={`${recon.tripCount} completed trips ${recon.vehicleFilter !== "all" ? `(${recon.vehicleFilter})` : ""}`}
         />
         <StatCard
           label="Approved Deductions"
@@ -680,9 +721,11 @@ export default function FinancialReconciliationPage({
                     1
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-800">Total Profit Generated from Operations</h4>
+                    <h4 className="font-bold text-slate-800">
+                      Total Profit Generated from Operations {recon.vehicleFilter !== "all" ? `(${recon.vehicleFilter})` : "(All Vehicles)"}
+                    </h4>
                     <p className="text-xs text-slate-500">
-                      Calculated from {recon.tripCount} completed trips (Revenue: {formatKES(recon.tripRevenue)} - Operating Expenses: {formatKES(recon.tripOperatingExpenses + recon.tripDeductions)})
+                      Calculated from {recon.tripCount} completed trips {recon.vehicleFilter !== "all" ? `for vehicle ${recon.vehicleFilter}` : "across fleet"} (Revenue: {formatKES(recon.tripRevenue)} - Operating Expenses: {formatKES(recon.tripOperatingExpenses + recon.tripDeductions)})
                     </p>
                   </div>
                 </div>
@@ -1258,6 +1301,12 @@ export default function FinancialReconciliationPage({
               <span className="font-bold text-emerald-400">{recon.dateRange.label}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400 font-bold uppercase tracking-wider">Vehicle Scope</span>
+              <span className="font-bold text-emerald-400">
+                {recon.vehicleFilter !== "all" ? `🚛 ${recon.vehicleFilter}` : "🚛 All Vehicles (Fleet-wide)"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
               <span className="text-slate-400 font-bold uppercase tracking-wider">Beneficiary</span>
               <span className="font-bold text-slate-200">
                 {recon.bossFilter !== "all" ? recon.bossFilter : "Consolidated (All Bosses)"}
@@ -1307,3 +1356,4 @@ export default function FinancialReconciliationPage({
     </div>
   );
 }
+
