@@ -153,7 +153,12 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     prevPendingRef.current = pendingCount;
   }, [pendingCount, isPrivileged]);
 
+  // Bolas AI Enabled Status (defaults to true unless disabled in settings or localStorage)
+  const isAIEnabled = settings?.enableAIAssistant !== false &&
+    (typeof window === "undefined" || localStorage.getItem("wt_enable_ai_assistant") !== "false");
+
   const navItems = NAV_ITEMS.filter(n => {
+    if (n.id === "ai-assistant" && !isAIEnabled) return false;
     if (n.adminOnly) return isAdmin;
     if (n.roleAccess) return n.roleAccess.includes(profile?.role);
     return true;
@@ -266,12 +271,12 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onGoToReconciliation={() => navigateToPage("financial-reconciliation")}
           onGoToMarketing={() => navigateToPage("marketing-studio")}
           onGoToSettings={() => navigateToPage("settings")}
-          onGoToAIAssistant={() => navigateToPage("ai-assistant")}
+          onGoToAIAssistant={isAIEnabled ? () => navigateToPage("ai-assistant") : null}
           globalVehicle={globalVehicle}
           setGlobalVehicle={handleSetGlobalVehicle}
         />
       ),
-    "ai-assistant": (
+    "ai-assistant": isAIEnabled ? (
       <AIAssistantPage
         trips={trips}
         vehicles={vehicles}
@@ -283,6 +288,34 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
         settings={settings}
         onNavigateToSettings={() => navigateToPage("settings")}
       />
+    ) : (
+      <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-4">
+        <div className="h-16 w-16 mx-auto rounded-3xl bg-slate-100 text-slate-400 flex items-center justify-center text-3xl shadow-xs">
+          🤖
+        </div>
+        <h2 className="text-xl font-bold text-slate-800">Bolas AI is Turned Off</h2>
+        <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+          The AI Assistant has been disabled in System Settings. An administrator or director can turn it back on at any time.
+        </p>
+        <div className="pt-2 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigateToPage("dashboard")}
+            className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors cursor-pointer shadow-xs"
+          >
+            Return to Dashboard
+          </button>
+          {(isAdmin || isOwner) && (
+            <button
+              type="button"
+              onClick={() => navigateToPage("settings")}
+              className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold hover:bg-indigo-100 transition-colors cursor-pointer"
+            >
+              Configure in Settings
+            </button>
+          )}
+        </div>
+      </div>
     ),
     trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} brokers={brokers} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     locations: <LocationsPage locations={locations} />,

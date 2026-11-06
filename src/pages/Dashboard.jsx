@@ -498,7 +498,7 @@ export default function DashboardPage({
                   System Shortcuts
                 </p>
 
-                {onGoToAIAssistant && (
+                {onGoToAIAssistant && settings?.enableAIAssistant !== false && (
                   <button
                     type="button"
                     onClick={onGoToAIAssistant}

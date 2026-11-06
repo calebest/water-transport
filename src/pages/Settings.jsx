@@ -27,6 +27,34 @@ export default function SettingsPage({
   const [testResult, setTestResult] = useState(null);
   const [keyToast, setKeyToast] = useState("");
 
+  // AI Assistant Master Toggle
+  const aiEnabledSetting = settings?.enableAIAssistant !== false &&
+    (typeof window === "undefined" || localStorage.getItem("wt_enable_ai_assistant") !== "false");
+  const [localAIEnabled, setLocalAIEnabled] = useState(aiEnabledSetting);
+
+  useEffect(() => {
+    setLocalAIEnabled(aiEnabledSetting);
+  }, [aiEnabledSetting]);
+
+  const toggleAIAssistant = async () => {
+    if ((!isAdmin && !isOwner) || saving) return;
+    const nextVal = !localAIEnabled;
+    setLocalAIEnabled(nextVal);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("wt_enable_ai_assistant", String(nextVal));
+      } catch (e) {}
+    }
+    setKeyToast(nextVal ? "Bolas AI enabled across the system!" : "Bolas AI turned off across the system.");
+    setTimeout(() => setKeyToast(""), 3500);
+
+    try {
+      await settingsService.update({ enableAIAssistant: nextVal });
+    } catch (err) {
+      console.warn("Could not sync AI setting to database:", err);
+    }
+  };
+
   const directApproval = !!settings?.directApproval;
 
   const currentThemeId = settings?.dashboardTheme || (typeof window !== "undefined" ? localStorage.getItem("wt_dashboard_theme") : "glacier") || "glacier";
@@ -257,34 +285,72 @@ export default function SettingsPage({
       )}
 
       {/* ── SECTION 3: BOLAS AI ASSISTANT & GOOGLE GEMINI CONFIGURATION ── */}
-      <div className="rounded-3xl border border-indigo-200/90 bg-white p-6 sm:p-7 shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-100">
+      <div className={`rounded-3xl border bg-white p-6 sm:p-7 shadow-sm space-y-5 transition-all ${
+        localAIEnabled ? "border-indigo-200/90" : "border-slate-200"
+      }`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-sky-600 text-white flex items-center justify-center text-xl shadow-xs shrink-0">
+            <div className={`h-11 w-11 rounded-2xl flex items-center justify-center text-xl shadow-xs shrink-0 transition-colors ${
+              localAIEnabled
+                ? "bg-gradient-to-br from-indigo-600 to-sky-600 text-white"
+                : "bg-slate-100 text-slate-400"
+            }`}>
               🤖
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">Bolas AI Assistant & Gemini Integration</h3>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  Free Tier Ready
+                <h3 className="text-base font-bold text-slate-900">Bolas AI Assistant</h3>
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                  localAIEnabled
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                    : "bg-slate-100 text-slate-600 border-slate-200"
+                }`}>
+                  {localAIEnabled ? "Active" : "Turned Off"}
                 </span>
+                {localAIEnabled && (
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200 hidden sm:inline-block">
+                    Free Tier
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Powered by Google Gemini Free Tier. Fully grounded in your Supabase operational ledger with zero ongoing API subscription costs.
+              <p className="text-xs text-slate-500 mt-0.5 max-w-xl">
+                Operations & financial intelligence assistant grounded in your live Supabase ledger. Toggle off to remove Bolas AI from the sidebar and operations dock.
               </p>
             </div>
           </div>
-          {onNavigateToAI && (
+
+          <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
+            <span className="text-xs font-bold text-slate-600">
+              {localAIEnabled ? "AI Active" : "AI Disabled"}
+            </span>
             <button
               type="button"
-              onClick={onNavigateToAI}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer self-start sm:self-auto"
+              onClick={toggleAIAssistant}
+              disabled={(!isAdmin && !isOwner) || saving}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer ${
+                localAIEnabled ? "bg-indigo-600" : "bg-slate-300"
+              }`}
+              aria-pressed={localAIEnabled}
+              aria-label="Toggle Bolas AI Assistant"
             >
-              <span>Open AI Assistant</span>
-              <span>→</span>
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-xs ${
+                  localAIEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
             </button>
-          )}
+
+            {localAIEnabled && onNavigateToAI && (
+              <button
+                type="button"
+                onClick={onNavigateToAI}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer ml-1"
+              >
+                <span>Open Assistant</span>
+                <span>→</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {keyToast && (
@@ -294,78 +360,95 @@ export default function SettingsPage({
           </div>
         )}
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Google Gemini API Key (Stored securely in local environment)
-            </label>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="password"
-                value={geminiKey}
-                onChange={(e) => setGeminiKey(e.target.value)}
-                placeholder="AIzaSy..."
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-xs font-mono transition-all"
-              />
-              <button
-                type="button"
-                onClick={handleSaveGeminiKey}
-                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0"
-              >
-                Save Key
-              </button>
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={testingKey || !geminiKey}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all cursor-pointer border border-slate-200 disabled:opacity-50 shrink-0"
-              >
-                {testingKey ? "Testing..." : "Test Connection"}
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Get a free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-600 underline font-semibold hover:text-indigo-800">aistudio.google.com/app/apikey</a>. Free tier limits: 15 Requests/Min, 1,500 Requests/Day.
-            </p>
-          </div>
-
-          {testResult && (
-            <div className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between ${
-              testResult.ok
-                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                : "bg-rose-50 border-rose-200 text-rose-900"
-            }`}>
-              <div className="flex items-center gap-2">
-                <span>{testResult.ok ? "✅" : "⚠️"}</span>
-                <div>
-                  <p className="font-bold">{testResult.ok ? "Connection Successful!" : "Connection Failed"}</p>
-                  <p className="text-[11px] opacity-90">{testResult.ok ? `Active model: ${testResult.model}. Gemini replied successfully.` : testResult.error}</p>
-                </div>
+        {!localAIEnabled ? (
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">⏸️</span>
+              <div>
+                <p className="font-bold text-slate-800">Bolas AI is currently turned off</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  The AI Assistant sidebar item and dashboard shortcut are hidden from all users. Flip the toggle switch above to reactivate.
+                </p>
               </div>
             </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+            {(!isAdmin && !isOwner) && (
+              <span className="text-[10px] text-slate-400 font-semibold">Admin only</span>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                AI Intelligence Model
+                Google Gemini API Key (Stored securely in local environment)
               </label>
-              <select
-                value={geminiModel}
-                onChange={(e) => handleModelChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
-              >
-                <option value="gemini-3.8-flash">gemini-3.8-flash (Recommended · Latest Google Free Tier)</option>
-                <option value="gemini-2.5-flash">gemini-2.5-flash (Standard Flash)</option>
-                <option value="gemini-1.5-flash">gemini-1.5-flash (Legacy Fallback)</option>
-              </select>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="password"
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-xs font-mono transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveGeminiKey}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0"
+                >
+                  Save Key
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTestConnection}
+                  disabled={testingKey || !geminiKey}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all cursor-pointer border border-slate-200 disabled:opacity-50 shrink-0"
+                >
+                  {testingKey ? "Testing..." : "Test Connection"}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Get a free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-600 underline font-semibold hover:text-indigo-800">aistudio.google.com/app/apikey</a>. Free tier limits: 15 Requests/Min, 1,500 Requests/Day.
+              </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex flex-col justify-center">
-              <span className="font-bold text-slate-800">🛡️ Financial Ledger Grounding</span>
-              <span>All numbers are computed on-device from your Supabase records before passing to the model. Bolas never hallucinates financial figures.</span>
+            {testResult && (
+              <div className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between ${
+                testResult.ok
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                  : "bg-rose-50 border-rose-200 text-rose-900"
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span>{testResult.ok ? "✅" : "⚠️"}</span>
+                  <div>
+                    <p className="font-bold">{testResult.ok ? "Connection Successful!" : "Connection Failed"}</p>
+                    <p className="text-[11px] opacity-90">{testResult.ok ? `Active model: ${testResult.model}. Gemini replied successfully.` : testResult.error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  AI Intelligence Model
+                </label>
+                <select
+                  value={geminiModel}
+                  onChange={(e) => handleModelChange(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+                >
+                  <option value="gemini-3.8-flash">gemini-3.8-flash (Recommended · Latest Google Free Tier)</option>
+                  <option value="gemini-2.5-flash">gemini-2.5-flash (Standard Flash)</option>
+                  <option value="gemini-1.5-flash">gemini-1.5-flash (Legacy Fallback)</option>
+                </select>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex flex-col justify-center">
+                <span className="font-bold text-slate-800">🛡️ Financial Ledger Grounding</span>
+                <span>All numbers are computed on-device from your Supabase records before passing to the model. Bolas never hallucinates financial figures.</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── SECTION 4: SYSTEM APPROVALS ── */}
