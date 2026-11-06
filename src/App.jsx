@@ -35,6 +35,7 @@ import SettingsPage from "./pages/Settings";
 import BrokersPage from "./pages/Brokers";
 import PublicWebsite from "./pages/PublicWebsite";
 import WebsiteCMS from "./pages/WebsiteCMS";
+import MarketingStudioPage from "./pages/MarketingStudio";
 
 import "./App.css";
 
@@ -56,6 +57,7 @@ const NAV_ITEMS = [
   { id: "brokers", label: "Brokers", icon: "🤝", adminOnly: true, group: "Team & Contacts" },
   { id: "users", label: "Users", icon: "👥", adminOnly: true, group: "Team & Contacts" },
 
+  { id: "marketing-studio", label: "Cards & Posters", icon: "📇", roleAccess: ["admin", "owner"], group: "System" },
   { id: "website-cms", label: "Website CMS", icon: "🌐", adminOnly: true, group: "System" },
   { id: "settings", label: "Settings", icon: "⚙️", adminOnly: true, group: "System" },
   { id: "backup", label: "Backup", icon: "💾", adminOnly: true, group: "System" },
@@ -64,7 +66,14 @@ const NAV_ITEMS = [
 const ROUTE_BY_PATH = NAV_ITEMS.reduce((routes, item) => {
   routes[`/${item.id}`] = item.id;
   return routes;
-}, { "/": "dashboard", "/dashboard": "dashboard", "/website": "website-cms" });
+}, {
+  "/": "dashboard",
+  "/dashboard": "dashboard",
+  "/website": "website-cms",
+  "/branding": "marketing-studio",
+  "/cards": "marketing-studio",
+  "/posters": "marketing-studio",
+});
 
 const getPageFromPath = () => {
   const normalized = window.location.pathname.replace(/\/+$/, "") || "/";
@@ -238,6 +247,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onGoToTrips={() => navigateToPage("trips")}
           onGoToPayments={() => navigateToPage("payment-records")}
           onGoToReconciliation={() => navigateToPage("financial-reconciliation")}
+          onGoToMarketing={() => navigateToPage("marketing-studio")}
           globalVehicle={globalVehicle}
           setGlobalVehicle={handleSetGlobalVehicle}
         />
@@ -266,7 +276,8 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} complaints={complaints} settings={settings} paymentRecords={paymentRecords} financialDeductions={financialDeductions} />,
-    settings: <SettingsPage settings={settings} />,
+    settings: <SettingsPage settings={settings} onNavigateToMarketing={() => navigateToPage("marketing-studio")} />,
+    "marketing-studio": <MarketingStudioPage onNavigateToWebsite={() => setViewingWebsite(true)} />,
     users: <UsersPage personnel={personnel} brokers={brokers} />,
     brokers: <BrokersPage brokers={brokers} />,
     "website-cms": <WebsiteCMS onPreviewWebsite={() => setViewingWebsite(true)} />

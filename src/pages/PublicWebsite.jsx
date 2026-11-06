@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { websiteService } from "../services/website";
+import "./PublicWebsite.css";
 
 export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }) {
   const [content, setContent] = useState(null);
@@ -37,17 +38,49 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
 
   if (!content) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-800 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-3xl shadow-xl border border-slate-100 max-w-sm">
-          <div className="text-5xl animate-bounce mb-3">💧</div>
-          <p className="text-emerald-600 font-extrabold tracking-wider uppercase text-xs">Mount Kenya Water Distributors</p>
-          <p className="text-slate-500 text-sm mt-1">Connecting to live fleet portal…</p>
+      <div className="public-site min-h-screen bg-slate-50 text-slate-800 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-xl border border-slate-200 max-w-sm">
+          <div className="text-3xl mb-3 text-cyan-700">◌</div>
+          <p className="text-cyan-800 font-bold tracking-wide uppercase text-xs">Mount Kenya Water Distributors</p>
+          <p className="text-slate-500 text-sm mt-1">Loading company information…</p>
         </div>
       </div>
     );
   }
 
-  const { general, contacts, services, locations, photos } = content;
+  const { general, contacts, services, locations } = content;
+  const defaultSiteCopy = {
+    tagline: "Bulk water delivery, arranged around your site.",
+    description: "Mount Kenya Water Distributors supplies water by tanker for homes, businesses and construction sites across the Mount Kenya and Nairobi region. Contact dispatch to confirm availability, volume and delivery timing.",
+    badgeText: "Water delivery · Mount Kenya & Nairobi"
+  };
+  const oldDefaultTagline = "Pure, Reliable Bulk Water Delivery Across Mount Kenya & Nairobi Region";
+  const oldDefaultDescription = "Kenya's leading clean bulk water delivery service. Providing pristine, food-grade certified water for residential, commercial, industrial, and emergency requirements 24/7 with our modern tanker fleet.";
+  const heroTagline = !general.tagline || general.tagline === oldDefaultTagline ? defaultSiteCopy.tagline : general.tagline;
+  const heroDescription = !general.description || general.description === oldDefaultDescription ? defaultSiteCopy.description : general.description;
+  const heroBadge = !general.badgeText || general.badgeText === "24/7 Fast Dispatch Available" ? defaultSiteCopy.badgeText : general.badgeText;
+  const operatingHours = general.operatingHours === "24 Hours / 7 Days a Week" ? "Contact dispatch for availability" : general.operatingHours;
+  const licenseInfo = general.licenseInfo === "Licensed by KEBS & Ministry of Water & Sanitation"
+    ? "Ask dispatch for current source and quality documentation."
+    : general.licenseInfo;
+  const displayServices = services.map(service => service.title === "Emergency 24/7 Water Supply"
+    ? { ...service, title: "Urgent Water Supply", description: "Contact dispatch for urgent requirements. Availability and timing depend on location and fleet schedule.", capacities: "Confirm timing with dispatch" }
+    : service);
+  const displayLocations = locations.map(location => ({
+    ...location,
+    turnaround: ["1 – 2 hours", "45 – 90 mins", "Scheduled & Express", "2 – 3 hours"].includes(location.turnaround)
+      ? "Confirm with dispatch"
+      : location.turnaround
+  }));
+  const legacyStockPhotoUrls = [
+    "photo-1541888946425-d0fbb186c5f9",
+    "photo-1581092160607-ee22621dd758",
+    "photo-1500382017468-9049fed747ef",
+    "photo-1542601906990-b4d3fb778b09",
+    "photo-1574943320219-553eb213f72d",
+    "photo-1519003722824-194d4455a60c"
+  ];
+  const photos = (content.photos || []).filter(photo => !legacyStockPhotoUrls.some(photoId => photo.url?.includes(photoId)));
 
   // Filtered photos
   const filteredPhotos = activeCategory === "All"
@@ -57,7 +90,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
   const categories = ["All", ...Array.from(new Set(photos.map(p => p.category).filter(Boolean)))];
 
   // Filtered locations
-  const filteredLocations = locations.filter(loc => {
+  const filteredLocations = displayLocations.filter(loc => {
     const matchesSearch = !locationSearch || 
       loc.name.toLowerCase().includes(locationSearch.toLowerCase()) ||
       loc.subzones?.toLowerCase().includes(locationSearch.toLowerCase());
@@ -88,7 +121,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
       volume: calcVolume,
       serviceType: calcPurpose === "pool" ? "Swimming Pool Filling"
         : calcPurpose === "construction" ? "Construction & Site Water"
-        : calcPurpose === "emergency" ? "Emergency 24/7 Water Supply"
+      : calcPurpose === "emergency" ? "Urgent Water Supply"
         : "Clean Bulk Drinking Water",
       urgency: calcPurpose === "emergency" ? "Emergency ASAP" : "Today"
     }));
@@ -119,7 +152,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
         phoneNumber: "",
         whatsappNumber: "",
         deliveryLocation: "",
-        serviceType: services[0]?.title || "Clean Bulk Drinking Water",
+      serviceType: displayServices[0]?.title || "Clean Bulk Drinking Water",
         volume: "10,000L",
         urgency: "Today",
         notes: ""
@@ -142,33 +175,33 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
 
   const FAQS = [
     {
-      q: "Where is the water sourced and is it tested for drinking?",
-      a: "Our water is drawn from certified, natural high-altitude freshwater springs and rigorously regulated deep boreholes along the Mount Kenya watershed. Every batch undergoes microbiological safety checks and is 100% certified by KEBS and public health authorities for residential and commercial consumption."
+      q: "Can I order water for drinking?",
+      a: "Tell dispatch how the water will be used when you request a delivery. Ask the team about the source and any current quality documentation before confirming a drinking-water order."
     },
     {
-      q: "How fast can a water bowser reach my location in an emergency?",
-      a: "We maintain standby tankers along main transit corridors across Nairobi, Kiambu, Thika, and Mount Kenya towns. Emergency dispatches typically arrive within 45 to 90 minutes of order confirmation, 24 hours a day."
+      q: "How soon can a tanker arrive?",
+      a: "Timing depends on your location, the required volume and vehicle availability. Call or message dispatch with your location for a current estimate."
     },
     {
-      q: "Do you have long delivery hoses for high-rise buildings and rooftop tanks?",
-      a: "Yes! Every bowser in our fleet is fitted with heavy-duty booster pumps and up to 80 meters (260+ feet) of clean food-grade delivery hose. We easily pump water up to 5-story building rooftops, basement storage, and elevated agricultural tanks."
+      q: "Can you fill a rooftop or underground tank?",
+      a: "Include the tank position, access details and approximate hose distance in your request. Dispatch can confirm which equipment is available for the site."
     },
     {
-      q: "What sizes of water tankers are available for booking?",
-      a: "Our fleet consists of 5,000L, 10,000L, 15,000L, 20,000L, and heavy 30,000L+ multi-axle tankers. Whether you need a single residential refill or ongoing high-volume site supply, we deploy the exact vehicle size needed."
+      q: "What tanker sizes can I request?",
+      a: "The booking form lists common volume options. Availability varies by route, so dispatch will confirm the vehicle and number of trips for your order."
     },
     {
-      q: "What payment options are supported?",
-      a: "We accept M-Pesa (Buy Goods / Paybill), direct bank wire transfers, and cash upon delivery. For recurring commercial estates, construction contractors, and hospitality facilities, we provide structured 15 or 30-day corporate invoices."
+      q: "How do I confirm price and payment?",
+      a: "Share your delivery location and volume with dispatch to receive a quote and payment instructions before confirming the order."
     },
     {
-      q: "Can we schedule recurring weekly or daily tanker deliveries?",
-      a: "Absolutely. We manage automated recurring contracts for hotels, schools, hospitals, commercial laundries, and apartment complexes, ensuring your storage tanks never run dry."
+      q: "Can I arrange recurring deliveries?",
+      a: "Yes, you can ask dispatch about a regular schedule. The team will confirm route availability and agree the details with you."
     }
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans selection:bg-emerald-500 selection:text-white relative">
+    <div className="public-site min-h-screen bg-[#f7f8f6] text-slate-800 font-sans selection:bg-cyan-700 selection:text-white relative">
       
       {/* Top Floating Staff Banner if logged in */}
       {user && (
@@ -188,40 +221,39 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
       )}
 
       {/* Top Utility Bar */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 text-slate-200 text-xs py-2 px-4 border-b border-slate-800">
+      <div className="public-utility bg-slate-950 text-slate-200 text-xs py-2 px-4 border-b border-slate-800">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Live Fleet Active
+            <span className="inline-flex items-center gap-1.5 text-cyan-300 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-300" />
+              Water delivery · Mount Kenya & Nairobi
             </span>
             <span className="hidden md:inline text-slate-400">|</span>
-            <span className="hidden md:inline text-slate-300">24/7 Bulk Water Supply Across Mt. Kenya & Nairobi Corridors</span>
+            <span className="hidden md:inline text-slate-400">Bulk supply for homes, businesses and construction sites</span>
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold">
             <a href={`tel:${contacts.primaryPhone}`} className="hover:text-emerald-400 transition-colors flex items-center gap-1">
-              <span>📞 Hotline:</span>
+              <span>Dispatch:</span>
               <span className="font-bold text-white">{contacts.primaryPhone}</span>
             </a>
             <span className="text-slate-600">|</span>
-            <span className="text-slate-300">🕒 {general.operatingHours}</span>
+              <span className="text-slate-300">{operatingHours}</span>
           </div>
         </div>
       </div>
 
       {/* Modern Clean Header / Navbar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shadow-xs">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Brand Logo */}
           <a href="#" className="flex items-center gap-3 group">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl shadow-lg shadow-emerald-500/25 ring-2 ring-emerald-100 group-hover:scale-105 transition-transform">
-              🚛
+            <div className="public-mark w-10 h-10 rounded-lg bg-cyan-900 flex items-center justify-center text-white text-lg font-semibold">
+              MK
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-black tracking-[0.18em] text-emerald-600 uppercase">Mount Kenya</span>
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
-                <span className="text-[11px] font-bold text-slate-400 uppercase">Water</span>
+                <span className="text-[10px] font-bold tracking-[0.15em] text-cyan-800 uppercase">Mount Kenya</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase">Water</span>
               </div>
               <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight tracking-tight">
                 {general.companyName.replace("Mount Kenya ", "")}
@@ -232,12 +264,11 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
           {/* Nav Links Desktop */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-bold text-slate-600">
             <a href="#calculator" className="hover:text-emerald-600 transition-colors flex items-center gap-1">
-              <span>🧮</span>
-              <span>Estimator</span>
+              <span>Volume guide</span>
             </a>
             <a href="#services" className="hover:text-emerald-600 transition-colors">Services</a>
             <a href="#coverage" className="hover:text-emerald-600 transition-colors">Coverage</a>
-            <a href="#gallery" className="hover:text-emerald-600 transition-colors">Fleet Gallery</a>
+            <a href="#gallery" className="hover:text-emerald-600 transition-colors">Gallery</a>
             <a href="#faqs" className="hover:text-emerald-600 transition-colors">FAQs</a>
             <a href="#order-section" className="text-emerald-600 hover:text-emerald-700 font-black transition-colors">
               Book Delivery
@@ -250,7 +281,6 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
               href={`tel:${contacts.primaryPhone}`}
               className="hidden sm:inline-flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition-all"
             >
-              <span>📞</span>
               <span>Call Dispatch</span>
             </a>
 
@@ -258,10 +288,9 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
               href={buildWhatsAppLink()}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/25 transition-all hover:scale-105"
+              className="public-button inline-flex items-center gap-1.5 text-xs font-bold text-white bg-cyan-900 hover:bg-cyan-800 px-4 py-2.5 rounded-lg transition-colors"
             >
-              <span className="text-base">💬</span>
-              <span>WhatsApp Order</span>
+              <span>WhatsApp dispatch</span>
             </a>
 
             {onOpenLogin && !user && (
@@ -278,104 +307,37 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
         </div>
       </header>
 
-      {/* Hero Section — Bright, Luminous, Pure */}
-      <section className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-28 bg-gradient-to-b from-sky-50/70 via-white to-emerald-50/30 border-b border-slate-100">
-        {/* Soft Ambient Light Glows */}
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[850px] h-[450px] bg-gradient-to-br from-emerald-200/40 via-cyan-200/35 to-sky-200/30 rounded-full blur-[110px] pointer-events-none" />
-        <div className="absolute top-1/3 right-10 w-[350px] h-[300px] bg-teal-100/50 rounded-full blur-[90px] pointer-events-none" />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center max-w-3xl mx-auto">
-            {/* Top Pill */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-emerald-200/80 text-emerald-700 text-xs font-extrabold mb-6 shadow-sm shadow-emerald-500/5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>{general.badgeText || "24/7 Fast Dispatch Available"}</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-slate-600 font-semibold">100% Certified Food Grade</span>
-            </div>
-
-            {/* Main Headline */}
-            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.12] mb-6">
-              {general.tagline}
-            </h2>
-
-            {/* Sub-headline */}
-            <p className="text-base sm:text-lg text-slate-600 font-medium leading-relaxed mb-8 max-w-2xl mx-auto">
-              {general.description}
-            </p>
-
-            {/* Quick Action Buttons */}
-            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-12">
-              <a
-                href="#order-section"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-black px-8 py-4 rounded-2xl shadow-xl shadow-emerald-600/25 text-base transition-all hover:scale-105"
-              >
-                <span>💧</span>
-                <span>Request Tanker Now</span>
-              </a>
-
-              <a
-                href={buildWhatsAppLink("Hello, I need urgent bulk water delivery. Please share available bowsers and estimated ETA.")}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white hover:bg-emerald-50/50 text-slate-800 font-extrabold px-6 py-4 rounded-2xl border-2 border-emerald-500/30 text-base shadow-sm transition-all hover:border-emerald-500 hover:text-emerald-700"
-              >
-                <span className="text-emerald-600 text-lg">💬</span>
-                <span>Chat on WhatsApp</span>
-              </a>
-
-              <a
-                href="#calculator"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-4 rounded-2xl border border-slate-200 text-sm transition-all"
-              >
-                <span>🧮</span>
-                <span>Water Estimator</span>
-              </a>
-            </div>
-
-            {/* Key Value Highlights Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto text-left">
-              <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-2xl mb-1.5">⚡</div>
-                <h3 className="font-extrabold text-sm text-slate-800">Rapid Dispatch</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Under 60–90 mins in core coverage zones</p>
-              </div>
-              <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-2xl mb-1.5">🛡️</div>
-                <h3 className="font-extrabold text-sm text-slate-800">Food-Grade Tanks</h3>
-                <p className="text-xs text-slate-500 mt-0.5">100% sanitized food-grade stainless steel</p>
-              </div>
-              <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-2xl mb-1.5">🚛</div>
-                <h3 className="font-extrabold text-sm text-slate-800">Flexible Capacities</h3>
-                <p className="text-xs text-slate-500 mt-0.5">5,000L to 30,000L+ bowsers</p>
-              </div>
-              <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-2xl mb-1.5">🕒</div>
-                <h3 className="font-extrabold text-sm text-slate-800">24/7 Availability</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{general.operatingHours}</p>
+      <section className="public-hero border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          <div className="grid lg:grid-cols-[1.3fr_.7fr] gap-12 lg:gap-20 items-center">
+            <div className="max-w-3xl">
+              <p className="public-eyebrow mb-5"><span className="public-eyebrow-mark" /> {heroBadge}</p>
+              <h2 className="text-4xl sm:text-6xl lg:text-7xl font-semibold text-slate-950 tracking-[-0.055em] leading-[1.02] mb-6">
+                {heroTagline}
+              </h2>
+              <p className="text-base sm:text-lg text-slate-600 leading-8 mb-8 max-w-2xl">
+                {heroDescription}
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <a href="#order-section" className="public-primary-link">Request a delivery <span aria-hidden="true">↗</span></a>
+                <a href={`tel:${contacts.primaryPhone}`} className="public-secondary-link">Call {contacts.primaryPhone}</a>
               </div>
             </div>
+            <aside className="public-dispatch-card" aria-label="Dispatch contact details">
+              <p className="text-xs font-bold uppercase tracking-[.16em] text-cyan-200">Talk to dispatch</p>
+              <p className="mt-5 text-2xl sm:text-3xl font-semibold leading-tight text-white">Tell us where and how much.</p>
+              <p className="mt-3 text-sm leading-6 text-slate-300">We’ll confirm availability, tanker size and delivery timing for your location.</p>
+              <div className="mt-8 border-t border-white/15 pt-5 flex flex-col gap-3">
+                <a className="public-dispatch-phone" href={`tel:${contacts.primaryPhone}`}>{contacts.primaryPhone} <span>↗</span></a>
+                <a className="text-sm font-medium text-cyan-200 hover:text-white" href={buildWhatsAppLink("Hello, I need a bulk water delivery. Please confirm availability and timing.")} target="_blank" rel="noreferrer">Message us on WhatsApp →</a>
+              </div>
+              <p className="mt-7 text-[11px] text-slate-400">{operatingHours}</p>
+            </aside>
+          </div>
+          <div className="public-route-note mt-14 pt-5 border-t border-slate-200 text-sm text-slate-600">
+            <span className="font-semibold text-slate-900">Delivery areas</span><span className="public-route-line" /> Nairobi · Kiambu · Thika · Murang’a · Nyeri
           </div>
         </div>
-
-        {/* Counter Stats Bar — Bright Glassmorphism */}
-        {general.stats && general.stats.length > 0 && (
-          <div className="max-w-6xl mx-auto px-4 mt-16">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/60">
-              {general.stats.map((stat, idx) => (
-                <div key={idx} className="text-center py-2 border-slate-100 not-last:border-r">
-                  <p className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600">
-                    {stat.value}
-                  </p>
-                  <p className="text-xs sm:text-sm font-bold text-slate-500 mt-1 uppercase tracking-wider">
-                    {stat.label}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </section>
 
       {/* NEW INTERACTIVE FEATURE: Water Need & Tanker Estimator */}
@@ -383,13 +345,13 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-black uppercase tracking-widest text-teal-700 bg-teal-50 px-3.5 py-1.5 rounded-full border border-teal-200/70">
-              Interactive Tool
+              Plan a delivery
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-3">
-              Water Need & Tanker Estimator
+              Choose a delivery volume
             </h2>
             <p className="text-slate-600 text-sm sm:text-base mt-2">
-              Select your use case and desired volume to find the right bowser specification, pump reach, and instant recommendation.
+              Choose a volume to carry it into the request form. Dispatch will confirm the right vehicle for your site.
             </p>
           </div>
 
@@ -471,36 +433,32 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                   <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                     <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Recommendation</span>
                     <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">
-                      Ready for Dispatch
+                      Request details
                     </span>
                   </div>
 
                   <div className="mt-5 space-y-4">
                     <div>
-                      <p className="text-xs text-slate-500 font-semibold">Recommended Unit:</p>
+                      <p className="text-xs text-slate-500 font-semibold">Volume selected:</p>
                       <h4 className="text-xl font-black text-slate-900 mt-0.5">
-                        {calcVolume} Food-Grade Stainless Steel Bowser
+                        {calcVolume} water delivery
                       </h4>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 pt-2">
                       <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Pumping Reach</p>
-                        <p className="text-xs font-extrabold text-slate-800 mt-0.5">Up to 80m High-Pressure</p>
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Delivery timing</p>
+                        <p className="text-xs font-extrabold text-slate-800 mt-0.5">Confirm with dispatch</p>
                       </div>
                       <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Average Turnaround</p>
-                        <p className="text-xs font-extrabold text-emerald-600 mt-0.5">45 – 90 Minutes</p>
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Site access</p>
+                        <p className="text-xs font-extrabold text-slate-800 mt-0.5">Share details when booking</p>
                       </div>
                     </div>
 
                     <div className="bg-emerald-50/70 border border-emerald-200/70 p-3.5 rounded-2xl text-xs text-emerald-800 space-y-1">
-                      <p className="font-black flex items-center gap-1.5">
-                        <span>✓</span> 100% Quality Certified
-                      </p>
-                      <p className="text-emerald-700 leading-relaxed">
-                        Pure freshwater certified by public water authorities and KEBS. Safe for drinking, domestic, and commercial use.
-                      </p>
+                      <p className="font-black flex items-center gap-1.5">Need a quote?</p>
+                      <p className="text-emerald-700 leading-relaxed">Share your location and intended use with dispatch to confirm availability and any site requirements.</p>
                     </div>
                   </div>
                 </div>
@@ -511,7 +469,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                     onClick={handleApplyCalculator}
                     className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-3.5 px-4 rounded-xl shadow-md shadow-emerald-600/20 text-sm transition-all hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>Use in Booking Form</span>
+                    <span>Continue to request</span>
                     <span>→</span>
                   </button>
 
@@ -521,7 +479,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                     rel="noreferrer"
                     className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2"
                   >
-                    <span>💬 Direct WhatsApp Quote</span>
+                    <span>Ask dispatch on WhatsApp</span>
                   </a>
                 </div>
               </div>
@@ -547,7 +505,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {services.map((svc) => (
+            {displayServices.map((svc, index) => (
               <div
                 key={svc.id}
                 className={`relative rounded-3xl p-7 transition-all flex flex-col justify-between group hover:-translate-y-1.5 ${
@@ -563,8 +521,8 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                 )}
 
                 <div>
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/70 flex items-center justify-center text-3xl mb-5 group-hover:scale-110 transition-transform">
-                    {svc.icon}
+                  <div className="public-service-index w-12 h-12 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-sm font-semibold mb-5">
+                    {String(index + 1).padStart(2, "0")}
                   </div>
                   <h3 className="text-xl font-black text-slate-900 mb-2">{svc.title}</h3>
                   <p className="text-slate-600 text-sm leading-relaxed mb-6 font-normal">
@@ -604,7 +562,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
               Locations & Delivery Coverage
             </h2>
             <p className="text-slate-600 text-sm sm:text-base mt-2">
-              Our tankers are stationed along primary regional corridors for rapid, guaranteed delivery times.
+              Contact dispatch with your town or site address to confirm route availability and delivery timing.
             </p>
           </div>
 
@@ -674,7 +632,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                       </h3>
                     </div>
                     <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-lg">
-                      ⏱️ {loc.turnaround}
+                      {loc.turnaround}
                     </span>
                   </div>
 
@@ -684,9 +642,8 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                   </p>
 
                   <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-emerald-600 font-bold flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                      Bowser On Standby
+                    <span className="text-slate-500 font-semibold">
+                      Availability by route
                     </span>
                     <button
                       onClick={() => handleSelectLocation(loc.name)}
@@ -707,13 +664,13 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-black uppercase tracking-widest text-teal-700 bg-teal-50 px-3.5 py-1.5 rounded-full border border-teal-200">
-              Purity & Safety Guarantee
+              How ordering works
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-3">
-              How We Deliver Pristine Water
+              From request to delivery
             </h2>
             <p className="text-slate-600 text-sm sm:text-base mt-2">
-              Rigorous safety protocols from pure mountain catchment down to your destination tank.
+              A few details help the team plan the right vehicle and route.
             </p>
           </div>
 
@@ -721,27 +678,27 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
             {[
               {
                 step: "01",
-                title: "Certified Pure Source",
-                desc: "Drawn from pristine natural high-altitude freshwater springs and certified deep boreholes.",
-                icon: "🏔️"
+                title: "Share your location",
+                desc: "Give dispatch the town, estate and a nearby landmark.",
+                icon: "01"
               },
               {
                 step: "02",
-                title: "Sanitized Stainless Tanks",
-                desc: "Bowser tanks are steam-sanitized before loading to ensure zero bacterial contamination.",
-                icon: "🛡️"
+                title: "Choose a volume",
+                desc: "Estimate the amount you need and describe how the water will be used.",
+                icon: "02"
               },
               {
                 step: "03",
-                title: "Sealed Transit & GPS",
-                desc: "Tamper-evident seals on filling valves with real-time GPS tracking for accurate ETA.",
-                icon: "🚛"
+                title: "Confirm the details",
+                desc: "Dispatch confirms availability, price and timing before you book.",
+                icon: "03"
               },
               {
                 step: "04",
-                title: "Metered Pumping",
-                desc: "High-pressure clean pumping with calibrated volume meters directly into your storage.",
-                icon: "💧"
+                title: "Prepare the site",
+                desc: "Let the team know about access, hose distance and where the tank is located.",
+                icon: "04"
               }
             ].map((p, idx) => (
               <div key={idx} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm relative overflow-hidden">
@@ -763,13 +720,13 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
             <div>
               <span className="text-xs font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200">
-                Visual Showcase
+                Field photos
               </span>
               <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-3">
-                Our Fleet & Operations Gallery
+                Fleet & delivery work
               </h2>
               <p className="text-slate-600 text-sm mt-1">
-                Take a look at our clean stainless steel tankers, pumping gear, and source management.
+                Photos from deliveries and day-to-day operations.
               </p>
             </div>
 
@@ -792,7 +749,8 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
           </div>
 
           {/* Photos Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredPhotos.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPhotos.map((photo) => (
               <div
                 key={photo.id}
@@ -823,7 +781,14 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          ) : (
+            <div className="public-gallery-empty">
+              <span className="public-gallery-rule" />
+              <p className="font-semibold text-slate-800">Delivery photos will appear here.</p>
+              <p className="mt-1 text-sm text-slate-500">For current availability, contact the dispatch team.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -883,7 +848,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                 Request Water Tanker Delivery
               </h2>
               <p className="text-slate-600 text-sm sm:text-base mt-2">
-                Submit your water request below. Our dispatch team coordinates the nearest active bowser right away.
+                Send your details and the dispatch team will follow up to confirm availability, price and timing.
               </p>
             </div>
 
@@ -892,9 +857,9 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                 <div className="w-16 h-16 rounded-full bg-emerald-500 text-white text-3xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/30">
                   ✓
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-2">Request Successfully Received!</h3>
+                <h3 className="text-2xl font-semibold text-slate-900 mb-2">Request received</h3>
                 <p className="text-slate-600 text-sm max-w-md mx-auto mb-6">
-                  Thank you, <span className="font-black text-slate-900">{submittedInquiry.customerName}</span>. Your request for <span className="font-black text-emerald-600">{submittedInquiry.volume}</span> ({submittedInquiry.serviceType}) at <span className="font-bold text-slate-900">{submittedInquiry.deliveryLocation}</span> has been logged.
+                  Thank you, <span className="font-semibold text-slate-900">{submittedInquiry.customerName}</span>. We’ve recorded your request for <span className="font-semibold text-cyan-800">{submittedInquiry.volume}</span> ({submittedInquiry.serviceType}) at <span className="font-medium text-slate-900">{submittedInquiry.deliveryLocation}</span>. Contact dispatch to confirm the order and delivery timing.
                 </p>
 
                 <div className="flex flex-wrap items-center justify-center gap-3">
@@ -907,7 +872,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                     className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-3.5 rounded-xl shadow-lg shadow-emerald-600/25 transition-all flex items-center gap-2 text-sm"
                   >
                     <span>💬</span>
-                    <span>Confirm ETA on WhatsApp</span>
+                    <span>Follow up on WhatsApp</span>
                   </a>
 
                   <button
@@ -978,7 +943,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                       onChange={e => setForm(prev => ({ ...prev, serviceType: e.target.value }))}
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium"
                     >
-                      {services.map(s => (
+                    {displayServices.map(s => (
                         <option key={s.id} value={s.title}>{s.title} ({s.capacities})</option>
                       ))}
                     </select>
@@ -1025,8 +990,8 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                       onChange={e => setForm(prev => ({ ...prev, urgency: e.target.value }))}
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium"
                     >
-                      <option value="Emergency ASAP">🚨 Emergency ASAP (Immediate Dispatch)</option>
-                      <option value="Today">Today (Within 2 - 4 hours)</option>
+                      <option value="Emergency ASAP">Emergency request (call to confirm availability)</option>
+                      <option value="Today">Today (timing to be confirmed)</option>
                       <option value="Tomorrow">Tomorrow Morning</option>
                       <option value="Scheduled Date">Scheduled Later / Regular Contract</option>
                     </select>
@@ -1076,8 +1041,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                     disabled={submitting}
                     className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-600/25 text-base transition-all hover:scale-[1.01] cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    <span>{submitting ? "Sending Request…" : "Submit Water Request"}</span>
-                    <span>🚛</span>
+                    <span>{submitting ? "Sending request…" : "Send delivery request"}</span>
                   </button>
                   <p className="text-center text-xs text-slate-500 mt-3 font-medium">
                     Need instant response? You can also call dispatch directly at <a href={`tel:${contacts.primaryPhone}`} className="text-emerald-700 font-extrabold underline">{contacts.primaryPhone}</a>.
@@ -1100,7 +1064,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
               Frequently Asked Questions
             </h2>
             <p className="text-slate-600 text-sm mt-1">
-              Everything you need to know about water source purity, delivery turnaround, and tankers.
+              A few details about requesting a delivery.
             </p>
           </div>
 
@@ -1148,7 +1112,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                 {contacts.address}
               </p>
               <p className="text-emerald-400 text-xs font-bold">
-                Operating: {general.operatingHours}
+                Operating: {operatingHours}
               </p>
             </div>
 
@@ -1158,7 +1122,7 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                 📞
               </div>
               <h3 className="font-extrabold text-base text-white mb-1">Dispatch Hotlines</h3>
-              <p className="text-slate-400 text-xs mb-3">Available 24 hours for emergency calls & bookings:</p>
+              <p className="text-slate-400 text-xs mb-3">Call to check dispatch availability and arrange a booking.</p>
               <div className="space-y-1.5 text-sm font-black text-white">
                 <div>
                   <a href={`tel:${contacts.primaryPhone}`} className="hover:text-emerald-400 transition-colors">
@@ -1180,9 +1144,9 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
               <div className="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-2xl mb-4 text-teal-400">
                 📜
               </div>
-              <h3 className="font-extrabold text-base text-white mb-1">Certifications & Quality</h3>
+              <h3 className="font-extrabold text-base text-white mb-1">Company information</h3>
               <p className="text-slate-400 text-xs leading-relaxed mb-3">
-                {general.licenseInfo}
+                {licenseInfo}
               </p>
               <div className="text-xs text-slate-300">
                 <span className="text-slate-400">Email: </span>
@@ -1207,9 +1171,6 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
                 </button>
               )}
             </div>
-            <p>
-              Designed by <span className="font-bold text-emerald-400">Cyber Vision Lab</span>
-            </p>
           </div>
         </div>
       </section>
@@ -1220,11 +1181,10 @@ export default function PublicWebsite({ onOpenLogin, user, onReturnToDashboard }
           href={buildWhatsAppLink("Hello Mount Kenya Water, I need a bulk water tanker. Please assist.")}
           target="_blank"
           rel="noreferrer"
-          className="bg-emerald-600 hover:bg-emerald-500 text-white p-3.5 sm:px-5 sm:py-3.5 rounded-full shadow-2xl shadow-emerald-700/40 font-black text-xs sm:text-sm flex items-center gap-2 transition-all hover:scale-110"
+          className="bg-emerald-600 hover:bg-emerald-500 text-white p-3.5 sm:px-5 sm:py-3.5 rounded-lg shadow-md font-bold text-xs sm:text-sm flex items-center gap-2 transition-all"
           title="Chat on WhatsApp"
         >
-          <span className="text-lg">💬</span>
-          <span className="hidden sm:inline">Order on WhatsApp</span>
+          <span>WhatsApp dispatch</span>
         </a>
       </div>
 

@@ -3,17 +3,12 @@ import { supabase } from "./supabase";
 const DEFAULT_WEBSITE_DATA = {
   general: {
     companyName: "Mount Kenya Water Distributors",
-    tagline: "Pure, Reliable Bulk Water Delivery Across Mount Kenya & Nairobi Region",
-    description: "Kenya's leading clean bulk water delivery service. Providing pristine, food-grade certified water for residential, commercial, industrial, and emergency requirements 24/7 with our modern tanker fleet.",
-    badgeText: "24/7 Fast Dispatch Available",
-    stats: [
-      { label: "Liters Delivered", value: "25M+" },
-      { label: "Dedicated Tankers", value: "18+" },
-      { label: "Satisfied Clients", value: "3,500+" },
-      { label: "On-Time Delivery", value: "99.8%" }
-    ],
-    operatingHours: "24 Hours / 7 Days a Week",
-    licenseInfo: "Licensed by KEBS & Ministry of Water & Sanitation"
+    tagline: "Bulk water delivery, arranged around your site.",
+    description: "Mount Kenya Water Distributors supplies water by tanker for homes, businesses and construction sites across the Mount Kenya and Nairobi region. Contact dispatch to confirm availability, volume and delivery timing.",
+    badgeText: "Water delivery · Mount Kenya & Nairobi",
+    stats: [],
+    operatingHours: "Contact dispatch for availability",
+    licenseInfo: "Ask dispatch for current source and quality documentation."
   },
   contacts: {
     primaryPhone: "+254 712 345 678",
@@ -28,7 +23,7 @@ const DEFAULT_WEBSITE_DATA = {
       id: "bulk-clean-water",
       title: "Clean Bulk Drinking Water",
       icon: "💧",
-      description: "Tested and certified food-grade water delivered in clean stainless steel tankers for homes, estates, apartments, and hotels.",
+      description: "Bulk water delivery for homes, apartments, hotels and residential estates. Share your location and requested volume for a quote.",
       popular: true,
       capacities: "5,000L – 20,000L"
     },
@@ -36,23 +31,23 @@ const DEFAULT_WEBSITE_DATA = {
       id: "construction-water",
       title: "Construction & Site Water",
       icon: "🏗️",
-      description: "High-volume water supply for concrete batching, dust suppression, soil compaction, and commercial construction projects.",
+      description: "Water supply for construction sites and infrastructure work. Tell us about site access, intended use and expected volume.",
       popular: false,
       capacities: "10,000L – 30,000L"
     },
     {
       id: "emergency-supply",
-      title: "Emergency 24/7 Water Supply",
+      title: "Urgent Water Supply",
       icon: "🚨",
-      description: "Rapid response delivery for hospitals, institutions, factories, and schools facing municipal water shortages.",
+      description: "Contact dispatch for urgent requirements at homes, institutions and business sites. Availability and timing depend on location and fleet schedule.",
       popular: false,
-      capacities: "Guaranteed express dispatch within 90 mins"
+      capacities: "Confirm timing with dispatch"
     },
     {
       id: "pool-filling",
       title: "Swimming Pool Filling",
       icon: "🏊",
-      description: "Crystal clear water pumped directly into residential and commercial swimming pools with specialized high-pressure hoses.",
+      description: "Arrange a pool fill and include the pool capacity, access details and preferred delivery date in your request.",
       popular: false,
       capacities: "Single or multi-trip deliveries"
     },
@@ -60,7 +55,7 @@ const DEFAULT_WEBSITE_DATA = {
       id: "commercial-industrial",
       title: "Commercial & Industrial Supply",
       icon: "🏭",
-      description: "Scheduled daily, weekly, or monthly bulk water contracts for manufacturing plants, breweries, car washes, and floriculture.",
+      description: "Discuss regular bulk supply for a commercial or industrial site with dispatch. Schedules are confirmed by route and availability.",
       popular: false,
       capacities: "Custom scheduled contracts"
     },
@@ -68,7 +63,7 @@ const DEFAULT_WEBSITE_DATA = {
       id: "bowser-leasing",
       title: "Water Bowser / Tanker Leasing",
       icon: "🚛",
-      description: "Short and long-term water bowser rentals with experienced certified drivers and pumping equipment.",
+      description: "Ask dispatch about vehicle availability for your route, timing and site requirements.",
       popular: false,
       capacities: "Daily, weekly, or monthly rates"
     }
@@ -78,76 +73,39 @@ const DEFAULT_WEBSITE_DATA = {
       id: "nairobi",
       name: "Nairobi County",
       subzones: "Westlands, Kilimani, Karen, Roysambu, Kasarani, Embakasi, Langata, Parklands",
-      turnaround: "1 – 2 hours",
+      turnaround: "Confirm with dispatch",
       featured: true
     },
     {
       id: "kiambu",
       name: "Kiambu & Ruiru",
       subzones: "Ruiru, Thika Road, Kiambu Town, Kikuyu, Limuru, Juja, Kahawa Sukari",
-      turnaround: "45 – 90 mins",
+      turnaround: "Confirm with dispatch",
       featured: true
     },
     {
       id: "thika",
       name: "Thika & Murang'a",
       subzones: "Thika Town, Makongeni, Kenol, Maragua, Murang'a Town, Kandara",
-      turnaround: "1 – 2 hours",
+      turnaround: "Confirm with dispatch",
       featured: true
     },
     {
       id: "nyeri-mtkenya",
       name: "Nyeri & Mount Kenya Region",
       subzones: "Nyeri, Karatina, Nanyuki, Othaya, Mukurweini, Timau",
-      turnaround: "Scheduled & Express",
+      turnaround: "Confirm with dispatch",
       featured: true
     },
     {
       id: "machakos-athi",
       name: "Machakos & Athi River",
       subzones: "Mlolongo, Athi River, Syokimau, Kitengela, Machakos Junction",
-      turnaround: "2 – 3 hours",
+      turnaround: "Confirm with dispatch",
       featured: false
     }
   ],
-  photos: [
-    {
-      id: "photo-1",
-      url: "https://images.unsplash.com/photo-1541888946425-d0fbb186c5f9?auto=format&fit=crop&w=1200&q=80",
-      caption: "Heavy-duty 20,000L clean water delivery tanker on transit",
-      category: "Fleet"
-    },
-    {
-      id: "photo-2",
-      url: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80",
-      caption: "High pressure pumping equipment for high-rise residential & commercial storage",
-      category: "Operations"
-    },
-    {
-      id: "photo-3",
-      url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80",
-      caption: "Pristine natural mountain water catchment and processing source",
-      category: "Sources"
-    },
-    {
-      id: "photo-4",
-      url: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=1200&q=80",
-      caption: "Regular sanitation & quality testing of stainless steel food-grade tanks",
-      category: "Quality"
-    },
-    {
-      id: "photo-5",
-      url: "https://images.unsplash.com/photo-1574943320219-553eb213f72d?auto=format&fit=crop&w=1200&q=80",
-      caption: "Bulk water delivery directly to construction site batching plant",
-      category: "Operations"
-    },
-    {
-      id: "photo-6",
-      url: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=1200&q=80",
-      caption: "Dedicated bowser fleet stationed for rapid 24/7 emergency dispatch",
-      category: "Fleet"
-    }
-  ]
+  photos: []
 };
 
 const STORAGE_KEY = "wt_website_cms_data";

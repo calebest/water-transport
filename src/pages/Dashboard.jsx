@@ -92,7 +92,7 @@ const LegendDot = ({ color, label }) => (
   </div>
 );
 
-export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, onMarkTripPaid, onGoToTrips, onGoToPayments, onGoToReconciliation }) {
+export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, onMarkTripPaid, onGoToTrips, onGoToPayments, onGoToReconciliation, onGoToMarketing }) {
   const { profile, isAdmin, isOwner } = useAuth();
   const [pendingOpen, setPendingOpen] = useState(() => localStorage.getItem("wt_dash_pendingOpen") !== "false");
   const [brokerLedger, setBrokerLedger] = useState([]);
@@ -310,6 +310,25 @@ export default function DashboardPage({ trips, vehicles = [], onOpenTripReview, 
                         </div>
                       </div>
                       <span className="text-slate-400 group-hover:text-sky-600 text-sm font-bold">→</span>
+                    </button>
+                  )}
+
+                  {onGoToMarketing && (isAdmin || isOwner) && (
+                    <button
+                      type="button"
+                      onClick={onGoToMarketing}
+                      className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 hover:bg-amber-50 border border-slate-100 hover:border-amber-200 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+                          📇
+                        </div>
+                        <div>
+                          <p className="font-bold text-xs text-slate-800 group-hover:text-amber-900">Cards & Posters Studio</p>
+                          <p className="text-[11px] text-slate-400">Custom business cards & posters with QR code</p>
+                        </div>
+                      </div>
+                      <span className="text-slate-400 group-hover:text-amber-600 text-sm font-bold">→</span>
                     </button>
                   )}
                 </div>
