@@ -22,6 +22,7 @@ import ReportsPage from "./pages/Reports";
 import PaymentRecordsPage from "./pages/PaymentRecords";
 import FinancialReconciliationPage from "./pages/FinancialReconciliation";
 import { financialDeductionsService } from "./services/financialDeductions";
+import { getThemeById } from "./utils/dashboardThemes";
 
 import BackupPage from "./pages/Backup";
 import UsersPage from "./pages/Users";
@@ -89,6 +90,17 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   const [reviewTrip, setReviewTrip] = useState(null);
   const [tripEditTrip, setTripEditTrip] = useState(null);
   const [viewingWebsite, setViewingWebsite] = useState(false);
+
+  // System-wide Visual Theme
+  const themeKey = settings?.dashboardTheme || (typeof window !== "undefined" ? localStorage.getItem("wt_dashboard_theme") : "glacier") || "glacier";
+  const currentTheme = getThemeById(themeKey);
+  const shell = currentTheme.shell;
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", currentTheme.id);
+    }
+  }, [currentTheme.id]);
 
   const [globalVehicle, setGlobalVehicle] = useState(() => {
     return localStorage.getItem("wt_global_vehicle") || "all";
@@ -294,7 +306,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   }
 
   return (
-    <div className="min-h-screen w-full min-w-0 overflow-x-clip bg-slate-50 flex">
+    <div className={`min-h-screen w-full min-w-0 overflow-x-clip flex transition-colors duration-300 ${shell.appBg}`}>
       {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div 
@@ -304,13 +316,13 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
       )}
 
       {/* Sidebar / Drawer */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 max-w-[85vw] bg-white border-r border-slate-100 shadow-2xl lg:shadow-sm transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"} flex flex-col`}>
-        <div className="p-5 border-b border-slate-100">
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 max-w-[85vw] ${shell.sidebarBg} transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"} flex flex-col`}>
+        <div className={`p-5 ${shell.sidebarHeaderBorder}`}>
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center text-xl shadow">🚛</div>
+            <div className={`h-10 w-10 rounded-xl ${shell.logoBg} flex items-center justify-center text-xl`}>🚛</div>
             <div>
               <p className="text-xs font-black text-slate-800 leading-tight">Mount Kenya Water Distributors</p>
-              <p className="text-xs text-slate-400">Manager</p>
+              <p className={`text-xs ${shell.logoSub || "text-slate-400"}`}>Manager</p>
             </div>
           </div>
           <div className="mt-4">
@@ -319,7 +331,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
               <select
                 value={globalVehicle}
                 onChange={(e) => handleSetGlobalVehicle(e.target.value)}
-                className="w-full appearance-none rounded-xl bg-slate-50 border border-slate-200 pl-3 pr-8 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                className={`w-full appearance-none rounded-xl bg-slate-50 border border-slate-200 pl-3 pr-8 py-2 text-sm font-bold text-slate-700 focus:outline-none ${shell.selectFocus} transition-all`}
               >
                 <option value="all">All Vehicles</option>
                 {vehicles?.map(v => <option key={v.id} value={v.plate}>{v.plate}</option>)}
@@ -336,7 +348,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
                 setMobileMenuOpen(false);
                 setViewingWebsite(true);
               }}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200/70 transition-all shadow-xs cursor-pointer"
+              className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl ${shell.websiteBtn} text-xs font-bold transition-all cursor-pointer`}
             >
               <span>🌐</span>
               <span>View Public Website</span>
@@ -364,12 +376,12 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
                    navigateToPage(items[0].id);
                    setMobileMenuOpen(false); 
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
                   isActiveGroup
-                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? shell.navActive
+                    : `text-slate-600 ${shell.navInactiveHover}`
                 }`}>
-                <span className={isActiveGroup ? "text-emerald-100 text-lg" : "text-slate-400 text-lg"}>{icon}</span>
+                <span className={isActiveGroup ? shell.navActiveIcon : "text-slate-400 text-lg"}>{icon}</span>
                 <span className="flex-1 text-left tracking-wide">{group}</span>
               </button>
             );
@@ -377,7 +389,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
         </nav>
         <div className="p-4 border-t border-slate-100">
           <div className="flex items-center gap-3 mb-3">
-            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center text-sm font-bold text-emerald-700">
+            <div className={`h-8 w-8 rounded-full ${shell.avatarBg} flex items-center justify-center text-sm font-bold`}>
               {profile?.name?.charAt(0) || "?"}
             </div>
             <div className="min-w-0">
@@ -394,7 +406,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
       </aside>
 
       <div className="flex-1 min-w-0 lg:ml-64 flex flex-col min-h-screen">
-        <header className="lg:hidden sticky top-0 z-20 flex flex-col min-w-0 bg-white border-b border-slate-100 shadow-sm">
+        <header className={`lg:hidden sticky top-0 z-20 flex flex-col min-w-0 ${shell.mobileHeaderBg}`}>
           <div className="flex min-w-0 items-center justify-between px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <button onClick={() => setMobileMenuOpen(true)} className="p-1 -ml-1 text-slate-500 hover:text-slate-800 focus:outline-none">
@@ -421,13 +433,13 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
               )}
             </div>
           </div>
-          <div className="px-4 pb-3 border-t border-slate-50 pt-2 flex items-center gap-3 bg-slate-50/50">
+          <div className={`px-4 pb-3 border-t pt-2 flex items-center gap-3 ${shell.mobileVehicleBar}`}>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Vehicle</span>
             <div className="relative flex-1">
               <select
                 value={globalVehicle}
                 onChange={(e) => handleSetGlobalVehicle(e.target.value)}
-                className="w-full appearance-none rounded-lg bg-white border border-slate-200 pl-3 pr-8 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-sm"
+                className={`w-full appearance-none rounded-lg bg-white border border-slate-200 pl-3 pr-8 py-1.5 text-xs font-bold text-slate-700 focus:outline-none ${shell.selectFocus} transition-all shadow-sm`}
               >
                 <option value="all">All Vehicles</option>
                 {vehicles?.map(v => <option key={v.id} value={v.plate}>{v.plate}</option>)}
@@ -441,19 +453,19 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
 
         {/* Modern Sub-Nav Tabs */}
         {activeNavItem && activeNavItem.group !== "Dashboard" && (
-          <div className="bg-white/80 backdrop-blur-xl border-b border-slate-100 w-full shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] sticky top-[68px] lg:top-0 z-10 transition-all">
+          <div className={`${shell.subnavContainer} w-full shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] sticky top-[68px] lg:top-0 z-10 transition-all`}>
             <div className="max-w-5xl mx-auto px-4 lg:px-8 py-3 lg:py-4">
               <div className="flex items-center overflow-x-auto hide-scrollbar">
-                <div className="inline-flex p-1.5 space-x-2 bg-slate-100/80 rounded-2xl border border-slate-200/50">
+                <div className={`inline-flex p-1.5 space-x-2 ${shell.subnavTabBox} rounded-2xl`}>
                   {groupedNavItems.find(g => g.group === activeNavItem.group)?.items.map(n => {
                     const isActive = activePage === n.id;
                     return (
                       <button
                         key={n.id}
                         onClick={() => navigateToPage(n.id)}
-                        className={`relative flex items-center gap-2 whitespace-nowrap px-4 py-2 text-sm font-bold rounded-xl transition-all duration-300 ease-out ${
+                        className={`relative flex items-center gap-2 whitespace-nowrap px-4 py-2 text-sm font-bold rounded-xl transition-all duration-300 ease-out cursor-pointer ${
                           isActive 
-                            ? "bg-white text-emerald-800 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] ring-1 ring-slate-900/5 translate-y-[0px]" 
+                            ? shell.subnavActive 
                             : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 hover:-translate-y-[1px]"
                         }`}
                       >
@@ -461,7 +473,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
                         <span>{n.label}</span>
                         {n.id === "trips" && pendingCount > 0 && (
                           <span className={`ml-1 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-black shadow-sm transition-all ${
-                            isActive ? "bg-emerald-100 text-emerald-700" : "bg-rose-500 text-white shadow-rose-500/30"
+                            isActive ? shell.subnavBadge : "bg-rose-500 text-white shadow-rose-500/30"
                           }`}>
                             {pendingCount}
                           </span>
@@ -525,10 +537,10 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
               <button
                 key={item.id}
                 onClick={() => navigateToPage(item.id)}
-                className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-bold transition-colors ${activePage === item.id ? "text-emerald-700" : "text-slate-500"}`}
+                className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-bold transition-colors ${activePage === item.id ? shell.mobileActiveText : "text-slate-500"}`}
                 aria-current={activePage === item.id ? "page" : undefined}
               >
-                <span className={`flex h-9 w-9 items-center justify-center rounded-full text-base transition-colors ${activePage === item.id ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                <span className={`flex h-9 w-9 items-center justify-center rounded-full text-base transition-colors ${activePage === item.id ? shell.mobileActiveIconBg : "bg-slate-100 text-slate-500"}`}>
                   {item.icon}
                 </span>
                 <span className="truncate leading-none">{item.label}</span>
@@ -536,10 +548,10 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             ))}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-bold transition-colors ${hasHiddenActivePage ? "text-emerald-700" : "text-slate-500"}`}
+              className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-bold transition-colors ${hasHiddenActivePage ? shell.mobileActiveText : "text-slate-500"}`}
               aria-label="Open more navigation"
             >
-              <span className={`flex h-9 w-9 items-center justify-center rounded-full text-base transition-colors ${hasHiddenActivePage ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+              <span className={`flex h-9 w-9 items-center justify-center rounded-full text-base transition-colors ${hasHiddenActivePage ? shell.mobileActiveIconBg : "bg-slate-100 text-slate-500"}`}>
                 ☰
               </span>
               <span className="truncate leading-none">More</span>
@@ -550,7 +562,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
         {/* Footer */}
         <footer className="hidden lg:block border-t border-slate-100 px-8 py-3 text-center text-[11px] text-slate-400">
           Designed by{" "}
-          <span className="font-semibold text-emerald-600">Cyber Vision Lab</span>
+          <span className={`font-semibold ${shell.footerText}`}>Cyber Vision Lab</span>
         </footer>
       </div>
     </div>

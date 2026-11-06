@@ -1,6 +1,7 @@
 export function StatCard({ label, value, icon, color = "green", sub }) {
   const colorMap = {
     green: { icon: "bg-emerald-100 text-emerald-600", glow: "bg-emerald-400" },
+    sky: { icon: "bg-sky-100 text-sky-600", glow: "bg-sky-400" },
     red: { icon: "bg-rose-100 text-rose-600", glow: "bg-rose-400" },
     blue: { icon: "bg-blue-100 text-blue-600", glow: "bg-blue-400" },
     amber: { icon: "bg-amber-100 text-amber-600", glow: "bg-amber-400" },
@@ -29,6 +30,7 @@ export function StatCard({ label, value, icon, color = "green", sub }) {
 export function Badge({ children, color = "green" }) {
   const c = {
     green: "bg-emerald-100 text-emerald-700",
+    sky: "bg-sky-100 text-sky-700",
     red: "bg-rose-100 text-rose-700",
     blue: "bg-blue-100 text-blue-700",
     amber: "bg-amber-100 text-amber-700",

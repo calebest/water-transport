@@ -1,6 +1,34 @@
 @import "tailwindcss";
 @source "./**/*.{jsx,js,ts,tsx,html}";
 
+:root {
+  --theme-primary: #0284c7;
+  --theme-primary-hover: #0369a1;
+  --theme-primary-light: #e0f2fe;
+  --theme-primary-border: #bae6fd;
+}
+
+[data-theme="spring-emerald"] {
+  --theme-primary: #059669;
+  --theme-primary-hover: #047857;
+  --theme-primary-light: #d1fae5;
+  --theme-primary-border: #a7f3d0;
+}
+
+[data-theme="minimal-pearl"] {
+  --theme-primary: #2563eb;
+  --theme-primary-hover: #1d4ed8;
+  --theme-primary-light: #eff6ff;
+  --theme-primary-border: #bfdbfe;
+}
+
+[data-theme="executive-dark"] {
+  --theme-primary: #10b981;
+  --theme-primary-hover: #059669;
+  --theme-primary-light: #064e3b;
+  --theme-primary-border: #047857;
+}
+
 @layer base {
   html,
   body,
