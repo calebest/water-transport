@@ -248,6 +248,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onGoToPayments={() => navigateToPage("payment-records")}
           onGoToReconciliation={() => navigateToPage("financial-reconciliation")}
           onGoToMarketing={() => navigateToPage("marketing-studio")}
+          onGoToSettings={() => navigateToPage("settings")}
           globalVehicle={globalVehicle}
           setGlobalVehicle={handleSetGlobalVehicle}
         />
@@ -276,7 +277,7 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
     maintenance: <MaintenancePage maintenance={maintenance} vehicles={vehicles} />,
     reports: <ReportsPage trips={trips} vehicles={vehicles} complaints={complaints} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
     backup: <BackupPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} complaints={complaints} settings={settings} paymentRecords={paymentRecords} financialDeductions={financialDeductions} />,
-    settings: <SettingsPage settings={settings} onNavigateToMarketing={() => navigateToPage("marketing-studio")} />,
+    settings: <SettingsPage settings={settings} onNavigateToMarketing={() => navigateToPage("marketing-studio")} onNavigateToDashboard={() => navigateToPage("dashboard")} />,
     "marketing-studio": <MarketingStudioPage onNavigateToWebsite={() => setViewingWebsite(true)} />,
     users: <UsersPage personnel={personnel} brokers={brokers} />,
     brokers: <BrokersPage brokers={brokers} />,
