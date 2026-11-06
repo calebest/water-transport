@@ -258,6 +258,7 @@ const DEFAULT_CONFIG = {
   personPhoto: "", // Passport photo / headshot data URL
   showPassportPhoto: true,
   avatarShape: "circle", // "circle" | "rounded"
+  avatarSize: 48, // 36 to 72 pixels (default 48px)
 
   // Contacts
   primaryPhone: "+254 746 346 888",
@@ -994,7 +995,11 @@ export default function MarketingStudioPage() {
                               <img
                                 src={config.personPhoto}
                                 alt={config.personName}
-                                className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-sky-500 shadow-xs shrink-0 ${
+                                style={{
+                                  width: `${config.avatarSize || 48}px`,
+                                  height: `${config.avatarSize || 48}px`,
+                                }}
+                                className={`object-cover border-2 border-sky-500 shadow-xs shrink-0 ${
                                   config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
                                 }`}
                               />
@@ -1105,7 +1110,11 @@ export default function MarketingStudioPage() {
                             <img
                               src={config.personPhoto}
                               alt={config.personName}
-                              className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-emerald-600 shadow-xs shrink-0 ${
+                              style={{
+                                width: `${config.avatarSize || 48}px`,
+                                height: `${config.avatarSize || 48}px`,
+                              }}
+                              className={`object-cover border-2 border-emerald-600 shadow-xs shrink-0 ${
                                 config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
                               }`}
                             />
@@ -1187,7 +1196,11 @@ export default function MarketingStudioPage() {
                             <img
                               src={config.personPhoto}
                               alt={config.personName}
-                              className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-sky-600 shadow-xs shrink-0 ${
+                              style={{
+                                width: `${config.avatarSize || 48}px`,
+                                height: `${config.avatarSize || 48}px`,
+                              }}
+                              className={`object-cover border-2 border-sky-600 shadow-xs shrink-0 ${
                                 config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
                               }`}
                             />
@@ -1255,7 +1268,11 @@ export default function MarketingStudioPage() {
                               <img
                                 src={config.personPhoto}
                                 alt={config.personName}
-                                className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-emerald-600 shadow-xs shrink-0 ${
+                                style={{
+                                  width: `${config.avatarSize || 48}px`,
+                                  height: `${config.avatarSize || 48}px`,
+                                }}
+                                className={`object-cover border-2 border-emerald-600 shadow-xs shrink-0 ${
                                   config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
                                 }`}
                               />
@@ -1329,7 +1346,11 @@ export default function MarketingStudioPage() {
                             <img
                               src={config.personPhoto}
                               alt={config.personName}
-                              className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-amber-400 shadow-md ring-2 ring-emerald-500/50 shrink-0 ${
+                              style={{
+                                width: `${config.avatarSize || 48}px`,
+                                height: `${config.avatarSize || 48}px`,
+                              }}
+                              className={`object-cover border-2 border-amber-400 shadow-md ring-2 ring-emerald-500/50 shrink-0 ${
                                 config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
                               }`}
                             />
@@ -1389,7 +1410,11 @@ export default function MarketingStudioPage() {
                             <img
                               src={config.personPhoto}
                               alt={config.personName}
-                              className={`w-11 h-11 sm:w-12 sm:h-12 object-cover border-2 border-emerald-400 shadow-md ring-2 ring-white/10 shrink-0 ${
+                              style={{
+                                width: `${config.avatarSize || 48}px`,
+                                height: `${config.avatarSize || 48}px`,
+                              }}
+                              className={`object-cover border-2 border-emerald-400 shadow-md ring-2 ring-white/10 shrink-0 ${
                                 config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
                               }`}
                             />
@@ -2281,63 +2306,119 @@ export default function MarketingStudioPage() {
                 />
 
                 {config.personPhoto ? (
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        src={config.personPhoto}
-                        alt="Passport headshot"
-                        className={`w-11 h-11 object-cover border-2 border-slate-300 shadow-2xs shrink-0 ${
-                          config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
-                        }`}
-                      />
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-slate-800 block truncate">
-                          Passport Photo Active
-                        </span>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => updateField("avatarShape", "circle")}
-                            className={`px-1.5 py-0.5 text-[9.5px] font-bold rounded cursor-pointer ${
-                              config.avatarShape !== "rounded"
-                                ? "bg-sky-600 text-white"
-                                : "bg-white text-slate-600 border border-slate-200"
-                            }`}
-                          >
-                            Round
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateField("avatarShape", "rounded")}
-                            className={`px-1.5 py-0.5 text-[9.5px] font-bold rounded cursor-pointer ${
-                              config.avatarShape === "rounded"
-                                ? "bg-sky-600 text-white"
-                                : "bg-white text-slate-600 border border-slate-200"
-                            }`}
-                          >
-                            Square
-                          </button>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                    {/* Top Row: Preview, Shape Selector & Action Buttons */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={config.personPhoto}
+                          alt="Passport headshot"
+                          className={`w-11 h-11 object-cover border-2 border-slate-300 shadow-2xs shrink-0 ${
+                            config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-slate-800 block truncate">
+                            Passport Photo Active
+                          </span>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => updateField("avatarShape", "circle")}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-all ${
+                                config.avatarShape !== "rounded"
+                                  ? "bg-sky-600 text-white shadow-2xs"
+                                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                              }`}
+                            >
+                              Circle
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateField("avatarShape", "rounded")}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-all ${
+                                config.avatarShape === "rounded"
+                                  ? "bg-sky-600 text-white shadow-2xs"
+                                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                              }`}
+                            >
+                              Rounded
+                            </button>
+                          </div>
                         </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => passportPhotoInputRef.current?.click()}
+                          className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg cursor-pointer transition-colors"
+                          title="Replace passport photo"
+                        >
+                          🔄 Replace
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateField("personPhoto", "")}
+                          className="px-2.5 py-1 text-[11px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg cursor-pointer transition-colors"
+                          title="Remove passport photo from card"
+                        >
+                          🗑️ Remove
+                        </button>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => passportPhotoInputRef.current?.click()}
-                        className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg cursor-pointer transition-colors"
-                        title="Replace passport photo"
-                      >
-                        🔄 Replace
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateField("personPhoto", "")}
-                        className="px-2.5 py-1 text-[11px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg cursor-pointer transition-colors"
-                        title="Remove passport photo from card"
-                      >
-                        🗑️ Remove
-                      </button>
+                    {/* Photo Size Adjuster: Slider & Preset Chips */}
+                    <div className="pt-2.5 border-t border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span className="flex items-center gap-1.5">
+                          <span>📐</span> Photo Size on Card
+                        </span>
+                        <span className="text-sky-700 font-mono text-[11px] font-black bg-sky-100/80 px-2 py-0.5 rounded border border-sky-300">
+                          {config.avatarSize || 48}px
+                        </span>
+                      </div>
+
+                      {/* Continuous Range Slider */}
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-[10px] text-slate-400 font-bold shrink-0">34px</span>
+                        <input
+                          type="range"
+                          min="34"
+                          max="76"
+                          step="2"
+                          value={config.avatarSize || 48}
+                          onChange={(e) => updateField("avatarSize", Number(e.target.value))}
+                          className="flex-1 accent-sky-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
+                        />
+                        <span className="text-[10px] text-slate-400 font-bold shrink-0">76px</span>
+                      </div>
+
+                      {/* Quick Preset Buttons */}
+                      <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+                        {[
+                          { label: "Compact", size: 38 },
+                          { label: "Standard", size: 48 },
+                          { label: "Large", size: 58 },
+                          { label: "Extra", size: 68 },
+                        ].map((chip) => {
+                          const isActive = (config.avatarSize || 48) === chip.size;
+                          return (
+                            <button
+                              key={chip.size}
+                              type="button"
+                              onClick={() => updateField("avatarSize", chip.size)}
+                              className={`py-1 text-[10px] font-bold rounded-md cursor-pointer transition-all ${
+                                isActive
+                                  ? "bg-sky-600 text-white shadow-xs"
+                                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                              }`}
+                            >
+                              {chip.label} ({chip.size}px)
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 ) : (
