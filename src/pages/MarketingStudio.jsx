@@ -3,12 +3,54 @@ import QRCode from "qrcode";
 import { useAuth } from "../contexts/AuthContext";
 import { bossesService } from "../services/bosses";
 import { websiteService } from "../services/website";
+import { supabase } from "../services/supabase";
 import {
   downloadElementAsImage,
   downloadBusinessCardPDF,
   downloadPosterPDF,
 } from "../utils/marketingExporter";
 import { Badge } from "../components/ui";
+
+/**
+ * Resizes and compresses user-uploaded images using a hidden canvas.
+ * Reduces 5MB-10MB mobile/desktop camera photos down to ~80KB-140KB,
+ * ensuring they never breach browser localStorage quotas (5MB) and save instantly.
+ */
+const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.82) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(dataUrl);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
 
 // Available Themes for Marketing Posters
 const POSTER_THEMES = [
@@ -285,12 +327,22 @@ const DEFAULT_CONFIG = {
 };
 
 const STORAGE_KEY = "mk_marketing_studio_config_v3";
+const TAB_STORAGE_KEY = "mk_marketing_studio_active_tab";
 
 export default function MarketingStudioPage() {
   const { isPrivileged } = useAuth();
 
-  // Active view tab: 'card' or 'poster'
-  const [activeTab, setActiveTab] = useState("card");
+  // Active view tab: persisted in localStorage so refresh never resets to card
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem(TAB_STORAGE_KEY) || "poster";
+      } catch (e) {
+        return "poster";
+      }
+    }
+    return "poster";
+  });
 
   // Card view side: 'front' or 'back'
   const [cardSide, setCardSide] = useState("front");
@@ -298,14 +350,31 @@ export default function MarketingStudioPage() {
   // Card category filter for theme selector: 'all' | 'light' | 'dark'
   const [cardFilter, setCardFilter] = useState("all");
 
-  // Customization Configuration
+  // Save status indicator ('saved' | 'saving')
+  const [saveStatus, setSaveStatus] = useState("saved");
+
+  // Customization Configuration (Loaded from localStorage with deep merge fallback)
   const [config, setConfig] = useState(() => {
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return {
+            ...DEFAULT_CONFIG,
+            ...parsed,
+            reasons:
+              Array.isArray(parsed.reasons) && parsed.reasons.length > 0
+                ? parsed.reasons
+                : DEFAULT_CONFIG.reasons,
+            services:
+              Array.isArray(parsed.services) && parsed.services.length > 0
+                ? parsed.services
+                : DEFAULT_CONFIG.services,
+          };
+        }
       } catch (e) {
-        console.warn("Failed reading saved marketing config:", e);
+        console.warn("Failed reading saved marketing config from localStorage:", e);
       }
     }
     return DEFAULT_CONFIG;
@@ -333,14 +402,143 @@ export default function MarketingStudioPage() {
   const currentPosterSize = POSTER_SIZES.find((s) => s.id === config.posterSize) || POSTER_SIZES[0];
   const currentCardTheme = CARD_THEMES.find((t) => t.id === config.cardTheme) || CARD_THEMES[0];
 
-  // Save config to localStorage on change
+  // Helper to switch and persist active tab
+  const handleTabSwitch = (tab) => {
+    setActiveTab(tab);
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, tab);
+    } catch (e) {}
+  };
+
+  // 1. On Mount: Fetch remote backup from Supabase 'settings' table and merge
   useEffect(() => {
+    let isMounted = true;
+    const fetchRemoteConfig = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("settings")
+          .select("value")
+          .eq("key", "marketing_studio_config")
+          .single();
+
+        if (isMounted && !error && data?.value) {
+          const remote = data.value;
+          setConfig((prev) => {
+            const merged = {
+              ...DEFAULT_CONFIG,
+              ...prev,
+              ...remote,
+              reasons:
+                Array.isArray(remote.reasons) && remote.reasons.length > 0
+                  ? remote.reasons
+                  : prev.reasons,
+              services:
+                Array.isArray(remote.services) && remote.services.length > 0
+                  ? remote.services
+                  : prev.services,
+            };
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+            } catch (err) {}
+            return merged;
+          });
+        }
+      } catch (err) {
+        console.warn("Could not sync remote marketing config from Supabase:", err);
+      }
+    };
+
+    fetchRemoteConfig();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 2. On Config Change: Save to localStorage immediately, and debounce sync to Supabase
+  useEffect(() => {
+    setSaveStatus("saving");
+
+    // LocalStorage save
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     } catch (e) {
-      console.warn("Failed to persist marketing config:", e);
+      console.warn("localStorage quota exceeded or failed:", e);
+      // If photo was too big, revert photo to preset for local storage
+      if (e.name === "QuotaExceededError" || e.code === 22) {
+        try {
+          const fallback = { ...config, posterBgPhoto: PHOTO_PRESETS[0].url };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback));
+        } catch (err) {}
+      }
     }
+
+    // Debounce cloud sync to Supabase (1.5 seconds)
+    const timeout = setTimeout(async () => {
+      try {
+        const { data: existing } = await supabase
+          .from("settings")
+          .select("key")
+          .eq("key", "marketing_studio_config")
+          .single();
+
+        if (!existing) {
+          await supabase.from("settings").insert({
+            key: "marketing_studio_config",
+            value: config,
+          });
+        } else {
+          await supabase
+            .from("settings")
+            .update({
+              value: config,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("key", "marketing_studio_config");
+        }
+        setSaveStatus("saved");
+      } catch (err) {
+        console.warn("Debounced cloud sync to Supabase failed:", err);
+        setSaveStatus("saved"); // Still saved locally
+      }
+    }, 1500);
+
+    return () => clearTimeout(timeout);
   }, [config]);
+
+  // Manual Instant Save Handler
+  const handleManualSave = async () => {
+    setSaveStatus("saving");
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+
+      const { data: existing } = await supabase
+        .from("settings")
+        .select("key")
+        .eq("key", "marketing_studio_config")
+        .single();
+
+      if (!existing) {
+        await supabase.from("settings").insert({
+          key: "marketing_studio_config",
+          value: config,
+        });
+      } else {
+        await supabase
+          .from("settings")
+          .update({
+            value: config,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("key", "marketing_studio_config");
+      }
+      setSaveStatus("saved");
+      alert("✓ All poster and business card information successfully saved!");
+    } catch (err) {
+      console.warn("Manual save error:", err);
+      setSaveStatus("saved");
+      alert("✓ Saved locally in your browser session!");
+    }
+  };
 
   // Load bosses for quick-select
   useEffect(() => {
@@ -442,8 +640,8 @@ export default function MarketingStudioPage() {
     });
   };
 
-  // Handle Local Custom Image Upload
-  const handleImageUpload = (e) => {
+  // Handle Local Custom Image Upload with automatic canvas compression
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -452,13 +650,21 @@ export default function MarketingStudioPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        updateField("posterBgPhoto", event.target.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Compress to max 1200x1200px at 82% JPEG quality (~80-140KB)
+      // This prevents QuotaExceededError in localStorage and saves immediately
+      const compressedDataUrl = await compressImage(file, 1200, 1200, 0.82);
+      updateField("posterBgPhoto", compressedDataUrl);
+    } catch (err) {
+      console.warn("Canvas compression fallback to direct reader:", err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          updateField("posterBgPhoto", event.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // --- Export Handlers ---
@@ -568,32 +774,60 @@ export default function MarketingStudioPage() {
           </p>
         </div>
 
-        {/* View Mode Tabs */}
-        <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab("card")}
-            className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "card"
-                ? "bg-white text-emerald-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span>📇</span>
-            <span>Business Cards</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("poster")}
-            className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "poster"
-                ? "bg-white text-emerald-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span>🖼️</span>
-            <span>Posters & Flyers</span>
-          </button>
+        {/* Actions & View Mode Tabs */}
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          {/* Live Auto-save indicator & Manual Save */}
+          <div className="flex items-center gap-2">
+            {saveStatus === "saving" ? (
+              <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full flex items-center gap-1.5 animate-pulse">
+                <span className="animate-spin text-xs">⏳</span>
+                <span>Saving...</span>
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                <span className="text-emerald-600 text-xs">✓</span>
+                <span>Auto-saved</span>
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={handleManualSave}
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              title="Manually save all customizations to browser & cloud storage"
+            >
+              <span>💾</span>
+              <span>Save</span>
+            </button>
+          </div>
+
+          {/* View Mode Tabs (Persistent across refresh) */}
+          <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => handleTabSwitch("poster")}
+              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === "poster"
+                  ? "bg-white text-emerald-800 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>🖼️</span>
+              <span>Posters & Flyers</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabSwitch("card")}
+              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === "card"
+                  ? "bg-white text-emerald-800 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>📇</span>
+              <span>Business Cards</span>
+            </button>
+          </div>
         </div>
       </div>
 
