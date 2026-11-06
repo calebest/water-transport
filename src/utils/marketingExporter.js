@@ -1,26 +1,45 @@
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
+
+/**
+ * Capture a DOM element as a high-resolution PNG Data URL.
+ * Uses html-to-image (SVG foreignObject) to natively support modern Tailwind v4
+ * OKLCH colors, clip-paths, CSS variables, and modern gradients without parser errors.
+ */
+const captureElementToPng = async (element, pixelRatio = 3) => {
+  if (!element) {
+    throw new Error("Target element not found for image export");
+  }
+
+  // Ensure element has rendered layout
+  const width = element.offsetWidth || element.clientWidth || 600;
+  const height = element.offsetHeight || element.clientHeight || 400;
+
+  try {
+    const dataUrl = await toPng(element, {
+      pixelRatio: pixelRatio,
+      quality: 0.98,
+      cacheBust: true,
+      canvasWidth: width * pixelRatio,
+      canvasHeight: height * pixelRatio,
+    });
+    return dataUrl;
+  } catch (err) {
+    console.warn("Primary toPng capture failed, retrying with fallback options:", err);
+    // Fallback attempt without cacheBust in case of local data URL issues
+    return await toPng(element, {
+      pixelRatio: Math.min(pixelRatio, 2),
+      quality: 0.92,
+    });
+  }
+};
 
 /**
  * Download a DOM element as a high-resolution PNG image (300 DPI equivalent)
  */
 export const downloadElementAsImage = async (element, filename = "download.png", scale = 3) => {
-  if (!element) {
-    throw new Error("Target element not found for image export");
-  }
-
   try {
-    const canvas = await html2canvas(element, {
-      scale: scale,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: null,
-      logging: false,
-      windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight,
-    });
-
-    const dataUrl = canvas.toDataURL("image/png");
+    const dataUrl = await captureElementToPng(element, scale);
     const link = document.createElement("a");
     link.href = dataUrl;
     link.download = filename;
@@ -50,27 +69,17 @@ export const downloadBusinessCardPDF = async ({
     throw new Error("Front of card element is required");
   }
 
-  // Capture front canvas
-  const frontCanvas = await html2canvas(frontElement, {
-    scale: 3,
-    useCORS: true,
-    allowTaint: true,
-    backgroundColor: null,
-    logging: false,
-  });
-  const frontDataUrl = frontCanvas.toDataURL("image/png");
+  // Capture front canvas as high-res PNG
+  const frontDataUrl = await captureElementToPng(frontElement, 3);
 
   // Capture back canvas if present
   let backDataUrl = null;
   if (backElement) {
-    const backCanvas = await html2canvas(backElement, {
-      scale: 3,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: null,
-      logging: false,
-    });
-    backDataUrl = backCanvas.toDataURL("image/png");
+    try {
+      backDataUrl = await captureElementToPng(backElement, 3);
+    } catch (e) {
+      console.warn("Could not capture card back side, generating front-only PDF:", e);
+    }
   }
 
   if (mode === "single") {
@@ -183,17 +192,9 @@ export const downloadPosterPDF = async ({
   const defaultFilename = `Mount_Kenya_Water_Poster_${sizeKey.toUpperCase()}.pdf`;
   const finalFilename = filename || defaultFilename;
 
-  const canvas = await html2canvas(posterElement, {
-    scale: sizeKey === "a2" ? 2 : 3, // Scale 2 for A2 to stay within memory limits while remaining ultra-sharp, scale 3 for A5/A6/A4
-    useCORS: true,
-    allowTaint: true,
-    backgroundColor: null,
-    logging: false,
-    windowWidth: posterElement.scrollWidth,
-    windowHeight: posterElement.scrollHeight,
-  });
-
-  const imgData = canvas.toDataURL("image/png");
+  // Scale 2 for A2 to stay within memory limits while remaining ultra-sharp, scale 3 for A5/A6/A4
+  const scale = sizeKey === "a2" ? 2 : 3;
+  const imgData = await captureElementToPng(posterElement, scale);
 
   const doc = new jsPDF({
     orientation: "portrait",

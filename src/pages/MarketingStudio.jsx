@@ -688,10 +688,13 @@ export default function MarketingStudioPage() {
                      ========================================== */}
                   <div
                     ref={frontCardRef}
-                    className={`w-full h-full rounded-2xl relative overflow-hidden transition-all duration-300 ${
-                      cardSide === "front" ? "block" : "hidden"
-                    }`}
-                    style={{ minHeight: "295px" }}
+                    className="w-full h-full rounded-2xl relative overflow-hidden transition-opacity duration-300"
+                    style={{
+                      minHeight: "295px",
+                      opacity: cardSide === "front" ? 1 : 0,
+                      pointerEvents: cardSide === "front" ? "auto" : "none",
+                      zIndex: cardSide === "front" ? 10 : 0,
+                    }}
                   >
                     {/* STYLE 1: TWO-TONE GEO-SPLIT (White & Cyan) */}
                     {config.cardTheme === "geo-split-white" && (
@@ -1089,10 +1092,13 @@ export default function MarketingStudioPage() {
                      ========================================== */}
                   <div
                     ref={backCardRef}
-                    className={`w-full h-full rounded-2xl relative overflow-hidden transition-all duration-300 ${
-                      cardSide === "back" ? "block" : "hidden"
-                    }`}
-                    style={{ minHeight: "295px" }}
+                    className="w-full h-full rounded-2xl absolute inset-0 overflow-hidden transition-opacity duration-300"
+                    style={{
+                      minHeight: "295px",
+                      opacity: cardSide === "back" ? 1 : 0,
+                      pointerEvents: cardSide === "back" ? "auto" : "none",
+                      zIndex: cardSide === "back" ? 10 : 0,
+                    }}
                   >
                     {/* BACK SIDE FOR LIGHT & TWO-TONE THEMES */}
                     {currentCardTheme.category !== "dark" && (
