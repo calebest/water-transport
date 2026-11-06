@@ -2307,8 +2307,8 @@ export default function MarketingStudioPage() {
 
                 {config.personPhoto ? (
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                    {/* Top Row: Preview, Shape Selector & Action Buttons */}
-                    <div className="flex items-center justify-between gap-3">
+                    {/* Row 1: Preview Thumbnail, Status & Primary Actions (Replace / Remove) */}
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <img
                           src={config.personPhoto}
@@ -2319,32 +2319,12 @@ export default function MarketingStudioPage() {
                         />
                         <div className="min-w-0">
                           <span className="text-xs font-bold text-slate-800 block truncate">
-                            Passport Photo Active
+                            Passport Photo
                           </span>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <button
-                              type="button"
-                              onClick={() => updateField("avatarShape", "circle")}
-                              className={`px-2 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-all ${
-                                config.avatarShape !== "rounded"
-                                  ? "bg-sky-600 text-white shadow-2xs"
-                                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
-                              }`}
-                            >
-                              Circle
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateField("avatarShape", "rounded")}
-                              className={`px-2 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-all ${
-                                config.avatarShape === "rounded"
-                                  ? "bg-sky-600 text-white shadow-2xs"
-                                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
-                              }`}
-                            >
-                              Rounded
-                            </button>
-                          </div>
+                          <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Active on card
+                          </span>
                         </div>
                       </div>
 
@@ -2352,7 +2332,7 @@ export default function MarketingStudioPage() {
                         <button
                           type="button"
                           onClick={() => passportPhotoInputRef.current?.click()}
-                          className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg cursor-pointer transition-colors"
+                          className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg cursor-pointer transition-colors shadow-2xs"
                           title="Replace passport photo"
                         >
                           🔄 Replace
@@ -2360,7 +2340,7 @@ export default function MarketingStudioPage() {
                         <button
                           type="button"
                           onClick={() => updateField("personPhoto", "")}
-                          className="px-2.5 py-1 text-[11px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg cursor-pointer transition-colors"
+                          className="px-2 py-1 text-[11px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg cursor-pointer transition-colors"
                           title="Remove passport photo from card"
                         >
                           🗑️ Remove
@@ -2368,8 +2348,44 @@ export default function MarketingStudioPage() {
                       </div>
                     </div>
 
-                    {/* Photo Size Adjuster: Slider & Preset Chips */}
-                    <div className="pt-2.5 border-t border-slate-200 space-y-2">
+                    {/* Row 2: Photo Shape Selector (Dedicated row, full width) */}
+                    <div className="pt-2 border-t border-slate-200/80">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 mb-1.5">
+                        <span>Photo Shape</span>
+                        <span className="text-[10px] text-slate-400 capitalize font-medium">
+                          {config.avatarShape === "rounded" ? "Rounded Square" : "Circle"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => updateField("avatarShape", "circle")}
+                          className={`py-1.5 px-2.5 text-xs font-bold rounded-lg cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+                            config.avatarShape !== "rounded"
+                              ? "bg-sky-600 text-white shadow-xs"
+                              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full border-2 border-current inline-block"></span>
+                          <span>Round</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateField("avatarShape", "rounded")}
+                          className={`py-1.5 px-2.5 text-xs font-bold rounded-lg cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+                            config.avatarShape === "rounded"
+                              ? "bg-sky-600 text-white shadow-xs"
+                              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-xs border-2 border-current inline-block"></span>
+                          <span>Square</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Row 3: Photo Size Adjuster: Slider & Preset Chips */}
+                    <div className="pt-2 border-t border-slate-200/80 space-y-2">
                       <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                         <span className="flex items-center gap-1.5">
                           <span>📐</span> Photo Size on Card
