@@ -11,6 +11,7 @@ import {
   sumDeductionKey,
   sumExpenseKey,
   fmt,
+  fmtN,
   locationMatchesFilter,
   parseLocationName
 } from "../utils/helpers";
@@ -441,7 +442,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [], globalVe
                 </div>
               ))}
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
               <div className="rounded-xl border border-slate-100 px-3 py-2">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Trips</p>
                 <p className="font-black text-slate-800">{sum.count}</p>
@@ -453,6 +454,10 @@ export default function ReportsPage({ trips, vehicles, complaints = [], globalVe
               <div className="rounded-xl border border-slate-100 px-3 py-2">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Pending</p>
                 <p className="font-black text-amber-700">{sum.pendingCount}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 px-3 py-2 bg-indigo-50/50">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-700">Total Mileage</p>
+                <p className="font-black text-indigo-800 font-mono">{fmtN(sum.totalDistance)} km</p>
               </div>
             </div>
           </div>
@@ -478,7 +483,7 @@ export default function ReportsPage({ trips, vehicles, complaints = [], globalVe
                   <div key={plate} className="responsive-card rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                     <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">{plate}</p>
                     <p className="text-lg font-black text-slate-800">{fmt(vehSum.netProfit)}</p>
-                    <p className="mt-1 text-xs text-slate-500">{vehSum.count} trips · Rev {fmt(vehSum.revenue)} · Op profit {fmt(vehSum.operatingProfit)}</p>
+                    <p className="mt-1 text-xs text-slate-500">{vehSum.count} trips · {fmtN(vehSum.totalDistance)} km · Rev {fmt(vehSum.revenue)} · Op profit {fmt(vehSum.operatingProfit)}</p>
                   </div>
                 );
               })}

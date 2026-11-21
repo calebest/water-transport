@@ -153,8 +153,39 @@ export const getTripFinancials = (trip = {}) => {
 export const isPaidTrip = (trip = {}) =>
   trip?.status === "Paid";
 
+export const getTripDistance = (trip = {}) => {
+  if (!trip) return 0;
+  // 1. Direct kilometer / mileage field
+  if (trip.kilometers !== undefined && trip.kilometers !== null && trip.kilometers !== "") {
+    return Number(trip.kilometers) || 0;
+  }
+  if (trip.distanceKm !== undefined && trip.distanceKm !== null && trip.distanceKm !== "") {
+    return Number(trip.distanceKm) || 0;
+  }
+  if (trip.mileage !== undefined && trip.mileage !== null && trip.mileage !== "") {
+    return Number(trip.mileage) || 0;
+  }
+  if (trip.expenses?.kilometersCovered !== undefined && trip.expenses?.kilometersCovered !== null && trip.expenses?.kilometersCovered !== "") {
+    return Number(trip.expenses.kilometersCovered) || 0;
+  }
+  if (trip.expenses?.mileage !== undefined && trip.expenses?.mileage !== null && trip.expenses?.mileage !== "") {
+    return Number(trip.expenses.mileage) || 0;
+  }
+  // 2. Fallback to odometer difference if both exist
+  const start = Number(trip.odometerStart || 0);
+  const end = Number(trip.odometerEnd || 0);
+  if (end > 0 && start > 0 && end >= start) {
+    return end - start;
+  }
+  if (end > 0 && (!start || start === 0)) {
+    return end;
+  }
+  return 0;
+};
+
 export const summarize = (trips) => {
   const paidTrips = trips.filter(isPaidTrip).length;
+  const totalDistance = trips.reduce((s, t) => s + getTripDistance(t), 0);
   return {
     revenue: trips.reduce((s, t) => s + getTripFinancials(t).revenue, 0),
     expenses: trips.reduce((s, t) => s + getTripFinancials(t).operatingExpenses, 0),
@@ -168,6 +199,8 @@ export const summarize = (trips) => {
     count: trips.length,
     paidCount: paidTrips,
     pendingCount: trips.length - paidTrips,
+    totalDistance,
+    mileage: totalDistance,
   };
 };
 

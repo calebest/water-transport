@@ -3,7 +3,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, Cell
 } from "recharts";
-import { getTripFinancials, isPaidTrip, today, getWeekRange, getMonthRange, filterByRange, summarize, fmt } from "../utils/helpers";
+import { getTripFinancials, isPaidTrip, today, getWeekRange, getMonthRange, filterByRange, summarize, fmt, fmtN } from "../utils/helpers";
 import { StatCard, Badge } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
 import { financeService } from "../services/finance";
@@ -56,6 +56,12 @@ const BarTooltip = ({ active, payload, label }) => {
           <span className="text-xs font-mono font-bold text-slate-900">KES {fmt(p.value)}</span>
         </div>
       ))}
+      {payload[0]?.payload?.totalDistance > 0 && (
+        <div className="pt-2 mt-1.5 border-t border-slate-100 flex items-center justify-between text-xs">
+          <span className="text-slate-500 font-medium">🛣️ Mileage</span>
+          <span className="font-mono font-bold text-indigo-600">{fmtN(payload[0].payload.totalDistance)} km</span>
+        </div>
+      )}
     </div>
   );
 };
@@ -377,8 +383,8 @@ export default function DashboardPage({
                   )}
                 </div>
 
-                {/* Sub-Metrics 4-Pill Structured Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-white/15">
+                {/* Sub-Metrics 5-Pill Structured Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-4 border-t border-white/15">
                   <div className={`p-3 rounded-2xl border ${styles.heroSubCard}`}>
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="text-xs">📈</span>
@@ -423,6 +429,17 @@ export default function DashboardPage({
                     <p className="text-[9.5px] opacity-75 mt-0.5">
                       {activeSummary.count > 0 ? `${Math.round((activeSummary.paidCount / activeSummary.count) * 100)}% settled` : "No trips"}
                     </p>
+                  </div>
+
+                  <div className={`p-3 rounded-2xl border ${styles.heroSubCard}`}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs">🛣️</span>
+                      <p className={`text-[10.5px] font-bold uppercase tracking-wider ${styles.heroSubLabel}`}>Mileage</p>
+                    </div>
+                    <p className="text-base sm:text-lg font-black text-white font-mono">
+                      {fmtN(activeSummary.totalDistance)} <span className="text-xs font-normal font-sans opacity-90">km</span>
+                    </p>
+                    <p className="text-[9.5px] opacity-75 mt-0.5">Fleet distance</p>
                   </div>
                 </div>
               </div>
@@ -616,12 +633,18 @@ export default function DashboardPage({
                     className="snap-start shrink-0 w-72 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col justify-between"
                   >
                     <div>
-                      {/* Lorry License Plate aesthetic */}
+                      {/* Lorry License Plate aesthetic & Mileage badge */}
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-900 text-white font-mono font-black text-xs tracking-wider shadow-2xs border border-slate-700">
                             🇰🇪 {v.plate}
                           </span>
+                          {v.summary.totalDistance > 0 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-200/80 text-[10.5px] font-mono font-bold text-indigo-700">
+                              <span>🛣️</span>
+                              <span>{fmtN(v.summary.totalDistance)} km</span>
+                            </span>
+                          )}
                         </div>
                         <Badge color={isProfitable ? "green" : isLoss ? "red" : "slate"}>
                           {v.summary.count} {v.summary.count === 1 ? "trip" : "trips"}
@@ -639,11 +662,13 @@ export default function DashboardPage({
                       </p>
                     </div>
 
-                    {/* Mini Revenue / Expense pills */}
+                    {/* Mini Revenue / Expense / Mileage pills */}
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
                       <span>Rev: <strong className="text-slate-800 font-mono">{fmt(v.summary.revenue)}</strong></span>
                       <span className="text-slate-300">|</span>
                       <span>Exp: <strong className="text-rose-600 font-mono">{fmt(v.summary.operatingExpenses)}</strong></span>
+                      <span className="text-slate-300">|</span>
+                      <span>KM: <strong className="text-indigo-600 font-mono">{fmtN(v.summary.totalDistance)}</strong></span>
                     </div>
                   </div>
                 );

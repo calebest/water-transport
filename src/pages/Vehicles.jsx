@@ -3,7 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { vehicleService } from "../services/vehicles";
 import { tripService } from "../services/trips";
 import { Badge, Modal, StatCard } from "../components/ui";
-import { fmt, summarize } from "../utils/helpers";
+import { fmt, fmtN, summarize } from "../utils/helpers";
 import { TripGroup } from "./Trips";
 import TripForm from "../components/TripForm";
 
@@ -67,8 +67,9 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel, br
           <Badge color={selectedVeh.status === "Active" ? "green" : "red"}>{selectedVeh.status}</Badge>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mobile-card-rail mobile-card-rail--compact">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mobile-card-rail mobile-card-rail--compact">
           <StatCard label="Total Trips" value={sum.count} icon="🚛" color="blue" />
+          <StatCard label="Total Mileage" value={`${fmtN(sum.totalDistance)} km`} icon="🛣️" color="indigo" />
           <StatCard label="Total Revenue" value={fmt(sum.revenue)} icon="💰" color="green" />
           <StatCard label="Total Expenses" value={fmt(sum.expenses)} icon="📉" color="red" />
           <StatCard label="Total Profit" value={fmt(sum.profit)} icon="📈" color={sum.profit >= 0 ? "green" : "red"} />
@@ -159,6 +160,10 @@ export default function VehiclesPage({ vehicles, trips, locations, personnel, br
                 <div className="flex justify-between text-slate-600">
                   <span>Total Trips:</span>
                   <span className="font-bold text-slate-800">{sum.count}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Mileage Covered:</span>
+                  <span className="font-bold text-indigo-600">{fmtN(sum.totalDistance)} km</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Total Revenue:</span>

@@ -113,6 +113,7 @@ export const computeFinancialAudit = ({
       plate: v.plate,
       type: v.type,
       tripsCount: vSummary.count,
+      mileageCovered: vSummary.totalDistance,
       paidTrips: vSummary.paidCount,
       revenue: vSummary.revenue,
       operatingExpenses: vSummary.operatingExpenses,
@@ -159,6 +160,7 @@ export const computeFinancialAudit = ({
     dateRange: { start, end },
     tripSummary,
     tripsCount: rangeTrips.length,
+    totalDistance: tripSummary.totalDistance,
     revenue: tripSummary.revenue,
     operatingExpenses: tripSummary.operatingExpenses,
     operatingProfit: tripSummary.operatingProfit,
@@ -249,7 +251,7 @@ Current Date: ${todayStr} (East Africa Time / Kenya)
 Active Fleet Lorries: ${vehiclePlates}
 
 --- TODAY'S OPERATIONS (${todayStr}) ---
-- Completed Approved Trips: ${todayAudit.tripsCount}
+- Completed Approved Trips: ${todayAudit.tripsCount} (Total Mileage: ${todayAudit.totalDistance.toLocaleString()} km)
 - Gross Revenue: KES ${todayAudit.revenue.toLocaleString()}
 - Trip Operating Expenses: KES ${todayAudit.operatingExpenses.toLocaleString()}
 - Operating Profit: KES ${todayAudit.operatingProfit.toLocaleString()}
@@ -260,7 +262,7 @@ Active Fleet Lorries: ${vehiclePlates}
 - Outstanding Balance for Today: KES ${todayAudit.outstandingBalance.toLocaleString()}
 
 --- THIS WEEK'S PERFORMANCE (${weekStart} to ${weekEnd}) ---
-- Total Completed Trips: ${weekAudit.tripsCount}
+- Total Completed Trips: ${weekAudit.tripsCount} (Total Mileage: ${weekAudit.totalDistance.toLocaleString()} km)
 - Weekly Gross Revenue: KES ${weekAudit.revenue.toLocaleString()}
 - Weekly Operating Expenses: KES ${weekAudit.operatingExpenses.toLocaleString()}
 - Weekly Operating Profit: KES ${weekAudit.operatingProfit.toLocaleString()}
@@ -270,7 +272,7 @@ Active Fleet Lorries: ${vehiclePlates}
 - Net Outstanding Balance This Week: KES ${weekAudit.outstandingBalance.toLocaleString()}
 
 --- THIS MONTH'S PERFORMANCE (${monthStart} to ${monthEnd}) ---
-- Monthly Completed Trips: ${monthAudit.tripsCount}
+- Monthly Completed Trips: ${monthAudit.tripsCount} (Total Mileage: ${monthAudit.totalDistance.toLocaleString()} km)
 - Monthly Gross Revenue: KES ${monthAudit.revenue.toLocaleString()}
 - Monthly Operating Expenses: KES ${monthAudit.operatingExpenses.toLocaleString()}
 - Monthly Operating Profit: KES ${monthAudit.operatingProfit.toLocaleString()}
@@ -287,6 +289,7 @@ Active Fleet Lorries: ${vehiclePlates}
 ${Object.values(monthAudit.vehicleStats).map((v) => `
 * Lorry ${v.plate}:
   - Trips: ${v.tripsCount} (Paid: ${v.paidTrips})
+  - Total Mileage Covered: ${v.mileageCovered.toLocaleString()} km
   - Gross Revenue: KES ${v.revenue.toLocaleString()}
   - Operating Expenses: KES ${v.operatingExpenses.toLocaleString()} (Fuel spend: KES ${v.fuelSpend.toLocaleString()})
   - Operating Profit: KES ${v.operatingProfit.toLocaleString()}

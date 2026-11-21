@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { collectDeductionKeys, collectExpenseKeys, getTripFinancials, splitCustomExpenses, summarize, sumDeductionKey, fmtN } from "./helpers";
+import { collectDeductionKeys, collectExpenseKeys, getTripFinancials, splitCustomExpenses, summarize, sumDeductionKey, fmtN, getTripDistance } from "./helpers";
 
 const labelForKey = (key) => key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase());
 
@@ -53,17 +53,18 @@ export const exportCSV = (trips, filename) => {
   const { fixed: deductionFixed, custom: deductionCustom } = collectDeductionKeys(trips);
   const allKeys = [...fixed, ...custom];
   const deductionKeys = [...deductionFixed, ...deductionCustom];
-  const headers = ["Date", "Lorry", "Trip#", "Location", "Revenue", ...allKeys.map(labelForKey), "Operating Expenses", "Operating Profit", ...deductionKeys.map(labelForKey), "Total Deductions", "Total Expenses", "Profit", "Payment Status"];
+  const headers = ["Date", "Lorry", "Trip#", "Location", "Mileage (km)", "Revenue", ...allKeys.map(labelForKey), "Operating Expenses", "Operating Profit", ...deductionKeys.map(labelForKey), "Total Deductions", "Total Expenses", "Profit", "Payment Status"];
 
   const rows = trips.map(t => {
     const financials = getTripFinancials(t);
+    const dist = getTripDistance(t);
     const fixedVals = fixed.map(k => k === "petrol" ? (t.expenses?.petrol ?? t.expenses?.fuel ?? 0) : (t.expenses?.[k] || 0));
     const customVals = custom.map(label => {
       const match = (t.expenses?.custom || []).find(c => c.label === label);
       return match?.amount || 0;
     });
     const deductionVals = deductionKeys.map(k => sumDeductionKey([t], k, deductionCustom.includes(k)));
-    return [t.date, t.lorry, t.tripNumber, t.location || "N/A", financials.revenue, ...fixedVals, ...customVals, financials.operatingExpenses, financials.operatingProfit, ...deductionVals, financials.totalDeductions, financials.operatingExpenses + financials.totalDeductions, financials.netPayable, t.status];
+    return [t.date, t.lorry, t.tripNumber, t.location || "N/A", dist, financials.revenue, ...fixedVals, ...customVals, financials.operatingExpenses, financials.operatingProfit, ...deductionVals, financials.totalDeductions, financials.operatingExpenses + financials.totalDeductions, financials.netPayable, t.status];
   });
 
   const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
@@ -89,12 +90,13 @@ export const exportPDF = (trips, title) => {
 
   autoTable(doc, {
     startY: 36,
-    head: [["Revenue", "Expenses", "Profit", "Trips", "Paid", "Pending"]],
+    head: [["Revenue", "Expenses", "Profit", "Trips", "Total Mileage", "Paid", "Pending"]],
     body: [[
       `KES ${fmtN(sum.revenue)}`,
       `KES ${fmtN(sum.totalExpenses)}`,
       `KES ${fmtN(sum.totalProfit)}`,
       sum.count,
+      `${fmtN(sum.totalDistance)} km`,
       sum.paidCount,
       sum.pendingCount,
     ]],
@@ -106,10 +108,10 @@ export const exportPDF = (trips, title) => {
 
   autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 8,
-    head: [["Vehicle", "Revenue", "Expenses", "Profit", "Trips"]],
+    head: [["Vehicle", "Revenue", "Expenses", "Profit", "Trips", "Mileage Covered"]],
     body: activeLorryPlates.map(plate => {
       const vehSum = reportTotals(trips.filter(t => t.lorry === plate));
-      return [plate, `KES ${fmtN(vehSum.revenue)}`, `KES ${fmtN(vehSum.totalExpenses)}`, `KES ${fmtN(vehSum.totalProfit)}`, vehSum.count];
+      return [plate, `KES ${fmtN(vehSum.revenue)}`, `KES ${fmtN(vehSum.totalExpenses)}`, `KES ${fmtN(vehSum.totalProfit)}`, vehSum.count, `${fmtN(vehSum.totalDistance)} km`];
     }),
     theme: "striped",
     headStyles: { fillColor: [51, 65, 85], textColor: 255 },
@@ -118,15 +120,17 @@ export const exportPDF = (trips, title) => {
 
   autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 8,
-    head: [["#", "Date", "Vehicle", "Trip", "Route", "Revenue", "Expense Breakdown", "Total Expenses", "Profit", "Status"]],
+    head: [["#", "Date", "Vehicle", "Trip", "Route", "Mileage", "Revenue", "Expense Breakdown", "Total Expenses", "Profit", "Status"]],
     body: sortedTrips(trips).map((t, index) => {
       const financials = getTripFinancials(t);
       const totalExpenses = financials.operatingExpenses + financials.totalDeductions;
       const expenseText = getExpenseLines(t).map(item => `${item.label}: ${fmtN(item.amount)}`).join("\n");
+      const dist = getTripDistance(t);
       return [
         index + 1,
         t.date, t.lorry, t.tripNumber,
         t.location || "N/A",
+        dist > 0 ? `${dist} km` : "—",
         `KES ${fmtN(financials.revenue)}`,
         expenseText,
         `KES ${fmtN(totalExpenses)}`,
@@ -138,16 +142,17 @@ export const exportPDF = (trips, title) => {
     headStyles: { fillColor: [15, 118, 110], textColor: 255 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 10 },
-      1: { cellWidth: 24 },
-      2: { cellWidth: 18 },
-      3: { cellWidth: 15 },
-      4: { cellWidth: 36 },
-      5: { cellWidth: 24, halign: "right" },
-      6: { cellWidth: 70 },
-      7: { cellWidth: 28, halign: "right" },
-      8: { cellWidth: 24, halign: "right" },
-      9: { cellWidth: 20 },
+      0: { cellWidth: 8 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 16 },
+      3: { cellWidth: 14 },
+      4: { cellWidth: 32 },
+      5: { cellWidth: 16, halign: "center" },
+      6: { cellWidth: 24, halign: "right" },
+      7: { cellWidth: 64 },
+      8: { cellWidth: 26, halign: "right" },
+      9: { cellWidth: 24, halign: "right" },
+      10: { cellWidth: 18 },
     },
     styles: { fontSize: 7.5, cellPadding: 2, overflow: "linebreak", valign: "top" },
   });
@@ -186,10 +191,14 @@ export const exportVoucher = (trip) => {
   doc.setFontSize(11); doc.setTextColor(30, 30, 30);
   doc.text("TRIP DETAILS", 10, 50);
   doc.setFontSize(10);
-  doc.text(`Date: ${trip.date}`, 10, 58);
-  doc.text(`Lorry: ${trip.lorry}`, 10, 64);
-  doc.text(`Trip #: ${trip.tripNumber}`, 10, 70);
-  doc.text(`Location: ${trip.location || 'N/A'}`, 10, 76);
+  doc.text(`Date: ${trip.date}`, 10, 56);
+  doc.text(`Lorry: ${trip.lorry}`, 10, 62);
+  doc.text(`Trip #: ${trip.tripNumber}`, 10, 68);
+  doc.text(`Location: ${trip.location || 'N/A'}`, 10, 74);
+  const tripDist = getTripDistance(trip);
+  if (tripDist > 0) {
+    doc.text(`Mileage: ${tripDist} km`, 10, 80);
+  }
 
   // Financials
   doc.setFontSize(11); doc.setFont("helvetica", "bold");
@@ -283,13 +292,14 @@ export const generateReportText = (trips, filterVehicle, dateTitle) => {
   lines.push(`• Total Expenses: KES ${fmtN(sum.totalExpenses)}`);
   lines.push(`• Total Profit: KES ${fmtN(sum.totalProfit)}`);
   lines.push(`• Total Trips Completed: ${sum.count}`);
+  lines.push(`• Total Mileage Covered: ${fmtN(sum.totalDistance)} km`);
   lines.push("");
   
   if (activeLorryPlates.length > 0) {
     lines.push("Vehicle Performance:");
     activeLorryPlates.forEach(plate => {
       const vehSum = reportTotals(orderedTrips.filter(t => t.lorry === plate));
-      lines.push(`• ${plate}: Revenue KES ${fmtN(vehSum.revenue)} | Profit KES ${fmtN(vehSum.totalProfit)}`);
+      lines.push(`• ${plate}: Revenue KES ${fmtN(vehSum.revenue)} | Profit KES ${fmtN(vehSum.totalProfit)} | Mileage: ${fmtN(vehSum.totalDistance)} km`);
     });
     lines.push("");
   }
@@ -302,7 +312,8 @@ export const generateReportText = (trips, filterVehicle, dateTitle) => {
   orderedTrips.forEach((t, i) => {
     const financials = getTripFinancials(t);
     const totalExpenses = financials.operatingExpenses + financials.totalDeductions;
-    lines.push(`${getNumberEmoji(i + 1)} ${t.date} Vehicle: ${t.lorry} Route: ${t.location || "N/A"}`);
+    const tripDist = getTripDistance(t);
+    lines.push(`${getNumberEmoji(i + 1)} ${t.date} Vehicle: ${t.lorry} Route: ${t.location || "N/A"}${tripDist > 0 ? ` Mileage: ${tripDist} km` : ""}`);
     lines.push(`Revenue: KES ${fmtN(financials.revenue)}`);
     lines.push("Expenses:");
     

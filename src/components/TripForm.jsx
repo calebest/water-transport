@@ -36,6 +36,7 @@ const EMPTY_FORM = {
   driverId: "",
   conductorId: "",
   brokerId: "",
+  kilometers: "",
   odometerStart: "",
   odometerEnd: "",
   expenses: {
@@ -81,6 +82,14 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       if (isConductor && personnelId) base.conductorId = personnelId;
       return base;
     }
+    const initialKm = initial.kilometers !== undefined && initial.kilometers !== null && initial.kilometers !== ""
+      ? initial.kilometers
+      : (initial.expenses?.kilometersCovered !== undefined && initial.expenses?.kilometersCovered !== null && initial.expenses?.kilometersCovered !== ""
+          ? initial.expenses.kilometersCovered
+          : (initial.odometerEnd && initial.odometerStart && Number(initial.odometerEnd) >= Number(initial.odometerStart)
+              ? Number(initial.odometerEnd) - Number(initial.odometerStart)
+              : (initial.odometerEnd || "")));
+
     return {
       ...initial,
       status: initial.status || "Pending",
@@ -88,6 +97,7 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       driverId: initial.driverId || "",
       conductorId: initial.conductorId || "",
       brokerId: initial.brokerId || "",
+      kilometers: initialKm,
       odometerStart: initial.odometerStart || "",
       odometerEnd: initial.odometerEnd || "",
       expenses: normaliseExpenses(initial.expenses),
@@ -95,11 +105,43 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
     };
   });
   const [saving, setSaving] = useState(false);
+  const [showOdometer, setShowOdometer] = useState(() => {
+    return Boolean(initial?.odometerStart || (initial?.odometerEnd && !initial?.kilometers));
+  });
+
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setFixed = (k, v) => setForm(f => ({ ...f, expenses: { ...f.expenses, [k]: v } }));
   const setPayer = (k, v) => setForm(f => ({ ...f, expenses: { ...f.expenses, _payers: { ...(f.expenses._payers || {}), [k]: v } } }));
   const setDefaultPayer = (v) => setForm(f => ({ ...f, expenses: { ...f.expenses, _defaultPayer: v } }));
   const setDeduction = (k, v) => setForm(f => ({ ...f, deductions: { ...f.deductions, [k]: v } }));
+
+  const handleKilometersChange = (val) => {
+    setField("kilometers", val);
+    const kmNum = Number(val);
+    if (!isNaN(kmNum) && val !== "" && form.odometerStart) {
+      setField("odometerEnd", Number(form.odometerStart) + kmNum);
+    }
+  };
+
+  const handleOdometerStartChange = (val) => {
+    setField("odometerStart", val);
+    const startNum = Number(val);
+    const endNum = Number(form.odometerEnd);
+    if (!isNaN(startNum) && !isNaN(endNum) && form.odometerEnd !== "" && endNum >= startNum) {
+      setField("kilometers", endNum - startNum);
+    } else if (!isNaN(startNum) && form.kilometers !== "") {
+      setField("odometerEnd", startNum + Number(form.kilometers));
+    }
+  };
+
+  const handleOdometerEndChange = (val) => {
+    setField("odometerEnd", val);
+    const endNum = Number(val);
+    const startNum = Number(form.odometerStart);
+    if (!isNaN(startNum) && !isNaN(endNum) && form.odometerStart !== "" && endNum >= startNum) {
+      setField("kilometers", endNum - startNum);
+    }
+  };
 
   // Keep driver/conductor locked if user has a linked profile
   useEffect(() => {
@@ -131,6 +173,9 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       const selected = locations.find(loc => loc.name === val);
       if (selected) {
         setField("revenue", selected.revenue);
+        if (selected.distance && (!form.kilometers || form.kilometers === "")) {
+          handleKilometersChange(selected.distance);
+        }
       }
     }
   };
@@ -208,9 +253,23 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
       amount: Number(amount),
       paidBy: paidBy || form.expenses._defaultPayer || "Company"
     }));
+    const kmNum = form.kilometers !== "" && !isNaN(Number(form.kilometers)) ? Number(form.kilometers) : null;
+    const odoStart = form.odometerStart !== "" && !isNaN(Number(form.odometerStart)) ? Number(form.odometerStart) : null;
+    let odoEnd = form.odometerEnd !== "" && !isNaN(Number(form.odometerEnd)) ? Number(form.odometerEnd) : null;
+    if (odoEnd === null && kmNum !== null) {
+      odoEnd = (odoStart || 0) + kmNum;
+    }
+
     const payload = {
       ...form,
-      expenses: { ...form.expenses, custom: cleanCustom },
+      kilometers: kmNum,
+      odometerStart: odoStart,
+      odometerEnd: odoEnd,
+      expenses: {
+        ...form.expenses,
+        kilometersCovered: kmNum,
+        custom: cleanCustom
+      },
       deductions: {
         loanRecovery: Number(form.deductions?.loanRecovery || 0),
         advanceRecovery: Number(form.deductions?.advanceRecovery || 0),
@@ -341,13 +400,74 @@ export default function TripForm({ initial, locations = [], personnel = [], vehi
           </div>
         )}
 
-        <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1">Odometer Start (km)</label>
-          <input type="number" className={inp} placeholder="Optional" value={form.odometerStart} onChange={e => setField("odometerStart", e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1">Odometer End (km)</label>
-          <input type="number" className={inp} placeholder="Optional" value={form.odometerEnd} onChange={e => setField("odometerEnd", e.target.value)} />
+        {/* Direct Kilometer / Mileage Recording with Optional Odometer Helper */}
+        <div className="col-span-2 rounded-2xl bg-slate-50/90 border border-slate-200/90 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🛣️</span>
+              <div>
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Kilometers Covered (Vehicle Mileage)
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Enter distance covered directly for this trip in km.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowOdometer(v => !v)}
+              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0"
+            >
+              {showOdometer ? "Hide Odometer Start/End" : "⚙️ Use Odometer Start/End"}
+            </button>
+          </div>
+
+          <div className="relative">
+            <input
+              type="number"
+              step="any"
+              min="0"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base font-black font-mono text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              placeholder="e.g. 45"
+              value={form.kilometers}
+              onChange={e => handleKilometersChange(e.target.value)}
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase tracking-widest font-mono pointer-events-none">
+              KM
+            </span>
+          </div>
+
+          {showOdometer && (
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-200/70">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Odometer Start (km)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  className={inp}
+                  placeholder="Optional start"
+                  value={form.odometerStart}
+                  onChange={e => handleOdometerStartChange(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Odometer End (km)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  className={inp}
+                  placeholder="Optional end"
+                  value={form.odometerEnd}
+                  onChange={e => handleOdometerEndChange(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {showInlineAdd && (
