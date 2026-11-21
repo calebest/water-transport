@@ -116,19 +116,6 @@ const toDB = (obj) => {
     };
   }
 
-  // Handle kilometers covered / mileage tracking
-  const kmCovered = Number(result.kilometers ?? result.distanceKm ?? result.mileage ?? result.expenses?.kilometersCovered ?? 0);
-  if (kmCovered > 0) {
-    result.expenses = {
-      ...(result.expenses || {}),
-      kilometersCovered: kmCovered,
-    };
-    if (!result.odometerEnd && !result.odometer_end) {
-      const odoStart = Number(result.odometerStart ?? result.odometer_start ?? 0);
-      result.odometerEnd = odoStart + kmCovered;
-    }
-  }
-
   const mapping = {
     driverId: 'driver_id', conductorId: 'conductor_id', odometerStart: 'odometer_start',
     odometerEnd: 'odometer_end', approvalStatus: 'approval_status', submittedBy: 'created_by',
@@ -145,8 +132,7 @@ const toDB = (obj) => {
   // Remove any fields not in the trips table schema
   const stripKeys = [
     "totalExpenses", "profit", "operatingExpenses", "operatingProfit",
-    "totalDeductions", "netPayable", "pendingEdits", "pending_edits", "rejectionReason",
-    "kilometers", "distanceKm", "mileage"
+    "totalDeductions", "netPayable", "pendingEdits", "pending_edits", "rejectionReason"
   ];
   stripKeys.forEach(k => delete result[k]);
 
@@ -168,14 +154,6 @@ const fromDB = (obj) => {
       delete result[dbKey];
     }
   }
-  const kmCovered = result.expenses?.kilometersCovered !== undefined && result.expenses?.kilometersCovered !== null && result.expenses?.kilometersCovered !== ""
-    ? Number(result.expenses.kilometersCovered)
-    : (result.odometerEnd && result.odometerStart && Number(result.odometerEnd) >= Number(result.odometerStart)
-        ? Number(result.odometerEnd) - Number(result.odometerStart)
-        : (result.odometerEnd ? Number(result.odometerEnd) : 0));
-  result.kilometers = kmCovered;
-  result.distanceKm = kmCovered;
-  result.mileage = kmCovered;
   result.rejectionReason = result.expenses?._rejectionReason || null;
   return result;
 };
@@ -198,9 +176,8 @@ export const tripService = {
       brokerId: data.brokerId || null,
       driverId: data.driverId || null,
       conductorId: data.conductorId || null,
-      kilometers: data.kilometers !== undefined && data.kilometers !== null && data.kilometers !== "" ? Number(data.kilometers) : null,
       odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
-      odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : (data.kilometers ? (Number(data.odometerStart || 0) + Number(data.kilometers)) : null),
+      odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
       approvalStatus: isApproved ? "approved" : "pending",
       submittedBy: userId,
     }, earningsRate);
@@ -225,9 +202,8 @@ export const tripService = {
       brokerId: data.brokerId || null,
       driverId: data.driverId || null,
       conductorId: data.conductorId || null,
-      kilometers: data.kilometers !== undefined && data.kilometers !== null && data.kilometers !== "" ? Number(data.kilometers) : null,
       odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
-      odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : (data.kilometers ? (Number(data.odometerStart || 0) + Number(data.kilometers)) : null),
+      odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
     }, earningsRate);
 
     const db = getDb();
@@ -304,9 +280,8 @@ export const tripService = {
         brokerId: data.brokerId || null,
         driverId: data.driverId || null,
         conductorId: data.conductorId || null,
-        kilometers: data.kilometers !== undefined && data.kilometers !== null && data.kilometers !== "" ? Number(data.kilometers) : null,
         odometerStart: data.odometerStart ? Number(data.odometerStart) : null,
-        odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : (data.kilometers ? (Number(data.odometerStart || 0) + Number(data.kilometers)) : null),
+        odometerEnd: data.odometerEnd ? Number(data.odometerEnd) : null,
         approvalStatus: "approved",
         pendingEdits: null,
         rejectionReason: null,

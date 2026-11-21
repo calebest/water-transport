@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { tripService } from "../services/trips";
 import { useAuth } from "../contexts/AuthContext";
 import { Badge, Modal } from "../components/ui";
-import { fmt, fmtN, getTripDistance, getTripFinancials, summarize } from "../utils/helpers";
+import { fmt, getTripFinancials, summarize } from "../utils/helpers";
 import { exportVoucher } from "../utils/export";
 import TripForm from "../components/TripForm";
 
@@ -565,12 +565,6 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
 
         {/* Right: Summary pills — 2×2 grid on mobile, row on sm+ */}
         <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-1.5 sm:items-center">
-          {group.summary.totalDistance > 0 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/80 border border-indigo-100">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Dist</span>
-              <span className="text-xs font-black text-indigo-700 font-mono">{fmtN(group.summary.totalDistance)} km</span>
-            </div>
-          )}
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Rev</span>
             <span className="text-xs font-black text-blue-600">{fmt(group.summary.revenue)}</span>
@@ -620,14 +614,8 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                   <p className="text-sm font-bold text-slate-800 truncate pr-4">{t.location || "No location"}</p>
                 </div>
 
-                {/* Middle: Financials & Mileage */}
+                {/* Middle: Financials */}
                 <div className="flex-1 grid grid-cols-2 lg:flex lg:flex-row lg:items-center gap-x-6 gap-y-3">
-                  <div className="min-w-[70px]">
-                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Distance</p>
-                     <p className="text-sm font-black text-indigo-600 font-mono">
-                       {getTripDistance(t) > 0 ? `${fmtN(getTripDistance(t))} km` : "—"}
-                     </p>
-                  </div>
                   <div className="min-w-[90px]">
                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Revenue</p>
                      <p className="text-sm font-black text-slate-700">{fmt(financials.revenue)}</p>
