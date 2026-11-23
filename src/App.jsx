@@ -22,6 +22,7 @@ import ReportsPage from "./pages/Reports";
 import PaymentRecordsPage from "./pages/PaymentRecords";
 import FinancialReconciliationPage from "./pages/FinancialReconciliation";
 import { financialDeductionsService } from "./services/financialDeductions";
+import { dailyMileageService } from "./services/dailyMileage";
 import { getThemeById } from "./utils/dashboardThemes";
 
 import BackupPage from "./pages/Backup";
@@ -38,6 +39,7 @@ import PublicWebsite from "./pages/PublicWebsite";
 import WebsiteCMS from "./pages/WebsiteCMS";
 import MarketingStudioPage from "./pages/MarketingStudio";
 import AIAssistantPage from "./pages/AIAssistant";
+import DailyMileagePage from "./pages/DailyMileage";
 
 import "./App.css";
 
@@ -45,6 +47,7 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "📊", roleAccess: ["admin", "owner", "broker", "driver", "conductor"], group: "Dashboard" },
   { id: "ai-assistant", label: "AI Assistant", icon: "🤖", roleAccess: ["admin", "owner"], group: "Operations" },
   { id: "trips", label: "Trips", icon: "🚛", roleAccess: ["admin", "owner", "broker", "driver", "conductor"], group: "Operations" },
+  { id: "daily-mileage", label: "Daily Mileage", icon: "🛣️", roleAccess: ["admin", "owner", "driver", "conductor"], group: "Operations" },
   { id: "locations", label: "Locations", icon: "📍", roleAccess: ["admin", "owner"], group: "Operations" },
   { id: "vehicles", label: "Vehicles", icon: "🚚", roleAccess: ["admin", "owner", "broker"], group: "Operations" },
   { id: "maintenance", label: "Maintenance", icon: "🔧", adminOnly: true, group: "Operations" },
@@ -75,6 +78,8 @@ const ROUTE_BY_PATH = NAV_ITEMS.reduce((routes, item) => {
   "/ai": "ai-assistant",
   "/ai-assistant": "ai-assistant",
   "/bolas": "ai-assistant",
+  "/daily-mileage": "daily-mileage",
+  "/mileage": "daily-mileage",
   "/website": "website-cms",
   "/branding": "marketing-studio",
   "/cards": "marketing-studio",
@@ -88,7 +93,7 @@ const getPageFromPath = () => {
 
 const getPathForPage = (page) => (page === "dashboard" ? "/" : `/${page}`);
 
-function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, brokers = [], paymentRecords = [], financialDeductions = [], refreshTrips, refreshPaymentRecords, refreshFinancialDeductions }) {
+function Layout({ trips, locations, vehicles, personnel, maintenance, settings, complaints, brokers = [], paymentRecords = [], financialDeductions = [], dailyMileage = [], refreshTrips, refreshPaymentRecords, refreshFinancialDeductions, refreshDailyMileage }) {
   const { user, profile, logout, isAdmin, isOwner, isPrivileged, personnelId, canAddTrips, userId } = useAuth();
   const [page, setPage] = useState(getPageFromPath);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -318,6 +323,13 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
       </div>
     ),
     trips: <TripsPage trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} settings={settings} brokers={brokers} onOpenTripReview={openTripReview} refreshTrips={refreshTrips} globalVehicle={globalVehicle} setGlobalVehicle={handleSetGlobalVehicle} />,
+    "daily-mileage": (
+      <DailyMileagePage
+        vehicles={vehicles}
+        mileageRecords={dailyMileage}
+        refreshMileage={refreshDailyMileage}
+      />
+    ),
     locations: <LocationsPage locations={locations} />,
     vehicles: <VehiclesPage vehicles={vehicles} trips={trips} locations={locations} personnel={personnel} brokers={brokers} onOpenTripReview={openTripReview} />,
     personnel: <PersonnelPage personnel={personnel} trips={trips} />,
@@ -633,6 +645,7 @@ function AppInner() {
   const [brokers, setBrokers] = useState([]);
   const [paymentRecords, setPaymentRecords] = useState([]);
   const [financialDeductions, setFinancialDeductions] = useState([]);
+  const [dailyMileage, setDailyMileage] = useState([]);
 
   // Manual refresh — called right after add/delete/approve so UI updates instantly
   const refreshTrips = useCallback(async () => {
@@ -650,6 +663,11 @@ function AppInner() {
     setFinancialDeductions(data);
   }, []);
 
+  const refreshDailyMileage = useCallback(async () => {
+    const data = await dailyMileageService.fetchAll();
+    setDailyMileage(data);
+  }, []);
+
   useEffect(() => {
     if (!user) {
       setRawTrips([]);
@@ -662,6 +680,7 @@ function AppInner() {
       setBrokers([]);
       setPaymentRecords([]);
       setFinancialDeductions([]);
+      setDailyMileage([]);
       return;
     }
 
@@ -675,6 +694,7 @@ function AppInner() {
     const unsubBrokers = brokerService.subscribeBrokers(setBrokers);
     const unsubPayments = paymentRecordsService.subscribe(setPaymentRecords);
     const unsubDeductions = financialDeductionsService.subscribe(setFinancialDeductions);
+    const unsubMileage = dailyMileageService.subscribe(setDailyMileage);
     
     return () => {
       unsubTrips();
@@ -687,8 +707,9 @@ function AppInner() {
       if (unsubBrokers) unsubBrokers();
       if (unsubPayments) unsubPayments();
       if (unsubDeductions) unsubDeductions();
+      if (unsubMileage) unsubMileage();
     };
-  }, [user, refreshTrips, refreshPaymentRecords, refreshFinancialDeductions]);
+  }, [user, refreshTrips, refreshPaymentRecords, refreshFinancialDeductions, refreshDailyMileage]);
 
   // Data Isolation for non-admins
   const trips = useMemo(() => {
@@ -732,7 +753,7 @@ function AppInner() {
     return <PublicWebsite onOpenLogin={() => setViewMode("login")} user={null} />;
   }
 
-  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} brokers={brokers} paymentRecords={paymentRecords} financialDeductions={financialDeductions} refreshTrips={refreshTrips} refreshPaymentRecords={refreshPaymentRecords} refreshFinancialDeductions={refreshFinancialDeductions} />;
+  return <Layout trips={trips} locations={locations} vehicles={vehicles} personnel={personnel} maintenance={maintenance} settings={settings} complaints={complaints} brokers={brokers} paymentRecords={paymentRecords} financialDeductions={financialDeductions} dailyMileage={dailyMileage} refreshTrips={refreshTrips} refreshPaymentRecords={refreshPaymentRecords} refreshFinancialDeductions={refreshFinancialDeductions} refreshDailyMileage={refreshDailyMileage} />;
 }
 
 export default function App() {
