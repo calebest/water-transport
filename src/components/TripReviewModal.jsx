@@ -3,10 +3,20 @@ import { Badge, Modal } from "./ui";
 import { exportVoucher } from "../utils/export";
 import { DEDUCTION_LABELS, EXPENSE_LABELS, getTripFinancials, splitCustomExpenses, fmt } from "../utils/helpers";
 
-const statusColors = {
-  Paid: "green",
-  Pending: "amber",
-  Partial: "amber",
+const STATUS_CONFIG = {
+  Paid: { color: "green", bg: "bg-emerald-500", text: "text-emerald-700", border: "border-emerald-200" },
+  Pending: { color: "red", bg: "bg-rose-500", text: "text-rose-700", border: "border-rose-200" },
+  Partial: { color: "amber", bg: "bg-amber-500", text: "text-amber-700", border: "border-amber-200" },
+};
+
+const EXPENSE_ICONS = {
+  diesel: "⛽",
+  water: "💧",
+  police: "👮",
+  driver: "🚗",
+  conductor: "🎟️",
+  repairs: "🔧",
+  petrol: "⛽",
 };
 
 const toAmount = (value) => Number(value || 0);
@@ -48,12 +58,14 @@ export default function TripReviewModal({
         key,
         label,
         amount: toAmount(currentTrip.expenses?.[key]),
+        payer: currentTrip.expenses?._payers?.[key] || currentTrip.expenses?._defaultPayer || "Company",
         isCustom: false,
       }));
     const custom = splitCustomExpenses(currentTrip.expenses?.custom || []).operating.map((item, index) => ({
       key: item.id || `${item.label || "custom"}-${index}`,
       label: item.label || "Custom",
       amount: toAmount(item.amount),
+      payer: item.paidBy || currentTrip.expenses?._defaultPayer || "Company",
       isCustom: true,
     }));
     return [...fixed, ...custom].filter((item) => item.amount > 0);
@@ -85,13 +97,21 @@ export default function TripReviewModal({
   const amountPaid = toAmount(currentTrip?.amountPaid);
   const balance = Math.max(revenue - amountPaid, 0);
   const expenseRatio = revenue > 0 ? Math.round((totalExpenses / revenue) * 100) : 0;
-  const headerTone = netPayable < 0 ? "from-rose-500 to-red-600" : currentTrip?.status === "Paid" ? "from-emerald-500 to-teal-600" : "from-amber-500 to-orange-600";
+  const profitMargin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+
+  // Calculated distance if odometers are present
+  const odoDistance =
+    currentTrip?.odometerStart && currentTrip?.odometerEnd && Number(currentTrip.odometerEnd) >= Number(currentTrip.odometerStart)
+      ? Number(currentTrip.odometerEnd) - Number(currentTrip.odometerStart)
+      : null;
+
+  const brokerObj = brokers.find(b => b.id === currentTrip?.brokerId);
 
   const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "breakdown", label: "Breakdown" },
-    { id: "details", label: "Details" },
-    { id: "actions", label: "Actions" },
+    { id: "overview", label: "Financial Overview" },
+    { id: "breakdown", label: `Breakdown (${expenseItems.length + deductionItems.length})` },
+    { id: "details", label: "Crew & Logistics" },
+    { id: "actions", label: "Actions & Voucher" },
   ];
 
   const handleMarkPaid = async () => {
@@ -99,7 +119,7 @@ export default function TripReviewModal({
     setSaving(true);
     try {
       await onMarkPaid(currentTrip);
-      setCurrentTrip((prev) => prev ? { ...prev, status: "Paid", amountPaid: prev.revenue, earningsRate: null, earningsAmount: 0 } : prev);
+      setCurrentTrip((prev) => (prev ? { ...prev, status: "Paid", amountPaid: prev.revenue } : prev));
     } catch (e) {
       alert(e.message);
     } finally {
@@ -108,17 +128,44 @@ export default function TripReviewModal({
   };
 
   return (
-    <Modal open={open && !!currentTrip} onClose={onClose} title={`Trip Review${currentTrip?.tripNumber ? ` #${currentTrip.tripNumber}` : ""}`} wide>
+    <Modal
+      open={open && !!currentTrip}
+      onClose={onClose}
+      title={`Trip Dossier #${currentTrip?.tripNumber || "N/A"}`}
+      wide
+    >
       {currentTrip && (
-        <div className="space-y-5">
-          <div className={`rounded-2xl bg-gradient-to-br ${headerTone} p-5 text-white shadow-lg`}>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Trip</p>
-                <h3 className="mt-1 text-2xl font-black">{currentTrip.tripNumber || "N/A"}</h3>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge color="slate">{currentTrip.lorry || "N/A"}</Badge>
-                  <Badge color={statusColors[currentTrip.status] || "slate"}>{currentTrip.status || "Pending"}</Badge>
+        <div className="space-y-6">
+          {/* ─── Executive Header Voucher Card ───────────────────────────────── */}
+          <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-5 sm:p-6 text-white shadow-xl ring-1 ring-white/10">
+            {/* Subtle background glow */}
+            <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
+            <div className="absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-sky-500/15 blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 space-y-4">
+              {/* Top metadata line */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-800/60">
+                    Water Transport Log
+                  </span>
+                  <span className="text-xs text-slate-300 font-mono font-medium">
+                    {currentTrip.date || "No date recorded"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                      currentTrip.status === "Paid"
+                        ? "bg-emerald-500 text-white"
+                        : currentTrip.status === "Partial"
+                        ? "bg-amber-500 text-white"
+                        : "bg-rose-500 text-white"
+                    }`}
+                  >
+                    {currentTrip.status || "Pending"}
+                  </span>
                   {currentTrip.approvalStatus === "pending" && (
                     <Badge color="amber">⏳ Awaiting Approval</Badge>
                   )}
@@ -128,31 +175,78 @@ export default function TripReviewModal({
                   {currentTrip.approvalStatus === "rejected" && (
                     <Badge color="red">❌ Rejected</Badge>
                   )}
-                  <span className="text-sm text-white/80">{currentTrip.date || "No date"}</span>
                 </div>
               </div>
-              <div className="max-w-[14rem] rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">Location</p>
-                <p className="mt-1 break-words text-sm font-bold">{currentTrip.location || "N/A"}</p>
+
+              {/* Main identity row */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-xl text-sm font-black tracking-wide ${
+                        currentTrip.lorry === "KBZ"
+                          ? "bg-blue-600 text-white"
+                          : "bg-amber-600 text-white"
+                      }`}
+                    >
+                      🚛 {currentTrip.lorry}
+                    </span>
+                    <span className="text-lg font-black font-mono tracking-tight text-white/90">
+                      Trip #{currentTrip.tripNumber}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-white/90 min-w-0">
+                    <span className="text-emerald-400 text-base shrink-0">📍</span>
+                    <p className="text-base sm:text-lg font-bold break-words leading-tight">
+                      {currentTrip.location || "No destination specified"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Net Payable Hero Badge */}
+                <div className="shrink-0 bg-white/10 rounded-2xl p-3 sm:p-4 border border-white/15 backdrop-blur-md">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Net Payable</p>
+                  <p className={`mt-0.5 text-xl sm:text-2xl font-black font-mono ${netPayable >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    {fmt(netPayable)}
+                  </p>
+                </div>
               </div>
-              <div className="max-w-[14rem] rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">Broker</p>
-                <p className="mt-1 break-words text-sm font-bold">
-                  {brokers.find(b => b.id === currentTrip.brokerId)?.name || "—"}
-                </p>
+
+              {/* Bottom chips (Broker, Distance, Driver) */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-300">
+                {brokerObj && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
+                    <span>🤝 Broker:</span>
+                    <strong className="text-white">{brokerObj.name}</strong>
+                  </span>
+                )}
+                {odoDistance !== null && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
+                    <span>🛣️ Distance:</span>
+                    <strong className="text-white">{odoDistance} km</strong>
+                  </span>
+                )}
+                {currentTrip.driverId && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
+                    <span>🚗 Driver:</span>
+                    <strong className="text-white">{currentTrip.driverName || currentTrip.driverId}</strong>
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
+          {/* ─── Pending / Rejection Alert Banners ───────────────────────────── */}
           {currentTrip.approvalStatus === "pending" && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-4 text-sm text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-              <div>
-                <p className="font-bold flex items-center gap-1.5">
-                  <span>⏳</span>
-                  <span>Pending Admin Approval</span>
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:p-5 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+              <div className="min-w-0 space-y-1">
+                <p className="font-black text-sm flex items-center gap-2">
+                  <span className="text-base">⏳</span>
+                  <span>Pending Administrator Review</span>
                 </p>
-                <p className="text-xs text-amber-800/80 mt-0.5">
-                  This trip was submitted by driver/staff and is not stored in ledgers or financial totals until approved.
+                <p className="text-xs text-amber-900/80 leading-relaxed break-words">
+                  This trip was submitted and is pending administrative approval before impacting ledger balances.
                 </p>
               </div>
               {onApprove && (
@@ -168,9 +262,9 @@ export default function TripReviewModal({
                       }
                     }}
                     disabled={saving}
-                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm cursor-pointer disabled:opacity-60"
+                    className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 cursor-pointer disabled:opacity-60 transition-all"
                   >
-                    {saving ? "Approving..." : "✓ Approve Trip"}
+                    {saving ? "Approving…" : "✓ Approve Trip"}
                   </button>
                   {onReject && (
                     <button
@@ -180,7 +274,7 @@ export default function TripReviewModal({
                         setShowRejectInput(true);
                       }}
                       disabled={saving}
-                      className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-60"
+                      className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-60 transition-all"
                     >
                       Reject
                     </button>
@@ -191,317 +285,396 @@ export default function TripReviewModal({
           )}
 
           {currentTrip.approvalStatus === "rejected" && (
-            <div className="rounded-xl border border-rose-300 bg-rose-50/90 p-4 text-sm text-rose-900 flex flex-col gap-2 shadow-xs">
-              <p className="font-bold flex items-center gap-1.5">
-                <span>❌</span>
-                <span>Trip Rejected</span>
+            <div className="rounded-2xl border border-rose-300 bg-rose-50 p-4 sm:p-5 text-rose-950 space-y-2 shadow-xs">
+              <p className="font-black text-sm flex items-center gap-2">
+                <span className="text-base">❌</span>
+                <span>Trip Submission Rejected</span>
               </p>
               {currentTrip.rejectionReason ? (
-                <div className="mt-1 rounded-lg bg-rose-100/60 border border-rose-200 px-3 py-2 text-sm">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-500 mb-0.5">Reason from admin</p>
-                  <p className="text-rose-800 font-medium">{currentTrip.rejectionReason}</p>
+                <div className="rounded-xl bg-white/80 border border-rose-200 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500 mb-0.5">Admin Feedback</p>
+                  <p className="text-sm text-rose-900 font-medium break-words">{currentTrip.rejectionReason}</p>
                 </div>
               ) : (
-                <p className="text-xs text-rose-700/70">No reason provided.</p>
-              )}
-              {!onApprove && (
-                <p className="text-xs text-rose-700/70 mt-1">You may edit and resubmit this trip for review.</p>
+                <p className="text-xs text-rose-800">No rejection reason was specified.</p>
               )}
             </div>
           )}
 
-          {currentTrip.overrideReason && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <span className="font-bold">Override reason: </span>
-              {currentTrip.overrideReason}
-            </div>
-          )}
-
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none [-webkit-overflow-scrolling:touch]">
+          {/* ─── Segmented Tab Navigation ────────────────────────────────────── */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-slate-100">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition-colors ${activeTab === tab.id ? "bg-slate-800 text-white shadow-md" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                className={`shrink-0 rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  activeTab === tab.id
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          {/* ─── Tab Content Panels ─────────────────────────────────────────── */}
+          <div className="min-w-0">
+            {/* 1. OVERVIEW TAB */}
             {activeTab === "overview" && (
-              <div className="grid gap-4 lg:grid-cols-[1.35fr_0.85fr]">
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Financial Snapshot</p>
-                      <h4 className="mt-1 text-lg font-black text-slate-800">What this trip moved</h4>
-                    </div>
-                    <Badge color={netPayable >= 0 ? "green" : "red"}>{netPayable >= 0 ? "Healthy" : "Loss"}</Badge>
+              <div className="space-y-5">
+                {/* 5 KPI Metric Waterfall Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {/* Revenue */}
+                  <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gross Revenue</p>
+                    <p className="mt-1 text-lg sm:text-xl font-black font-mono text-blue-700 break-words">{fmt(revenue)}</p>
+                    <span className="mt-2 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700">
+                      100% baseline
+                    </span>
                   </div>
 
-                  <div className="mt-4 space-y-3">
-                    {[
-                      { label: "Revenue", value: revenue, tone: "blue", pct: 100 },
-                      { label: "Operating Expenses", value: totalExpenses, tone: "red", pct: revenue > 0 ? Math.min((totalExpenses / revenue) * 100, 100) : 0 },
-                      { label: "Operating Profit", value: profit, tone: profit >= 0 ? "green" : "red", pct: revenue > 0 ? Math.min((Math.abs(profit) / revenue) * 100, 100) : 0 },
-                      { label: "Deductions", value: totalDeductions, tone: "amber", pct: revenue > 0 ? Math.min((totalDeductions / revenue) * 100, 100) : 0 },
-                      { label: "Net Payable", value: netPayable, tone: netPayable >= 0 ? "green" : "red", pct: revenue > 0 ? Math.min((Math.abs(netPayable) / revenue) * 100, 100) : 0 },
-                    ].map((row) => (
-                      <div key={row.label} className="rounded-2xl bg-white p-4 shadow-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{row.label}</p>
-                            <p className={`mt-1 text-2xl font-black ${row.tone === "red" ? "text-rose-600" : row.tone === "green" ? "text-emerald-700" : row.tone === "amber" ? "text-amber-700" : "text-blue-700"}`}>
-                              {fmt(row.value)}
-                            </p>
-                          </div>
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            row.tone === "red" ? "bg-rose-50 text-rose-700" :
-                            row.tone === "green" ? "bg-emerald-50 text-emerald-700" :
-                            row.tone === "amber" ? "bg-amber-50 text-amber-700" :
-                            "bg-blue-50 text-blue-700"
-                          }`}>
-                            {row.label === "Operating Profit" ? `${expenseRatio}% cost` : `${Math.round(row.pct)}%`}
-                          </span>
-                        </div>
-                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className={`h-full rounded-full ${
-                              row.tone === "red" ? "bg-rose-500" : row.tone === "green" ? "bg-emerald-500" : row.tone === "amber" ? "bg-amber-500" : "bg-blue-500"
-                            }`}
-                            style={{ width: `${Math.max(row.pct, row.label === "Revenue" ? 100 : 4)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                  {/* Expenses */}
+                  <div className="rounded-2xl border border-rose-100 bg-rose-50/40 p-4 shadow-xs">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-rose-400">Operating Expenses</p>
+                    <p className="mt-1 text-lg sm:text-xl font-black font-mono text-rose-600 break-words">{fmt(totalExpenses)}</p>
+                    <span className="mt-2 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-700">
+                      {expenseRatio}% of revenue
+                    </span>
+                  </div>
+
+                  {/* Operating Profit */}
+                  <div className={`rounded-2xl border p-4 shadow-xs ${profit >= 0 ? "border-emerald-100 bg-emerald-50/40" : "border-rose-100 bg-rose-50/40"}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider ${profit >= 0 ? "text-emerald-500" : "text-rose-400"}`}>Operating Profit</p>
+                    <p className={`mt-1 text-lg sm:text-xl font-black font-mono break-words ${profit >= 0 ? "text-emerald-700" : "text-rose-600"}`}>{fmt(profit)}</p>
+                    <span className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${profit >= 0 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                      {profitMargin}% margin
+                    </span>
+                  </div>
+
+                  {/* Deductions */}
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4 shadow-xs">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Deductions</p>
+                    <p className="mt-1 text-lg sm:text-xl font-black font-mono text-amber-600 break-words">{fmt(totalDeductions)}</p>
+                    <span className="mt-2 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800">
+                      {deductionItems.length} lines
+                    </span>
+                  </div>
+
+                  {/* Net Payable */}
+                  <div className={`rounded-2xl border-2 p-4 shadow-xs ${netPayable >= 0 ? "border-emerald-300 bg-emerald-50 text-emerald-950" : "border-rose-300 bg-rose-50 text-rose-950"}`}>
+                    <p className="text-[10px] font-black uppercase tracking-wider opacity-75">Net Payable</p>
+                    <p className="mt-1 text-lg sm:text-xl font-black font-mono break-words">{fmt(netPayable)}</p>
+                    <span className="mt-2 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black bg-white/80 shadow-2xs">
+                      Final to Boss
+                    </span>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Trip At a Glance</p>
-                    <div className="mt-3 space-y-3">
-                      {[
-                        ["Date", currentTrip.date || "N/A"],
-                        ["Lorry", currentTrip.lorry || "N/A"],
-                        ["Payment", currentTrip.status || "Pending"],
-                        ["Balance", fmt(balance)],
-                      ].map(([label, value]) => (
-                        <div key={label} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                          <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</span>
-                          {label === "Payment" ? (
-                            <Badge color={statusColors[currentTrip.status] || "slate"}>{value}</Badge>
-                          ) : label === "Balance" ? (
-                            <span className="text-sm font-black text-rose-600">{value}</span>
-                          ) : (
-                            <span className="text-sm font-semibold text-slate-800">{value}</span>
-                          )}
+                {/* Expense vs Profit Distribution Bar */}
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-600">Revenue Allocation</span>
+                    <span className="text-slate-400 font-mono">{fmt(revenue)} Total</span>
+                  </div>
+                  <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden flex">
+                    <div
+                      className="h-full bg-rose-500 transition-all duration-300"
+                      style={{ width: `${Math.min(expenseRatio, 100)}%` }}
+                      title={`Expenses: ${expenseRatio}%`}
+                    />
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-300"
+                      style={{ width: `${Math.max(profitMargin, 0)}%` }}
+                      title={`Profit: ${profitMargin}%`}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-semibold pt-1">
+                    <span className="text-rose-600 flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-rose-500"></span>
+                      Operating Costs ({expenseRatio}%)
+                    </span>
+                    <span className="text-emerald-600 flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                      Net Operating Profit ({Math.max(profitMargin, 0)}%)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Facts Table */}
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Key Settlement Facts</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment Status</p>
+                      <p className="mt-1 text-sm font-black text-slate-800">{currentTrip.status || "Pending"}</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Amount Paid</p>
+                      <p className="mt-1 text-sm font-black font-mono text-emerald-600">
+                        {currentTrip.status === "Paid" ? fmt(revenue) : fmt(amountPaid)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Outstanding Balance</p>
+                      <p className={`mt-1 text-sm font-black font-mono ${balance > 0 ? "text-rose-600" : "text-slate-700"}`}>
+                        {fmt(balance)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 2. BREAKDOWN TAB */}
+            {activeTab === "breakdown" && (
+              <div className="space-y-6">
+                {/* Operating Expenses */}
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-black uppercase tracking-wider text-slate-700">Operating Expenses</h4>
+                      <p className="text-xs text-slate-400 font-medium">All vehicle operations, fuel, permits & allowances</p>
+                    </div>
+                    <span className="text-xs font-black font-mono text-rose-600 bg-rose-50 px-2.5 py-1 rounded-xl">
+                      {fmt(totalExpenses)}
+                    </span>
+                  </div>
+
+                  {expenseItems.length > 0 ? (
+                    <div className="space-y-2.5 pt-1">
+                      {expenseItems.map((item) => {
+                        const pct = totalExpenses > 0 ? Math.round((item.amount / totalExpenses) * 100) : 0;
+                        return (
+                          <div
+                            key={item.key}
+                            className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 space-y-2 hover:bg-slate-100/70 transition-colors"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-base shrink-0">{EXPENSE_ICONS[item.key] || "💰"}</span>
+                                <span className="text-sm font-bold text-slate-800 break-words">{item.label}</span>
+                                {item.isCustom && (
+                                  <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 shrink-0">
+                                    custom
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-black font-mono text-slate-800">{fmt(item.amount)}</p>
+                                <span className="text-[10px] font-bold text-slate-400">{pct}% of costs</span>
+                              </div>
+                            </div>
+
+                            {/* Payer chip & bar */}
+                            <div className="flex items-center justify-between gap-2 pt-1">
+                              <span className="text-[11px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-lg border border-slate-200/80">
+                                Paid by: <strong className="text-slate-700">{item.payer}</strong>
+                              </span>
+                              <div className="h-1.5 w-28 sm:w-44 rounded-full bg-slate-200 overflow-hidden">
+                                <div className="h-full bg-rose-500" style={{ width: `${Math.max(pct, 4)}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="py-6 text-center text-sm text-slate-400">No operating expenses recorded for this trip.</p>
+                  )}
+                </div>
+
+                {/* Deductions */}
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-black uppercase tracking-wider text-slate-700">Deductions</h4>
+                      <p className="text-xs text-slate-400 font-medium">Loans, salary advances, or special recovery deductions</p>
+                    </div>
+                    <span className="text-xs font-black font-mono text-amber-600 bg-amber-50 px-2.5 py-1 rounded-xl">
+                      {fmt(totalDeductions)}
+                    </span>
+                  </div>
+
+                  {deductionItems.length > 0 ? (
+                    <div className="space-y-2 pt-1">
+                      {deductionItems.map((item) => (
+                        <div
+                          key={item.key}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-amber-200/60 bg-amber-50/50 p-3"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-amber-700 text-sm">📋</span>
+                            <span className="text-sm font-bold text-amber-900 break-words">{item.label}</span>
+                          </div>
+                          <span className="text-sm font-black font-mono text-amber-900 shrink-0">{fmt(item.amount)}</span>
                         </div>
                       ))}
                     </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Quick Note</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      The overview is now a compact finance strip, so the important numbers read clearly without squeezing the modal.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "breakdown" && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-slate-700">Operating Expense Breakdown</p>
-                  <Badge color="slate">{expenseItems.length} lines</Badge>
-                </div>
-
-                <div className="space-y-2">
-                  {expenseItems.length > 0 ? expenseItems.map((item) => {
-                    const pct = totalExpenses > 0 ? Math.max((item.amount / totalExpenses) * 100, 4) : 0;
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        className="w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-left transition-colors hover:bg-slate-100"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span className="min-w-0 truncate text-sm font-semibold text-slate-700">{item.label}</span>
-                            {item.isCustom && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">custom</span>}
-                          </div>
-                          <span className="text-sm font-black text-slate-800">{fmt(item.amount)}</span>
-                        </div>
-                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
-                        </div>
-                      </button>
-                    );
-                  }) : (
-                    <p className="py-6 text-center text-sm text-slate-400">No expense breakdown available</p>
-                  )}
-                </div>
-
-                <div className="mt-5 flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-slate-700">Deduction Breakdown</p>
-                  <Badge color="slate">{deductionItems.length} lines</Badge>
-                </div>
-
-                <div className="space-y-2">
-                  {deductionItems.length > 0 ? deductionItems.map((item) => {
-                    const pct = totalDeductions > 0 ? Math.max((item.amount / totalDeductions) * 100, 4) : 0;
-                    return (
-                      <div key={item.key} className="w-full rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span className="min-w-0 truncate text-sm font-semibold text-amber-800">{item.label}</span>
-                            {item.isCustom && <span className="rounded bg-white px-1.5 py-0.5 text-[9px] font-bold text-amber-700">legacy</span>}
-                          </div>
-                          <span className="text-sm font-black text-amber-900">{fmt(item.amount)}</span>
-                        </div>
-                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-                          <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  }) : (
-                    <p className="py-4 text-center text-sm text-slate-400">No deductions recorded</p>
+                  ) : (
+                    <p className="py-4 text-center text-xs text-slate-400">No deductions recorded.</p>
                   )}
                 </div>
               </div>
             )}
 
+            {/* 3. DETAILS & CREW TAB */}
             {activeTab === "details" && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Driver</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-800">{currentTrip.driverName || currentTrip.driverId || "N/A"}</p>
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-4">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Crew & Personnel</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-xl bg-slate-50 p-3.5 space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Driver</p>
+                      <p className="text-sm font-black text-slate-800 break-words">
+                        {currentTrip.driverName || currentTrip.driverId || "— Unassigned —"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3.5 space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Conductor</p>
+                      <p className="text-sm font-black text-slate-800 break-words">
+                        {currentTrip.conductorName || currentTrip.conductorId || "— Unassigned —"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3.5 space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Broker</p>
+                      <p className="text-sm font-black text-slate-800 break-words">
+                        {brokerObj ? `${brokerObj.name} ${brokerObj.company ? `(${brokerObj.company})` : ""}` : "— Direct / No Broker —"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Conductor</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-800">{currentTrip.conductorName || currentTrip.conductorId || "N/A"}</p>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Payment Method</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-800">{currentTrip.paymentMethod || currentTrip.method || "N/A"}</p>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Paid On</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-800">{currentTrip.paidAt || "Not yet paid"}</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-4">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Vehicle Odometer & Distance</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-xl bg-slate-50 p-3.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Odometer Start</p>
+                      <p className="mt-1 text-sm font-black font-mono text-slate-800">
+                        {currentTrip.odometerStart ? `${Number(currentTrip.odometerStart).toLocaleString()} KM` : "Not recorded"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Odometer End</p>
+                      <p className="mt-1 text-sm font-black font-mono text-slate-800">
+                        {currentTrip.odometerEnd ? `${Number(currentTrip.odometerEnd).toLocaleString()} KM` : "Not recorded"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/70 p-3.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Calculated Trip Distance</p>
+                      <p className="mt-1 text-sm font-black font-mono text-emerald-800">
+                        {odoDistance !== null ? `${odoDistance.toLocaleString()} KM` : "—"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 {currentTrip.notes && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                    <p className="text-xs font-bold uppercase tracking-widest text-amber-700">Notes</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-amber-900">{currentTrip.notes}</p>
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 space-y-1">
+                    <p className="text-xs font-black uppercase tracking-wider text-amber-800">Trip Remarks & Notes</p>
+                    <p className="text-sm text-amber-900 whitespace-pre-wrap leading-relaxed break-words">{currentTrip.notes}</p>
                   </div>
                 )}
-
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Owner Earnings</p>
-                  <p className="mt-2 text-lg font-black text-slate-800">Calculated once per paid vehicle day</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Current daily commission setting: {fmt(ratePerTrip)}. Multiple paid trips for this vehicle on the same date count once.
-                  </p>
-                </div>
               </div>
             )}
 
+            {/* 4. ACTIONS & VOUCHER TAB */}
             {activeTab === "actions" && (
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Quick actions</p>
-                  <p className="mt-2 text-sm text-slate-600">Use one action at a time to keep the panel calm and easy to read.</p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {onApprove && (currentTrip.approvalStatus === "pending" || currentTrip.approvalStatus === "pending_edit") && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setSaving(true);
-                        try {
-                          await onApprove(currentTrip);
-                          onClose?.();
-                        } finally {
-                          setSaving(false);
-                        }
-                      }}
-                      disabled={saving}
-                      className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      {saving ? "Approving..." : currentTrip.approvalStatus === "pending_edit" ? "Apply Proposed Edit" : "Approve Trip"}
-                    </button>
-                  )}
-                  {onReject && (currentTrip.approvalStatus === "pending" || currentTrip.approvalStatus === "pending_edit") && (
-                    <div className="space-y-2">
-                      {showRejectInput ? (
-                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 space-y-2">
-                          <label className="block text-xs font-bold uppercase tracking-widest text-rose-500">Rejection Reason</label>
-                          <textarea
-                            value={rejectReason}
-                            onChange={e => setRejectReason(e.target.value)}
-                            placeholder="e.g. Revenue amount doesn't match records..."
-                            rows={3}
-                            className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 resize-none"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => { setShowRejectInput(false); setRejectReason(""); }}
-                              className="flex-1 rounded-lg border border-slate-200 py-2 text-xs font-bold text-slate-600 hover:bg-white"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                setSaving(true);
-                                try {
-                                  await onReject(currentTrip, rejectReason.trim() || "Rejected by administrator.");
-                                  onClose?.();
-                                } finally {
-                                  setSaving(false);
-                                  setShowRejectInput(false);
-                                  setRejectReason("");
-                                }
-                              }}
-                              disabled={saving}
-                              className="flex-1 rounded-lg bg-rose-600 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-60"
-                            >
-                              {saving ? "Rejecting..." : "Confirm Rejection"}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
+              <div className="space-y-4">
+                {/* Admin Approval / Rejection Box */}
+                {(currentTrip.approvalStatus === "pending" || currentTrip.approvalStatus === "pending_edit") && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5 space-y-3">
+                    <p className="text-xs font-black uppercase tracking-wider text-amber-900">Administrative Decision</p>
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      {onApprove && (
                         <button
                           type="button"
-                          onClick={() => setShowRejectInput(true)}
+                          onClick={async () => {
+                            setSaving(true);
+                            try {
+                              await onApprove(currentTrip);
+                              onClose?.();
+                            } finally {
+                              setSaving(false);
+                            }
+                          }}
                           disabled={saving}
-                          className="w-full rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-60"
+                          className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer disabled:opacity-60"
                         >
-                          {currentTrip.approvalStatus === "pending_edit" ? "Discard Proposed Edit" : "Reject Trip"}
+                          {saving ? "Approving…" : currentTrip.approvalStatus === "pending_edit" ? "Apply Proposed Edit" : "Approve Trip"}
+                        </button>
+                      )}
+                      {onReject && (
+                        <button
+                          type="button"
+                          onClick={() => setShowRejectInput(!showRejectInput)}
+                          disabled={saving}
+                          className="flex-1 rounded-xl border border-rose-200 bg-white py-3 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-60"
+                        >
+                          {showRejectInput ? "Hide Rejection Reason" : "Reject with Reason"}
                         </button>
                       )}
                     </div>
-                  )}
-                  {onMarkPaid && currentTrip.status !== "Paid" && currentTrip.approvalStatus !== "pending" && (
-                    <button
-                      type="button"
-                      onClick={handleMarkPaid}
-                      disabled={saving}
-                      className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      {saving ? "Updating..." : "Mark as Paid"}
-                    </button>
-                  )}
+
+                    {showRejectInput && (
+                      <div className="rounded-xl border border-rose-200 bg-white p-3.5 space-y-2 mt-2">
+                        <label className="block text-xs font-black uppercase tracking-wider text-rose-600">Rejection Reason</label>
+                        <textarea
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                          placeholder="e.g. Revenue figure does not match receipt, please verify..."
+                          rows={3}
+                          className="w-full rounded-xl border border-rose-200 p-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-rose-500/20 resize-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowRejectInput(false);
+                              setRejectReason("");
+                            }}
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setSaving(true);
+                              try {
+                                await onReject(currentTrip, rejectReason.trim() || "Rejected by administrator.");
+                                onClose?.();
+                              } finally {
+                                setSaving(false);
+                                setShowRejectInput(false);
+                                setRejectReason("");
+                              }
+                            }}
+                            disabled={saving}
+                            className="rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-rose-700 cursor-pointer disabled:opacity-60"
+                          >
+                            {saving ? "Rejecting…" : "Confirm Rejection"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Main Action Buttons Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => exportVoucher(currentTrip)}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition-all cursor-pointer"
+                  >
+                    <svg className="w-4 h-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    <span>Download / Print Receipt</span>
+                  </button>
+
                   {onEditTrip && (
                     <button
                       type="button"
@@ -509,24 +682,35 @@ export default function TripReviewModal({
                         onEditTrip(currentTrip);
                         onClose?.();
                       }}
-                      className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                      className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
                     >
-                      Edit Trip
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      <span>Edit Trip Record</span>
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => exportVoucher(currentTrip)}
-                    className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
-                  >
-                    Download Voucher
-                  </button>
+
+                  {onMarkPaid && currentTrip.status !== "Paid" && currentTrip.approvalStatus !== "pending" && (
+                    <button
+                      type="button"
+                      onClick={handleMarkPaid}
+                      disabled={saving}
+                      className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700 transition-all cursor-pointer disabled:opacity-60"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>{saving ? "Marking…" : "Mark Trip as Paid"}</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={onClose}
-                    className="rounded-xl bg-slate-800 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-slate-900"
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 py-3.5 text-sm font-bold text-white hover:bg-slate-900 transition-all cursor-pointer"
                   >
-                    Close
+                    <span>Close</span>
                   </button>
                 </div>
               </div>

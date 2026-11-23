@@ -31,7 +31,7 @@ const CustomTooltip = ({ active, payload, label }) => {
             <span className="inline-block h-2.5 w-2.5 rounded-full ring-2 ring-slate-100" style={{ background: p.color }} />
             <span className="text-xs text-slate-600 font-medium">{p.name}</span>
           </div>
-          <span className="text-xs font-mono font-bold text-slate-900">KES {fmt(p.value)}</span>
+          <span className="text-xs font-mono font-bold text-slate-900">{fmt(p.value)}</span>
         </div>
       ))}
     </div>
@@ -53,7 +53,7 @@ const BarTooltip = ({ active, payload, label }) => {
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: p.fill }} />
             <span className="text-xs text-slate-600 font-medium">{p.name}</span>
           </div>
-          <span className="text-xs font-mono font-bold text-slate-900">KES {fmt(p.value)}</span>
+          <span className="text-xs font-mono font-bold text-slate-900">{fmt(p.value)}</span>
         </div>
       ))}
     </div>

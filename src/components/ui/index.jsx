@@ -11,12 +11,12 @@ export function StatCard({ label, value, icon, color = "green", sub }) {
   const theme = colorMap[color] || colorMap.green;
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl bg-white p-3.5 sm:p-5 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:-translate-y-0.5">
+    <div className="group relative overflow-hidden rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:-translate-y-0.5 min-w-0">
       <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-3 relative z-10">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-widest truncate">{label}</p>
+          <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-widest break-words">{label}</p>
           <p className="mt-1.5 text-base sm:text-xl md:text-2xl font-black tracking-tight text-slate-800 break-words leading-tight">{value}</p>
-          {sub && <p className="mt-1 text-[10px] sm:text-xs font-medium text-slate-400 truncate">{sub}</p>}
+          {sub && <p className="mt-1 text-[10px] sm:text-xs font-medium text-slate-400 break-words leading-relaxed">{sub}</p>}
         </div>
         <div className={`shrink-0 flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-2xl text-lg sm:text-2xl transition-transform group-hover:scale-110 ${theme.icon}`}>
           {icon}
@@ -46,16 +46,16 @@ export function Badge({ children, color = "green" }) {
 export function Modal({ open, onClose, title, children, wide }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-2 sm:p-4 sm:items-center" onClick={onClose}>
       <div
-        className={`relative w-[calc(100vw-2rem)] max-h-[min(90dvh,calc(100dvh-2rem))] overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl ${wide ? "max-w-2xl" : "max-w-md"}`}
+        className={`relative w-full max-h-[min(92dvh,calc(100dvh-1.5rem))] overflow-y-auto overscroll-contain rounded-2xl sm:rounded-3xl bg-white shadow-2xl ${wide ? "max-w-3xl lg:max-w-4xl" : "max-w-md"}`}
         onClick={e => e.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-800">{title}</h2>
-          <button onClick={onClose} className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">✕</button>
+        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 backdrop-blur-md px-5 sm:px-6 py-4">
+          <h2 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight">{title}</h2>
+          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer" aria-label="Close modal">✕</button>
         </div>
-        <div className="p-4 sm:p-6">{children}</div>
+        <div className="p-4 sm:p-6 lg:p-7">{children}</div>
       </div>
     </div>
   );
