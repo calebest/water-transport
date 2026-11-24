@@ -109,6 +109,15 @@ export const dailyMileageService = {
         return { success: true, count: 0 };
       }
 
+      // Resolve current active user session if available
+      let currentUserId = null;
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        currentUserId = sessionData?.session?.user?.id || null;
+      } catch (e) {
+        console.warn("[DailyMileage] Session lookup notice:", e);
+      }
+
       // Fetch existing remote records
       const { data: remoteData, error: fetchErr } = await supabase
         .from("daily_mileage")
@@ -133,43 +142,90 @@ export const dailyMileageService = {
 
       console.log(`[DailyMileage] Uploading ${unsynced.length} unsynced local records to Supabase...`);
 
-      const payloads = unsynced.map((item) => ({
-        // If it's a temporary local id, generate a uuid or omit so Postgres creates it
-        id: item.id && !item.id.startsWith("mil-") ? item.id : undefined,
-        vehicle_id: (item.vehicle_id || "").trim() || null,
-        vehicle_plate: (item.vehicle_plate || "").trim(),
-        mileage_date: item.mileage_date,
-        kilometers_covered: Math.max(0, Number(item.kilometers_covered || 0)),
-        notes: (item.notes || "").trim(),
-        created_at: item.created_at || new Date().toISOString(),
-        updated_at: item.updated_at || new Date().toISOString(),
-      }));
+      const payloads = unsynced.map((item) => {
+        const p = {
+          vehicle_plate: (item.vehicle_plate || "").trim(),
+          mileage_date: item.mileage_date,
+          kilometers_covered: Math.max(0, Number(item.kilometers_covered || 0)),
+          notes: (item.notes || "").trim(),
+          created_by: isValidUUID(currentUserId)
+            ? currentUserId
+            : isValidUUID(item.created_by)
+            ? item.created_by
+            : null,
+          vehicle_id: isValidUUID(item.vehicle_id) ? item.vehicle_id : null,
+          created_at: item.created_at || new Date().toISOString(),
+          updated_at: item.updated_at || new Date().toISOString(),
+        };
 
+        if (isValidUUID(item.id)) {
+          p.id = item.id;
+        }
+
+        return p;
+      });
+
+      let uploadSuccessCount = 0;
+      let lastError = null;
+
+      // Strategy 1: Attempt batch upsert
       const { data: inserted, error: insertErr } = await supabase
         .from("daily_mileage")
         .upsert(payloads, { onConflict: "vehicle_plate,mileage_date" })
         .select();
 
-      if (insertErr) {
-        console.warn("[DailyMileage] syncLocalToRemote insert notice:", insertErr.message);
-        return { success: false, reason: insertErr.message };
+      if (!insertErr && inserted) {
+        uploadSuccessCount = inserted.length;
+      } else {
+        console.warn(
+          "[DailyMileage] Batch upsert notice (trying individual insert fallback):",
+          insertErr?.message
+        );
+        lastError = insertErr?.message;
+
+        // Strategy 2: Individual insert fallback if batch or conflict constraint had issue
+        for (const p of payloads) {
+          try {
+            const { data: singleData, error: singleErr } = await supabase
+              .from("daily_mileage")
+              .insert([p])
+              .select()
+              .single();
+
+            if (!singleErr && singleData) {
+              uploadSuccessCount++;
+            } else if (singleErr?.code === "23505") {
+              // Row already exists on remote
+              uploadSuccessCount++;
+            } else if (singleErr) {
+              lastError = singleErr.message;
+              console.warn(`[DailyMileage] Failed syncing record ${p.vehicle_plate} on ${p.mileage_date}:`, singleErr.message);
+            }
+          } catch (err) {
+            lastError = err.message;
+          }
+        }
       }
 
-      console.log(`[DailyMileage] Synced ${inserted?.length || unsynced.length} records to Supabase successfully.`);
+      console.log(`[DailyMileage] Synced ${uploadSuccessCount} of ${unsynced.length} records to Supabase.`);
 
-      // Refresh cache from server
+      // Refresh cache from server to store authoritative UUIDs and clean _pendingSync
       const { data: freshRemote } = await supabase
         .from("daily_mileage")
         .select("*")
         .order("mileage_date", { ascending: false })
         .order("created_at", { ascending: false });
 
-      if (freshRemote) {
+      if (freshRemote && freshRemote.length > 0) {
         saveLocalRecords(freshRemote.map(normalizeRecord));
       }
 
       notifyDbMutated("daily_mileage", "SYNC");
-      return { success: true, count: inserted?.length || unsynced.length };
+      return {
+        success: uploadSuccessCount > 0 || unsynced.length === 0,
+        count: uploadSuccessCount,
+        error: lastError,
+      };
     } catch (e) {
       console.warn("[DailyMileage] syncLocalToRemote exception:", e.message);
       return { success: false, reason: e.message };
@@ -211,7 +267,7 @@ export const dailyMileageService = {
 
       const normalizedRemote = (data || []).map(normalizeRecord);
 
-      // Check if local cache has any unsynced records to preserve
+      // Check if local cache has any unsynced records to preserve and upload
       const local = getLocalRecords();
       const remoteKeys = new Set(
         normalizedRemote.map((r) => `${r.vehicle_plate?.toUpperCase()}__${r.mileage_date}`)
@@ -221,8 +277,8 @@ export const dailyMileageService = {
       );
 
       if (unsynced.length > 0) {
-        // Trigger background sync to upload these local records to Supabase
-        queueMicrotask(() => dailyMileageService.syncLocalToRemote());
+        // Trigger sync to upload these local records to Supabase
+        dailyMileageService.syncLocalToRemote().catch((e) => console.warn(e));
         // Merge so user sees everything immediately
         const merged = [...unsynced.map((u) => ({ ...u, _pendingSync: true })), ...normalizedRemote];
         saveLocalRecords(merged);
@@ -245,9 +301,18 @@ export const dailyMileageService = {
     const id = `mil-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const nowIso = new Date().toISOString();
     const dateStr = payload.mileage_date || payload.date || nowIso.slice(0, 10);
-    const safeVehicleId = (payload.vehicle_id || payload.vehicleId || "").trim() || null;
+    const safeVehicleId = isValidUUID(payload.vehicle_id || payload.vehicleId)
+      ? (payload.vehicle_id || payload.vehicleId)
+      : null;
     const safePlate = (payload.vehicle_plate || payload.vehiclePlate || payload.plate || "").trim();
-    const safeUserId = isValidUUID(userId) ? userId : null;
+
+    let safeUserId = isValidUUID(userId) ? userId : null;
+    if (!safeUserId) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        safeUserId = sessionData?.session?.user?.id || null;
+      } catch {}
+    }
 
     const recordPayload = {
       id,
@@ -333,7 +398,8 @@ export const dailyMileageService = {
    */
   update: async (id, payload) => {
     const nowIso = new Date().toISOString();
-    const safeVehicleId = (payload.vehicle_id || payload.vehicleId || "").trim() || null;
+    const rawVehId = (payload.vehicle_id || payload.vehicleId || "").trim();
+    const safeVehicleId = isValidUUID(rawVehId) ? rawVehId : null;
     const safePlate = (payload.vehicle_plate || payload.vehiclePlate || payload.plate || "").trim();
 
     const updatePayload = {

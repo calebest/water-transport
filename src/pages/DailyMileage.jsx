@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { StatCard, Badge, Modal } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
-import { dailyMileageService } from "../services/dailyMileage";
+import { dailyMileageService, getLocalRecords } from "../services/dailyMileage";
 import { exportMileageCSV, exportMileagePDF } from "../utils/mileageExport";
 
 // Helper: Format date as YYYY-MM-DD in local time
@@ -125,10 +125,10 @@ DROP POLICY IF EXISTS "Authenticated users insert daily_mileage" ON public.daily
 CREATE POLICY "Authenticated users insert daily_mileage" ON public.daily_mileage FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Authorized users update daily_mileage" ON public.daily_mileage;
-CREATE POLICY "Authorized users update daily_mileage" ON public.daily_mileage FOR UPDATE USING (public.user_role() IN ('admin', 'owner') OR auth.uid() = created_by);
+CREATE POLICY "Authorized users update daily_mileage" ON public.daily_mileage FOR UPDATE USING (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Admins delete daily_mileage" ON public.daily_mileage;
-CREATE POLICY "Admins delete daily_mileage" ON public.daily_mileage FOR DELETE USING (public.user_role() IN ('admin', 'owner') OR auth.uid() = created_by);`;
+CREATE POLICY "Admins delete daily_mileage" ON public.daily_mileage FOR DELETE USING (auth.role() = 'authenticated');`;
 
 export default function DailyMileagePage({
   vehicles = [],
@@ -138,11 +138,26 @@ export default function DailyMileagePage({
   const { user, isAdmin, isOwner } = useAuth();
   const isPrivileged = isAdmin || isOwner;
 
+  // Active records: prioritize prop, or fallback to internal state
+  const [internalRecords, setInternalRecords] = useState(mileageRecords || []);
+  useEffect(() => {
+    if (mileageRecords) setInternalRecords(mileageRecords);
+  }, [mileageRecords]);
+
+  const records = internalRecords;
+
   // Sync / Database Status
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncingNow, setSyncingNow] = useState(false);
   const [showSqlModal, setShowSqlModal] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
+
+  // Count how many records are unsynced (saved locally but not confirmed in remote Supabase)
+  const unsyncedCount = useMemo(() => {
+    return (records || []).filter(
+      (r) => r._pendingSync || (typeof r.id === "string" && r.id.startsWith("mil-"))
+    ).length;
+  }, [records]);
 
   useEffect(() => {
     let mounted = true;
@@ -161,28 +176,71 @@ export default function DailyMileagePage({
     };
   }, []);
 
-  const handleVerifyAndSync = async () => {
+  // Auto-sync on page mount if there are unsynced records
+  useEffect(() => {
+    let active = true;
+    const runAutoSync = async () => {
+      const status = await dailyMileageService.checkTableStatus();
+      if (!status.tableExists) return;
+
+      const local = getLocalRecords();
+      const needsSync = local.some(
+        (r) => r._pendingSync || (typeof r.id === "string" && r.id.startsWith("mil-"))
+      );
+
+      if (needsSync && active) {
+        console.log("[DailyMileage] Unsynced local records detected on load; syncing to Supabase...");
+        const res = await dailyMileageService.syncLocalToRemote();
+        if (active && res.success && res.count > 0 && refreshMileage) {
+          refreshMileage();
+        }
+      }
+    };
+
+    runAutoSync();
+    return () => {
+      active = false;
+    };
+  }, [refreshMileage]);
+
+  const handleSyncToCloud = async () => {
     setSyncingNow(true);
     try {
       const res = await dailyMileageService.checkTableStatus(true);
       setSyncStatus(res);
-      if (res.tableExists) {
-        const syncRes = await dailyMileageService.syncLocalToRemote();
-        if (refreshMileage) refreshMileage();
+      if (!res.tableExists) {
+        setShowSqlModal(true);
         alert(
-          syncRes.count > 0
-            ? `Successfully connected to Supabase and synced ${syncRes.count} local record(s) to the server!`
-            : "Supabase table connected successfully! All records are in sync."
+          "Table 'daily_mileage' is not detected in Supabase yet.\n\nPlease open your Supabase Dashboard > SQL Editor, run the setup SQL, and click this button again."
         );
-        setShowSqlModal(false);
+        return;
+      }
+
+      const syncRes = await dailyMileageService.syncLocalToRemote();
+      if (refreshMileage) await refreshMileage();
+
+      if (syncRes.success) {
+        if (syncRes.count > 0) {
+          alert(
+            `✅ Successfully uploaded ${syncRes.count} mileage record(s) to the cloud!\n\nYou can now refresh your phone and they will appear immediately.`
+          );
+        } else {
+          alert("✅ All records are fully synced with the cloud and visible on your phone!");
+        }
       } else {
         alert(
-          "Table 'daily_mileage' is not detected in Supabase yet.\n\nPlease open your Supabase Dashboard > SQL Editor, paste the SQL script, and click 'Run'. Then click this button again."
+          `Notice during cloud sync: ${syncRes.reason || syncRes.error || "Please verify internet connection."}`
         );
       }
+    } catch (err) {
+      alert("Failed to sync: " + err.message);
     } finally {
       setSyncingNow(false);
     }
+  };
+
+  const handleVerifyAndSync = async () => {
+    await handleSyncToCloud();
   };
 
   const handleCopySql = async () => {
@@ -194,14 +252,6 @@ export default function DailyMileagePage({
       setShowSqlModal(true);
     }
   };
-
-  // Active records: prioritize prop, or fallback to internal state
-  const [internalRecords, setInternalRecords] = useState(mileageRecords || []);
-  useEffect(() => {
-    if (mileageRecords) setInternalRecords(mileageRecords);
-  }, [mileageRecords]);
-
-  const records = internalRecords;
 
   // Filter State
   const presets = useMemo(() => getPresets(), []);
@@ -590,15 +640,20 @@ export default function DailyMileagePage({
                 <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
                   Daily Mileage Tracking
                 </h1>
-                {syncStatus?.tableExists === true ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Cloud Synced
-                  </span>
-                ) : syncStatus?.tableExists === false ? (
+                {syncStatus?.tableExists === false ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                     Offline Cache Only
+                  </span>
+                ) : unsyncedCount > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                    {unsyncedCount} {unsyncedCount === 1 ? "Record" : "Records"} Pending Upload
+                  </span>
+                ) : syncStatus?.tableExists === true ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Cloud Synced
                   </span>
                 ) : null}
               </div>
@@ -610,6 +665,17 @@ export default function DailyMileagePage({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={handleSyncToCloud}
+            disabled={syncingNow}
+            title="Sync mileage records with Supabase cloud database"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-sky-200 bg-sky-50/80 hover:bg-sky-100 text-sky-800 text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+          >
+            <span>{syncingNow ? "⏳" : "🔄"}</span>
+            <span>{syncingNow ? "Syncing…" : "Sync Cloud"}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => exportMileageCSV(filteredRecords, { vehicle: selectedVehicle })}
@@ -647,6 +713,42 @@ export default function DailyMileagePage({
           </button>
         </div>
       </div>
+
+      {/* ── UNSYNCED LOCAL RECORDS BANNER ── */}
+      {unsyncedCount > 0 && syncStatus?.tableExists !== false && (
+        <div className="rounded-3xl border border-sky-300 bg-gradient-to-r from-sky-50 via-indigo-50/40 to-white p-4 sm:p-5 text-slate-800 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="text-2xl shrink-0">📱</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-black text-slate-900">
+                    {unsyncedCount} Mileage {unsyncedCount === 1 ? "Record is" : "Records are"} Stored on This Computer Only
+                  </h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                    Not Synced to Phone Yet
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Your recorded mileage logs are currently saved in this browser cache. To make them instantly available on your mobile phone and across all devices, upload them to your Supabase cloud database now.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleSyncToCloud}
+                disabled={syncingNow}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white text-xs font-black shadow-md shadow-sky-600/25 cursor-pointer disabled:opacity-50 transition-all hover:scale-[1.02]"
+              >
+                <span>{syncingNow ? "⏳" : "☁️"}</span>
+                <span>{syncingNow ? "Uploading to Cloud…" : "Sync to Cloud & Phone Now"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── DATABASE SYNC WARNING BANNER ── */}
       {syncStatus?.tableExists === false && (

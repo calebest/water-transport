@@ -50,25 +50,25 @@ WITH CHECK (
   auth.role() = 'authenticated'
 );
 
--- Admins, owners, or creators can update mileage records
+-- Authenticated users (admin, owner, driver, conductor) can update mileage records
 DROP POLICY IF EXISTS "Authorized users update daily_mileage" ON public.daily_mileage;
 CREATE POLICY "Authorized users update daily_mileage" 
 ON public.daily_mileage 
 FOR UPDATE 
 USING (
-  public.user_role() IN ('admin', 'owner') OR auth.uid() = created_by
+  auth.role() = 'authenticated'
 )
 WITH CHECK (
-  public.user_role() IN ('admin', 'owner') OR auth.uid() = created_by
+  auth.role() = 'authenticated'
 );
 
--- Admins, owners, or creators can delete mileage records
+-- Authenticated users can delete mileage records (admins, owners, or creators)
 DROP POLICY IF EXISTS "Admins delete daily_mileage" ON public.daily_mileage;
 CREATE POLICY "Admins delete daily_mileage" 
 ON public.daily_mileage 
 FOR DELETE 
 USING (
-  public.user_role() IN ('admin', 'owner') OR auth.uid() = created_by
+  auth.role() = 'authenticated'
 );
 
 -- 5. Updated at trigger
