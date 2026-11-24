@@ -40,7 +40,7 @@ const PayerSelect = ({ value, onChange }) => (
 
 const EMPTY_FORM = {
   date: today(),
-  lorry: "KBZ",
+  lorry: "",
   tripNumber: "",
   location: "",
   revenue: "",
@@ -108,7 +108,7 @@ export default function TripForm({
     if (!initial) {
       const base = {
         ...EMPTY_FORM,
-        lorry: vehicles.length > 0 ? vehicles[0].plate : "KBZ",
+        lorry: vehicles.length > 0 ? vehicles[0].plate : "",
       };
       if (isDriver && personnelId) base.driverId = personnelId;
       if (isConductor && personnelId) base.conductorId = personnelId;
@@ -276,41 +276,54 @@ export default function TripForm({
     "w-full rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all";
 
   return (
-    <div className="space-y-6">
-      {/* ─── Real-Time Live Financial HUD Banner ────────────────────────────── */}
-      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-900 to-slate-800 p-4 sm:p-5 text-white shadow-md">
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-300">Live Financial Preview</span>
+    <div className="space-y-5">
+      {/* ─── Pinned Real-Time Live Financial HUD (Light Theme) ─────────────── */}
+      <div className="sticky -top-4 sm:-top-6 z-30 pt-1 pb-1 bg-white/95 backdrop-blur-md">
+        <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-3.5 sm:p-4 text-slate-800 shadow-sm transition-all">
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-700">
+                Live Financial Preview
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+              Gross Revenue − Expenses = Operating Profit
+            </span>
           </div>
-          <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">Revenue - Expenses = Profit</span>
-        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-          <div className="rounded-xl bg-white/10 p-2.5 sm:p-3 backdrop-blur-xs border border-white/5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gross Revenue</p>
-            <p className="mt-1 text-sm sm:text-base md:text-lg font-black font-mono text-sky-300 truncate">
-              {fmt(form.revenue || 0)}
-            </p>
-          </div>
-          <div className="rounded-xl bg-white/10 p-2.5 sm:p-3 backdrop-blur-xs border border-white/5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-rose-300">Expenses</p>
-            <p className="mt-1 text-sm sm:text-base md:text-lg font-black font-mono text-rose-300 truncate">
-              {fmt(operatingExpenses)}
-            </p>
-          </div>
-          <div className="rounded-xl bg-white/10 p-2.5 sm:p-3 backdrop-blur-xs border border-white/5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Operating Profit</p>
-            <p className={`mt-1 text-sm sm:text-base md:text-lg font-black font-mono truncate ${operatingProfit >= 0 ? "text-emerald-300" : "text-rose-400"}`}>
-              {fmt(operatingProfit)}
-            </p>
-          </div>
-          <div className={`rounded-xl p-2.5 sm:p-3 border ${netPayable >= 0 ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-200" : "bg-rose-500/20 border-rose-400/40 text-rose-200"}`}>
-            <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Net Payable</p>
-            <p className="mt-1 text-sm sm:text-base md:text-lg font-black font-mono truncate">
-              {fmt(netPayable)}
-            </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            {/* Gross Revenue */}
+            <div className="rounded-xl bg-sky-50/80 border border-sky-100 p-2.5 sm:p-3 transition-colors">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-sky-800">Gross Revenue</p>
+              <p className="mt-0.5 text-sm sm:text-base md:text-lg font-black font-mono text-sky-700 truncate">
+                {fmt(form.revenue || 0)}
+              </p>
+            </div>
+
+            {/* Operating Expenses */}
+            <div className="rounded-xl bg-rose-50/80 border border-rose-100 p-2.5 sm:p-3 transition-colors">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rose-800">Expenses</p>
+              <p className="mt-0.5 text-sm sm:text-base md:text-lg font-black font-mono text-rose-600 truncate">
+                {fmt(operatingExpenses)}
+              </p>
+            </div>
+
+            {/* Operating Profit */}
+            <div className="rounded-xl bg-emerald-50/80 border border-emerald-100 p-2.5 sm:p-3 transition-colors">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Operating Profit</p>
+              <p className={`mt-0.5 text-sm sm:text-base md:text-lg font-black font-mono truncate ${operatingProfit >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                {fmt(operatingProfit)}
+              </p>
+            </div>
+
+            {/* Net Payable */}
+            <div className={`rounded-xl p-2.5 sm:p-3 border transition-colors ${netPayable >= 0 ? "bg-indigo-50/80 border-indigo-100 text-indigo-900" : "bg-rose-50/80 border-rose-100 text-rose-900"}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider opacity-85">Net Payable</p>
+              <p className="mt-0.5 text-sm sm:text-base md:text-lg font-black font-mono truncate">
+                {fmt(netPayable)}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -343,27 +356,61 @@ export default function TripForm({
             />
           </div>
 
-          {/* Lorry Selector */}
+          {/* Dynamic Vehicle Selector */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Vehicle *</label>
-            <div className="flex items-center gap-2">
-              {(vehicles.length > 0 ? vehicles : [{ id: 1, plate: "KBZ" }, { id: 2, plate: "KBL" }]).map(v => (
-                <button
-                  key={v.id || v.plate}
-                  type="button"
-                  onClick={() => setField("lorry", v.plate)}
-                  className={`flex-1 py-2.5 px-3 rounded-xl border text-xs sm:text-sm font-black transition-all cursor-pointer ${
-                    form.lorry === v.plate
-                      ? v.plate === "KBZ"
-                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                        : "bg-amber-600 text-white border-amber-600 shadow-sm"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
-                  🚛 {v.plate}
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Vehicle *</label>
+              {vehicles.length > 0 && (
+                <span className="text-[10px] font-semibold text-slate-400">
+                  {vehicles.length} in fleet
+                </span>
+              )}
             </div>
+
+            {vehicles.length > 0 ? (
+              <div className="space-y-1.5">
+                <select
+                  value={form.lorry}
+                  onChange={e => setField("lorry", e.target.value)}
+                  className={`${inputStyle} font-bold text-slate-800 cursor-pointer`}
+                >
+                  <option value="">Select Vehicle...</option>
+                  {vehicles.map(v => (
+                    <option key={v.id || v.plate} value={v.plate}>
+                      🚛 {v.plate} {v.type || v.name ? `— ${v.type || v.name}` : ""} {v.capacity ? `(${v.capacity})` : ""}
+                    </option>
+                  ))}
+                </select>
+                {/* Fast Select Pill Grid for quick 1-click selection */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {vehicles.map(v => {
+                    const isSelected = form.lorry === v.plate;
+                    return (
+                      <button
+                        key={v.id || v.plate}
+                        type="button"
+                        onClick={() => setField("lorry", v.plate)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-slate-900 text-white shadow-2xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {v.plate}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <input
+                type="text"
+                className={`${inputStyle} font-mono font-bold`}
+                placeholder="e.g. KBL 123X"
+                value={form.lorry}
+                onChange={e => setField("lorry", e.target.value.toUpperCase())}
+              />
+            )}
           </div>
 
           {/* Trip Number */}

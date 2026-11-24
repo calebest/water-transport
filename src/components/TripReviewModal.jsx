@@ -136,20 +136,20 @@ export default function TripReviewModal({
     >
       {currentTrip && (
         <div className="space-y-6">
-          {/* ─── Executive Header Voucher Card ───────────────────────────────── */}
-          <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-5 sm:p-6 text-white shadow-xl ring-1 ring-white/10">
-            {/* Subtle background glow */}
-            <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
-            <div className="absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-sky-500/15 blur-3xl pointer-events-none" />
+          {/* ─── Executive Header Voucher Card (Light Theme) ────────────────── */}
+          <div className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-gradient-to-br from-white via-slate-50/80 to-emerald-50/30 p-5 sm:p-6 text-slate-800 shadow-sm">
+            {/* Subtle light accents */}
+            <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-emerald-400/10 blur-3xl pointer-events-none" />
+            <div className="absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
 
             <div className="relative z-10 space-y-4">
               {/* Top metadata line */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-800/60">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-200">
                     Water Transport Log
                   </span>
-                  <span className="text-xs text-slate-300 font-mono font-medium">
+                  <span className="text-xs text-slate-500 font-mono font-medium">
                     {currentTrip.date || "No date recorded"}
                   </span>
                 </div>
@@ -158,7 +158,7 @@ export default function TripReviewModal({
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
                       currentTrip.status === "Paid"
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-emerald-600 text-white"
                         : currentTrip.status === "Partial"
                         ? "bg-amber-500 text-white"
                         : "bg-rose-500 text-white"
@@ -182,55 +182,50 @@ export default function TripReviewModal({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-xl text-sm font-black tracking-wide ${
-                        currentTrip.lorry === "KBZ"
-                          ? "bg-blue-600 text-white"
-                          : "bg-amber-600 text-white"
-                      }`}
-                    >
-                      🚛 {currentTrip.lorry}
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs sm:text-sm font-black font-mono tracking-tight bg-slate-900 text-white shadow-2xs">
+                      <span>🚛</span>
+                      <span>{currentTrip.lorry || "Vehicle"}</span>
                     </span>
-                    <span className="text-lg font-black font-mono tracking-tight text-white/90">
+                    <span className="text-lg font-black font-mono tracking-tight text-slate-800">
                       Trip #{currentTrip.tripNumber}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-white/90 min-w-0">
-                    <span className="text-emerald-400 text-base shrink-0">📍</span>
-                    <p className="text-base sm:text-lg font-bold break-words leading-tight">
+                  <div className="flex items-center gap-2 text-slate-800 min-w-0">
+                    <span className="text-emerald-600 text-base shrink-0">📍</span>
+                    <p className="text-base sm:text-lg font-black break-words leading-tight text-slate-900">
                       {currentTrip.location || "No destination specified"}
                     </p>
                   </div>
                 </div>
 
                 {/* Net Payable Hero Badge */}
-                <div className="shrink-0 bg-white/10 rounded-2xl p-3 sm:p-4 border border-white/15 backdrop-blur-md">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Net Payable</p>
-                  <p className={`mt-0.5 text-xl sm:text-2xl font-black font-mono ${netPayable >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                <div className="shrink-0 bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Net Payable</p>
+                  <p className={`mt-0.5 text-xl sm:text-2xl font-black font-mono ${netPayable >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
                     {fmt(netPayable)}
                   </p>
                 </div>
               </div>
 
               {/* Bottom chips (Broker, Distance, Driver) */}
-              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-300">
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-600">
                 {brokerObj && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
                     <span>🤝 Broker:</span>
-                    <strong className="text-white">{brokerObj.name}</strong>
+                    <strong className="text-slate-800">{brokerObj.name}</strong>
                   </span>
                 )}
                 {odoDistance !== null && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
                     <span>🛣️ Distance:</span>
-                    <strong className="text-white">{odoDistance} km</strong>
+                    <strong className="text-slate-800">{odoDistance} km</strong>
                   </span>
                 )}
                 {currentTrip.driverId && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
                     <span>🚗 Driver:</span>
-                    <strong className="text-white">{currentTrip.driverName || currentTrip.driverId}</strong>
+                    <strong className="text-slate-800">{currentTrip.driverName || currentTrip.driverId}</strong>
                   </span>
                 )}
               </div>

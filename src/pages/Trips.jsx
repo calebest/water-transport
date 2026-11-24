@@ -455,7 +455,9 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge color={t.lorry === "KBZ" ? "blue" : "amber"}>{t.lorry}</Badge>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-black font-mono tracking-wide bg-slate-100 text-slate-800 border border-slate-200">
+                            🚛 {t.lorry}
+                          </span>
                           <span className="text-sm font-bold text-slate-400">Trip #{t.tripNumber}</span>
                         </div>
                         <p className="text-lg font-black text-slate-800">{t.date}</p>
@@ -513,7 +515,9 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
                       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge color={t.lorry === "KBZ" ? "blue" : "amber"}>{t.lorry}</Badge>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-black font-mono tracking-wide bg-slate-100 text-slate-800 border border-slate-200">
+                              🚛 {t.lorry}
+                            </span>
                             <span className="text-sm font-bold text-slate-400">Trip #{t.tripNumber}</span>
                           </div>
                           <p className="text-lg font-black text-slate-800">{t.date}</p>
@@ -674,10 +678,8 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                 {/* 1. Identity & Destination */}
                 <div className="flex flex-col gap-1.5 min-w-0 lg:max-w-xs xl:max-w-sm flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-black tracking-wide ${
-                      t.lorry === "KBZ" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-800"
-                    }`}>
-                      {t.lorry}
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-black font-mono tracking-wide bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs">
+                      🚛 {t.lorry}
                     </span>
                     <span className="font-mono text-xs font-black px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
                       #{t.tripNumber}
