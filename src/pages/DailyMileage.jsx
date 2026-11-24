@@ -94,6 +94,42 @@ const getPresets = () => {
 
 const VEHICLE_COLORS = ["#0ea5e9", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#6366f1"];
 
+const DAILY_MILEAGE_SQL = `-- 1. Create Daily Mileage Table
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE IF NOT EXISTS public.daily_mileage (
+  id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+  vehicle_id TEXT REFERENCES public.vehicles(id) ON DELETE SET NULL,
+  vehicle_plate TEXT NOT NULL,
+  mileage_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  kilometers_covered NUMERIC NOT NULL CHECK (kilometers_covered >= 0),
+  notes TEXT DEFAULT '',
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_vehicle_plate_daily_mileage UNIQUE (vehicle_plate, mileage_date)
+);
+
+-- 2. Indexes for fast search
+CREATE INDEX IF NOT EXISTS idx_daily_mileage_date ON public.daily_mileage (mileage_date DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_mileage_plate ON public.daily_mileage (vehicle_plate);
+CREATE INDEX IF NOT EXISTS idx_daily_mileage_vehicle ON public.daily_mileage (vehicle_id);
+
+-- 3. Row Level Security
+ALTER TABLE public.daily_mileage ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users view daily_mileage" ON public.daily_mileage;
+CREATE POLICY "Authenticated users view daily_mileage" ON public.daily_mileage FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Authenticated users insert daily_mileage" ON public.daily_mileage;
+CREATE POLICY "Authenticated users insert daily_mileage" ON public.daily_mileage FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Authorized users update daily_mileage" ON public.daily_mileage;
+CREATE POLICY "Authorized users update daily_mileage" ON public.daily_mileage FOR UPDATE USING (public.user_role() IN ('admin', 'owner') OR auth.uid() = created_by);
+
+DROP POLICY IF EXISTS "Admins delete daily_mileage" ON public.daily_mileage;
+CREATE POLICY "Admins delete daily_mileage" ON public.daily_mileage FOR DELETE USING (public.user_role() IN ('admin', 'owner') OR auth.uid() = created_by);`;
+
 export default function DailyMileagePage({
   vehicles = [],
   mileageRecords = [],
@@ -101,6 +137,63 @@ export default function DailyMileagePage({
 }) {
   const { user, isAdmin, isOwner } = useAuth();
   const isPrivileged = isAdmin || isOwner;
+
+  // Sync / Database Status
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [syncingNow, setSyncingNow] = useState(false);
+  const [showSqlModal, setShowSqlModal] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    dailyMileageService.checkTableStatus().then((res) => {
+      if (mounted) setSyncStatus(res);
+    });
+
+    const handleSyncChange = (e) => {
+      if (mounted) setSyncStatus(e.detail);
+    };
+
+    window.addEventListener("mileage_sync_status", handleSyncChange);
+    return () => {
+      mounted = false;
+      window.removeEventListener("mileage_sync_status", handleSyncChange);
+    };
+  }, []);
+
+  const handleVerifyAndSync = async () => {
+    setSyncingNow(true);
+    try {
+      const res = await dailyMileageService.checkTableStatus(true);
+      setSyncStatus(res);
+      if (res.tableExists) {
+        const syncRes = await dailyMileageService.syncLocalToRemote();
+        if (refreshMileage) refreshMileage();
+        alert(
+          syncRes.count > 0
+            ? `Successfully connected to Supabase and synced ${syncRes.count} local record(s) to the server!`
+            : "Supabase table connected successfully! All records are in sync."
+        );
+        setShowSqlModal(false);
+      } else {
+        alert(
+          "Table 'daily_mileage' is not detected in Supabase yet.\n\nPlease open your Supabase Dashboard > SQL Editor, paste the SQL script, and click 'Run'. Then click this button again."
+        );
+      }
+    } finally {
+      setSyncingNow(false);
+    }
+  };
+
+  const handleCopySql = async () => {
+    try {
+      await navigator.clipboard.writeText(DAILY_MILEAGE_SQL);
+      setCopiedSql(true);
+      setTimeout(() => setCopiedSql(false), 3000);
+    } catch {
+      setShowSqlModal(true);
+    }
+  };
 
   // Active records: prioritize prop, or fallback to internal state
   const [internalRecords, setInternalRecords] = useState(mileageRecords || []);
@@ -489,14 +582,27 @@ export default function DailyMileagePage({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white flex items-center justify-center text-xl shadow-md">
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white flex items-center justify-center text-xl shadow-md shrink-0">
               🛣️
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-                Daily Mileage Tracking
-              </h1>
-              <p className="text-xs text-slate-500">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
+                  Daily Mileage Tracking
+                </h1>
+                {syncStatus?.tableExists === true ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Cloud Synced
+                  </span>
+                ) : syncStatus?.tableExists === false ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    Offline Cache Only
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
                 Independent daily distance logging per vehicle for fleet monitoring & maintenance scheduling.
               </p>
             </div>
@@ -541,6 +647,56 @@ export default function DailyMileagePage({
           </button>
         </div>
       </div>
+
+      {/* ── DATABASE SYNC WARNING BANNER ── */}
+      {syncStatus?.tableExists === false && (
+        <div className="rounded-3xl border border-amber-300 bg-amber-50/90 p-4 sm:p-5 text-amber-950 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="text-2xl shrink-0">⚠️</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-black text-amber-950">Database Table Not Provisioned in Supabase</h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-900">
+                    Saved on This Device Only
+                  </span>
+                </div>
+                <p className="text-xs text-amber-900/80 mt-1 leading-relaxed break-words">
+                  Your mileage logs are currently saved safely in this browser's local cache. To sync across other computers, phones, and team members, run the setup SQL in your Supabase SQL Editor.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={handleCopySql}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <span>📋</span>
+                <span>{copiedSql ? "✓ SQL Copied!" : "Copy Setup SQL"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSqlModal(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-300 bg-white hover:bg-amber-100/60 text-amber-900 text-xs font-bold transition-all cursor-pointer"
+              >
+                <span>📄</span>
+                <span>View Setup SQL</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleVerifyAndSync}
+                disabled={syncingNow}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                <span>🔄</span>
+                <span>{syncingNow ? "Verifying…" : "Verify & Sync Now"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── FLEET TODAY STATUS STRIP ── */}
       <div className="rounded-3xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs">
@@ -930,6 +1086,11 @@ export default function DailyMileagePage({
                           <span className="font-mono font-black text-slate-900 text-xs px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
                             {r.vehicle_plate}
                           </span>
+                          {r._pendingSync && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="Saved locally in this browser. Will sync automatically once Supabase table is created.">
+                              Local Cache
+                            </span>
+                          )}
                           {vehObj?.type && (
                             <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
                               {vehObj.type}
@@ -1152,6 +1313,65 @@ export default function DailyMileagePage({
             >
               {deleting ? "Deleting..." : "Confirm Delete"}
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── SUPABASE SQL SETUP MODAL ── */}
+      <Modal
+        open={showSqlModal}
+        onClose={() => setShowSqlModal(false)}
+        title="Supabase Database Table Setup (Daily Mileage)"
+        wide
+      >
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-sky-50 border border-sky-200/80 p-4 text-xs text-sky-950 space-y-2">
+            <p className="font-black text-sm text-sky-900 flex items-center gap-1.5">
+              <span>🚀</span>
+              <span>1-Minute Database Setup Instructions</span>
+            </p>
+            <ol className="list-decimal pl-4 space-y-1 text-sky-900/90 leading-relaxed font-medium">
+              <li>Open your <strong>Supabase Project Dashboard</strong> (<a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="underline font-bold text-sky-700">supabase.com</a>).</li>
+              <li>Navigate to <strong>SQL Editor</strong> on the left sidebar navigation.</li>
+              <li>Click <strong>+ New query</strong>, paste the SQL script below, and click <strong>Run</strong> (or press Cmd/Ctrl + Enter).</li>
+              <li>Return here and click <strong>"Verify & Sync Now"</strong> below. All existing and future mileage entries will sync across all browsers and devices!</li>
+            </ol>
+          </div>
+
+          <div className="relative">
+            <pre className="p-4 rounded-2xl bg-slate-900 text-slate-100 font-mono text-[11px] leading-relaxed overflow-x-auto max-h-72 scrollbar-thin select-all">
+              {DAILY_MILEAGE_SQL}
+            </pre>
+            <button
+              type="button"
+              onClick={handleCopySql}
+              className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all backdrop-blur-md cursor-pointer shadow-sm"
+            >
+              {copiedSql ? "✓ Copied to Clipboard!" : "📋 Copy SQL"}
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100">
+            <p className="text-[11px] text-slate-400">
+              File reference: <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-slate-600">supabase/daily_mileage.sql</code>
+            </p>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setShowSqlModal(false)}
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleVerifyAndSync}
+                disabled={syncingNow}
+                className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {syncingNow ? "Verifying with Supabase…" : "✓ I Ran the Script — Verify & Sync Now"}
+              </button>
+            </div>
           </div>
         </div>
       </Modal>
