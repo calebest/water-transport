@@ -67,7 +67,7 @@ const RangeBtn = ({ label, active, onClick }) => (
     onClick={onClick}
     className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
       active
-        ? "bg-slate-900 text-white shadow-xs"
+        ? "bg-sky-600 text-white shadow-xs shadow-sky-600/25"
         : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
     }`}
   >

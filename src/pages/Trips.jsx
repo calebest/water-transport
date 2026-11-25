@@ -5,6 +5,7 @@ import { Badge, Modal } from "../components/ui";
 import { fmt, getTripFinancials, summarize } from "../utils/helpers";
 import { exportVoucher } from "../utils/export";
 import TripForm from "../components/TripForm";
+import BatchTripModal from "../components/BatchTripModal";
 
 // ─── Approval Helpers ────────────────────────────────────────────────────────
 
@@ -19,6 +20,8 @@ const APPROVAL_BADGE = {
 export default function TripsPage({ trips, locations, vehicles, personnel = [], brokers = [], settings, onOpenTripReview, refreshTrips, globalVehicle, setGlobalVehicle }) {
   const { isAdmin, isOwner, isPrivileged, canAddTrips, userId } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [duplicateTrip, setDuplicateTrip] = useState(null);
   const [editTrip, setEditTrip] = useState(null);
   const [delTrip, setDelTrip] = useState(null);
   const [markingPaid, setMarkingPaid] = useState(null);
@@ -106,6 +109,50 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
   }, [visibleTrips, globalVehicle, filterDate, search, isAdmin]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
+
+  const handleDuplicateTrip = (trip) => {
+    if (!trip) return;
+    const today = new Date().toISOString().split("T")[0];
+    const targetDate = trip.date || today;
+    const sameVehicleTrips = trips.filter(t => t.lorry === trip.lorry && t.date === targetDate);
+    const maxTripNum = sameVehicleTrips.reduce((max, t) => {
+      const n = parseInt(String(t.tripNumber || "0").replace(/\D/g, ""), 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    const nextTripNumber = maxTripNum + 1;
+
+    const dup = {
+      ...trip,
+      id: undefined,
+      tripNumber: nextTripNumber,
+      date: targetDate,
+      status: "Pending",
+      amountPaid: 0,
+      approvalStatus: undefined,
+      pendingEdits: undefined,
+      _isDuplicated: true,
+      _sourceTripNumber: trip.tripNumber,
+    };
+    setDuplicateTrip(dup);
+    setAddOpen(true);
+  };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail) {
+        handleDuplicateTrip(e.detail);
+      }
+    };
+    window.addEventListener("trips:duplicate", handler);
+    return () => window.removeEventListener("trips:duplicate", handler);
+  }, [trips]);
+
+  const handleSaveBatch = async (payloads) => {
+    for (const p of payloads) {
+      await tripService.add(p, { userId, isAdmin: isPrivileged, directApproval: settings?.directApproval });
+    }
+    if (refreshTrips) refreshTrips();
+  };
 
   const handleAdd = async (form) => {
     await tripService.add(form, { userId, isAdmin: isPrivileged, directApproval: settings?.directApproval });
@@ -201,17 +248,30 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {canAddTrips && (
-            <button
-              onClick={() => setAddOpen(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-2.5 sm:py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 hover:bg-emerald-700 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
-            >
-              <svg className="w-4 h-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
-              </svg>
-              <span>{isPrivileged ? "Record Trip" : "Submit Trip"}</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setBatchOpen(true)}
+                className="inline-flex items-center gap-2 rounded-2xl bg-sky-50 text-sky-700 hover:bg-sky-100/80 border border-sky-200/80 px-4 py-2.5 sm:py-3 text-sm font-bold shadow-xs hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+                title="Add multiple trips at once in a fast batch entry sheet"
+              >
+                <span className="text-base">⚡</span>
+                <span className="hidden xs:inline">Batch Entry</span>
+                <span className="xs:hidden">Batch</span>
+              </button>
+
+              <button
+                onClick={() => { setDuplicateTrip(null); setAddOpen(true); }}
+                className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 hover:bg-emerald-700 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+              >
+                <svg className="w-4 h-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span>{isPrivileged ? "Record Trip" : "Submit Trip"}</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -334,6 +394,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
                 userId={userId}
                 canAddTrips={canAddTrips}
                 onOpenTripReview={onOpenTripReview}
+                onDuplicate={handleDuplicateTrip}
               />
             ))}
           </div>
@@ -376,10 +437,37 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
           </div>
         )}
       </Modal>
-      <Modal open={addOpen} onClose={() => setAddOpen(false)}
-        title={isAdmin ? "Add New Trip" : "Submit Trip for Approval"} wide>
-        <TripForm locations={locations} personnel={personnel} vehicles={vehicles} brokers={brokers} onSave={handleAdd} onCancel={() => setAddOpen(false)} />
+      <Modal
+        open={addOpen}
+        onClose={() => { setAddOpen(false); setDuplicateTrip(null); }}
+        title={
+          duplicateTrip
+            ? `Duplicate Trip #${duplicateTrip._sourceTripNumber || duplicateTrip.tripNumber}`
+            : (isPrivileged ? "Record New Trip" : "Submit Trip for Approval")
+        }
+        wide
+      >
+        <TripForm
+          locations={locations}
+          personnel={personnel}
+          vehicles={vehicles}
+          brokers={brokers}
+          initial={duplicateTrip || undefined}
+          onSave={handleAdd}
+          onCancel={() => { setAddOpen(false); setDuplicateTrip(null); }}
+        />
       </Modal>
+
+      <BatchTripModal
+        open={batchOpen}
+        onClose={() => setBatchOpen(false)}
+        onSaveBatch={handleSaveBatch}
+        vehicles={vehicles}
+        locations={locations}
+        personnel={personnel}
+        brokers={brokers}
+        settings={settings}
+      />
       <Modal open={!!editTrip} onClose={() => setEditTrip(null)}
         title={
           isPrivileged ? "Edit Trip" 
@@ -585,7 +673,7 @@ function CollapseAllButton() {
 }
 
 // ─── Trip Group (date-grouped list) ──────────────────────────────────────────
-export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, markingPaid, onApprove, onReject, userId, canAddTrips, onOpenTripReview }) {
+export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, markingPaid, onApprove, onReject, userId, canAddTrips, onOpenTripReview, onDuplicate }) {
   const [expanded, setExpanded] = useState(true);
 
   // Listen to global collapse/expand events
@@ -799,6 +887,20 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                           </svg>
                         </button>
                       </>
+                    )}
+
+                    {canAddTrips && onDuplicate && (
+                      <button
+                        type="button"
+                        onClick={() => onDuplicate(t)}
+                        className="h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-xl transition-all cursor-pointer"
+                        title="Duplicate / Reuse Trip (pre-fills route, rate, and crew with next trip #)"
+                        aria-label="Duplicate Trip"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                        </svg>
+                      </button>
                     )}
 
                     {canEditTrip(t) && !isPendingEdit && onEdit && (

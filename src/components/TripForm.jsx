@@ -129,6 +129,7 @@ export default function TripForm({
   });
 
   const [saving, setSaving] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState("");
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setFixed = (k, v) => setForm(f => ({ ...f, expenses: { ...f.expenses, [k]: v } }));
   const setPayer = (k, v) =>
@@ -272,11 +273,94 @@ export default function TripForm({
     }
   };
 
+  const handleSaveAndAddAnother = async () => {
+    if (!form.date || !form.tripNumber || !form.location || !form.revenue) {
+      alert("Date, trip number, location, and revenue are required.");
+      return;
+    }
+    const badCustom = (form.expenses.custom || []).find(c => !c.label.trim() || c.amount === "");
+    if (badCustom) {
+      alert("Each custom expense needs both a name and an amount.");
+      return;
+    }
+    const cleanCustom = (form.expenses.custom || []).map(({ label, amount, paidBy }) => ({
+      label: label.trim(),
+      amount: Number(amount),
+      paidBy: paidBy || form.expenses._defaultPayer || "Company",
+    }));
+    const payload = {
+      ...form,
+      expenses: { ...form.expenses, custom: cleanCustom },
+      deductions: {
+        loanRecovery: Number(form.deductions?.loanRecovery || 0),
+        advanceRecovery: Number(form.deductions?.advanceRecovery || 0),
+        other: Number(form.deductions?.other || 0),
+      },
+    };
+    setSaving(true);
+    try {
+      await onSave(payload);
+      const prevNum = form.tripNumber;
+      const nextNum = String((parseInt(String(form.tripNumber).replace(/\D/g, ""), 10) || 1) + 1).padStart(3, "0");
+      setSaveSuccessMessage(`✓ Trip #${prevNum} saved! Form ready for Trip #${nextNum}.`);
+      setForm(prev => ({
+        ...prev,
+        tripNumber: nextNum,
+        location: "",
+        revenue: "",
+        expenses: {
+          ...EMPTY_FORM.expenses,
+          _defaultPayer: prev.expenses._defaultPayer,
+        },
+        deductions: { ...EMPTY_FORM.deductions },
+        status: "Pending",
+        amountPaid: "",
+      }));
+    } catch (e) {
+      alert("Error saving: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const inputStyle =
     "w-full rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all";
 
   return (
     <div className="space-y-5">
+      {/* ─── Duplication Alert Notice ───────────────────────────────────────── */}
+      {initial?._isDuplicated && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-3.5 sm:p-4 text-emerald-950 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-xl shrink-0">📋</span>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-emerald-950">
+                Duplicating Trip #{initial._duplicatedFrom} ({initial.lorry})
+              </p>
+              <p className="text-[11px] text-emerald-800 leading-tight mt-0.5">
+                Route, rate, vehicle, and crew details pre-filled. Adjust any fields needed and save.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Success Notification (Save & Add Another) ──────────────────────── */}
+      {saveSuccessMessage && (
+        <div className="rounded-2xl border border-emerald-300 bg-emerald-100/80 p-3 flex items-center justify-between text-xs font-bold text-emerald-900 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="text-base">✅</span>
+            <span>{saveSuccessMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSaveSuccessMessage("")}
+            className="text-emerald-700 hover:text-emerald-950 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {/* ─── Pinned Real-Time Live Financial HUD (Light Theme) ─────────────── */}
       <div className="sticky -top-4 sm:-top-6 z-30 pt-1 pb-1 bg-white/95 backdrop-blur-md">
         <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 p-3.5 sm:p-4 text-slate-800 shadow-sm transition-all">
@@ -828,10 +912,20 @@ export default function TripForm({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
+          className="px-5 rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
         >
           Cancel
         </button>
+        {!initial?.id && (
+          <button
+            type="button"
+            onClick={handleSaveAndAddAnother}
+            disabled={saving}
+            className="flex-1 rounded-2xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100/80 py-3 text-sm font-bold text-emerald-800 transition-all cursor-pointer disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save & Add Another"}
+          </button>
+        )}
         <button
           type="button"
           onClick={handleSubmit}

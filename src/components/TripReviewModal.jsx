@@ -27,6 +27,7 @@ export default function TripReviewModal({
   onClose,
   onMarkPaid,
   onEditTrip,
+  onDuplicate,
   onApprove,
   onReject,
   ratePerTrip = 200,
@@ -156,13 +157,12 @@ export default function TripReviewModal({
 
                 <div className="flex items-center gap-2">
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
-                      currentTrip.status === "Paid"
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${currentTrip.status === "Paid"
                         ? "bg-emerald-600 text-white"
                         : currentTrip.status === "Partial"
-                        ? "bg-amber-500 text-white"
-                        : "bg-rose-500 text-white"
-                    }`}
+                          ? "bg-amber-500 text-white"
+                          : "bg-rose-500 text-white"
+                      }`}
                   >
                     {currentTrip.status || "Pending"}
                   </span>
@@ -208,7 +208,7 @@ export default function TripReviewModal({
                 </div>
               </div>
 
-              {/* Bottom chips (Broker, Distance, Driver) */}
+              {/* Bottom chips (Broker, Distance, Driver, Duplicate) */}
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-600">
                 {brokerObj && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
@@ -227,6 +227,20 @@ export default function TripReviewModal({
                     <span>🚗 Driver:</span>
                     <strong className="text-slate-800">{currentTrip.driverName || currentTrip.driverId}</strong>
                   </span>
+                )}
+                {onDuplicate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDuplicate(currentTrip);
+                      onClose?.();
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold transition-all cursor-pointer shadow-2xs"
+                    title="Reuse / duplicate this trip's details into a new entry"
+                  >
+                    <span>📋</span>
+                    <span>Duplicate / Reuse</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -305,7 +319,7 @@ export default function TripReviewModal({
                 onClick={() => setActiveTab(tab.id)}
                 className={`shrink-0 rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                   activeTab === tab.id
-                    ? "bg-slate-900 text-white shadow-sm"
+                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
                     : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`}
               >
@@ -670,6 +684,22 @@ export default function TripReviewModal({
                     <span>Download / Print Receipt</span>
                   </button>
 
+                  {onDuplicate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDuplicate(currentTrip);
+                        onClose?.();
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-2xl bg-indigo-50 border border-indigo-200 px-5 py-3.5 text-sm font-bold text-indigo-700 hover:bg-indigo-100 transition-all cursor-pointer shadow-xs"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                      </svg>
+                      <span>📋 Duplicate / Reuse Trip</span>
+                    </button>
+                  )}
+
                   {onEditTrip && (
                     <button
                       type="button"
@@ -703,7 +733,7 @@ export default function TripReviewModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 py-3.5 text-sm font-bold text-white hover:bg-slate-900 transition-all cursor-pointer"
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 px-5 py-3.5 text-sm font-bold text-slate-700 transition-all cursor-pointer"
                   >
                     <span>Close</span>
                   </button>

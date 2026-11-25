@@ -174,9 +174,27 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
   const mobileNavItems = navItems.filter(n => primaryMobileIds.has(n.id)).slice(0, 3);
   const hasHiddenActivePage = !mobileNavItems.some(n => n.id === activePage);
 
-  const toggleGroup = (group) => {
-    // Legacy function, replaced by navigateToPage for tabs
-  };
+  const [openGroups, setOpenGroups] = useState(() => {
+    return {
+      "Operations": true,
+      "Finance": true,
+      "Team & Contacts": true,
+      "System": false,
+    };
+  });
+
+  const toggleGroupOpen = useCallback((groupName) => {
+    setOpenGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (activeNavItem?.group && activeNavItem.group !== "Dashboard") {
+      setOpenGroups(prev => prev[activeNavItem.group] ? prev : ({ ...prev, [activeNavItem.group]: true }));
+    }
+  }, [activeNavItem?.group]);
 
   const groupedNavItems = useMemo(() => {
     // We want to maintain a specific group order, e.g., Dashboard, Operations, Finance, Team, System
@@ -419,37 +437,103 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
             </button>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {groupedNavItems.map(({ group, items }) => {
-            const isActiveGroup = activeNavItem?.group === group;
-            
-            // Define icons for the groups
-            const groupIcons = {
-              "Dashboard": "📊",
-              "Operations": "🚛",
-              "Finance": "💵",
-              "Team & Contacts": "👥",
-              "System": "⚙️"
-            };
-            const icon = groupIcons[group] || "📌";
+        <nav className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
+          {/* Dashboard (Standalone Primary Link) */}
+          <button
+            type="button"
+            onClick={() => {
+              navigateToPage("dashboard");
+              setMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+              activePage === "dashboard"
+                ? shell.navActive
+                : `text-slate-600 ${shell.navInactiveHover}`
+            }`}
+          >
+            <span className={activePage === "dashboard" ? shell.navActiveIcon : "text-slate-400 text-lg"}>📊</span>
+            <span className="flex-1 text-left tracking-wide">Dashboard</span>
+          </button>
 
-            return (
-              <button key={group} 
-                onClick={() => { 
-                   // Navigate to the first item in this group
-                   navigateToPage(items[0].id);
-                   setMobileMenuOpen(false); 
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-                  isActiveGroup
-                    ? shell.navActive
-                    : `text-slate-600 ${shell.navInactiveHover}`
-                }`}>
-                <span className={isActiveGroup ? shell.navActiveIcon : "text-slate-400 text-lg"}>{icon}</span>
-                <span className="flex-1 text-left tracking-wide">{group}</span>
-              </button>
-            );
-          })}
+          {/* Categorized Sections with Direct 1-Click Access to Every Single Page */}
+          {groupedNavItems
+            .filter(({ group }) => group !== "Dashboard")
+            .map(({ group, items }) => {
+              const isOpen = openGroups[group] !== false;
+              const groupIcons = {
+                "Operations": "🚛",
+                "Finance": "💵",
+                "Team & Contacts": "👥",
+                "System": "⚙️"
+              };
+              const icon = groupIcons[group] || "📁";
+              const groupPending = items.reduce((sum, it) => sum + (it.id === "trips" ? pendingCount : 0), 0);
+
+              return (
+                <div key={group} className="space-y-1">
+                  {/* Category Header with Toggle Chevron */}
+                  <button
+                    type="button"
+                    onClick={() => toggleGroupOpen(group)}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100/60 transition-colors cursor-pointer group select-none"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm opacity-80">{icon}</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 group-hover:text-slate-800">
+                        {group}
+                      </span>
+                      {groupPending > 0 && !isOpen && (
+                        <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                          {groupPending}
+                        </span>
+                      )}
+                    </div>
+                    <svg
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  {/* Section Page Links */}
+                  {isOpen && (
+                    <div className="space-y-0.5 pl-1.5 border-l-2 border-slate-100 ml-3">
+                      {items.map(item => {
+                        const isActive = activePage === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              navigateToPage(item.id);
+                              setMobileMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                              isActive
+                                ? shell.navActive
+                                : `text-slate-600 ${shell.navInactiveHover}`
+                            }`}
+                          >
+                            <span className={isActive ? shell.navActiveIcon : "text-slate-400 text-base shrink-0"}>{item.icon}</span>
+                            <span className="flex-1 text-left truncate">{item.label}</span>
+                            {item.id === "trips" && pendingCount > 0 && (
+                              <span className={`inline-flex items-center justify-center h-4.5 min-w-4.5 px-1 rounded-full text-[10px] font-black shadow-xs ${
+                                isActive ? "bg-white text-rose-600" : "bg-rose-500 text-white"
+                              }`}>
+                                {pendingCount}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </nav>
         <div className="p-4 border-t border-slate-100">
           <div className="flex items-center gap-3 mb-3">
@@ -518,32 +602,36 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
         {/* Modern Sub-Nav Tabs */}
         {activeNavItem && activeNavItem.group !== "Dashboard" && (
           <div className={`${shell.subnavContainer} w-full shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] sticky top-[68px] lg:top-0 z-10 transition-all`}>
-            <div className="max-w-5xl mx-auto px-4 lg:px-8 py-3 lg:py-4">
-              <div className="flex items-center overflow-x-auto hide-scrollbar">
-                <div className={`inline-flex p-1.5 space-x-2 ${shell.subnavTabBox} rounded-2xl`}>
+            <div className="max-w-5xl mx-auto px-4 lg:px-8 py-2.5 lg:py-3">
+              <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 hidden sm:inline-flex items-center gap-1.5 shrink-0 pr-1">
+                  <span>{activeNavItem.group}</span>
+                  <span className="text-slate-300">/</span>
+                </span>
+                <div className={`inline-flex p-1 space-x-1.5 ${shell.subnavTabBox} rounded-2xl shrink-0`}>
                   {groupedNavItems.find(g => g.group === activeNavItem.group)?.items.map(n => {
                     const isActive = activePage === n.id;
                     return (
                       <button
                         key={n.id}
                         onClick={() => navigateToPage(n.id)}
-                        className={`relative flex items-center gap-2 whitespace-nowrap px-4 py-2 text-sm font-bold rounded-xl transition-all duration-300 ease-out cursor-pointer ${
+                        className={`relative flex items-center gap-2 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all duration-200 ease-out cursor-pointer ${
                           isActive 
                             ? shell.subnavActive 
-                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 hover:-translate-y-[1px]"
+                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
                         }`}
                       >
-                        <span className={`transition-transform duration-300 ${isActive ? 'scale-110 opacity-100' : 'opacity-60 grayscale'}`}>{n.icon}</span>
+                        <span className={`transition-transform duration-200 ${isActive ? 'scale-105 opacity-100' : 'opacity-70 grayscale'}`}>{n.icon}</span>
                         <span>{n.label}</span>
                         {n.id === "trips" && pendingCount > 0 && (
-                          <span className={`ml-1 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-black shadow-sm transition-all ${
+                          <span className={`ml-1 inline-flex items-center justify-center h-4.5 min-w-4.5 px-1.5 rounded-full text-[10px] font-black shadow-sm transition-all ${
                             isActive ? shell.subnavBadge : "bg-rose-500 text-white shadow-rose-500/30"
                           }`}>
                             {pendingCount}
                           </span>
                         )}
                       </button>
-                    )
+                    );
                   })}
                 </div>
               </div>
@@ -563,6 +651,13 @@ function Layout({ trips, locations, vehicles, personnel, maintenance, settings, 
           onClose={() => setReviewTrip(null)}
           onMarkPaid={isAdmin ? handleMarkTripPaid : undefined}
           onEditTrip={canEditTrip(reviewTrip) ? (trip) => openTripReview(trip, true) : undefined}
+          onDuplicate={(trip) => {
+            setReviewTrip(null);
+            navigateToPage("trips");
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent("trips:duplicate", { detail: trip }));
+            }, 60);
+          }}
           onApprove={isAdmin ? handleApproveTrip : undefined}
           onReject={isAdmin ? handleRejectTrip : undefined}
           brokers={brokers}

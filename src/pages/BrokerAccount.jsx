@@ -1114,8 +1114,8 @@ export default function BrokerAccountPage({ isAdmin, brokers = [], vehicles = []
             </button>
 
             <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-1.5 py-1">
-              <button onClick={() => setActiveTab("date")} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${activeTab === "date" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-200"}`}>By Date</button>
-              <button onClick={() => setActiveTab("ledger")} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${activeTab === "ledger" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-200"}`}>Ledger</button>
+              <button onClick={() => setActiveTab("date")} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${activeTab === "date" ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" : "text-slate-600 hover:bg-slate-200"}`}>By Date</button>
+              <button onClick={() => setActiveTab("ledger")} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${activeTab === "ledger" ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" : "text-slate-600 hover:bg-slate-200"}`}>Ledger</button>
             </div>
           </div>
         </div>
