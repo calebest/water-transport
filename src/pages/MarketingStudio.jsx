@@ -271,8 +271,8 @@ const DEFAULT_CONFIG = {
   address: "Thika Road / Ruiru Bypass Depot, Nairobi & Mount Kenya",
 
   // Website & QR Code
-  websiteUrl: "https://mountkenyawater.co.ke",
-  qrCallout: "Scan with Camera to Visit Website & Order",
+  websiteUrl: "https://wa.me/254717562670",
+  qrCallout: "Scan to Chat & Order on WhatsApp",
   themeId: "geo-cyan",
 
   // Poster Specific Settings
@@ -2711,12 +2711,12 @@ export default function MarketingStudioPage() {
             </div>
 
             {/* Website & Live QR Code Settings */}
-            <div className="pt-3 border-t border-slate-100 space-y-2 bg-sky-50/50 p-3 rounded-xl border border-sky-100">
-              <div className="flex items-center justify-between">
+            <div className="pt-3 border-t border-slate-100 space-y-2.5 bg-sky-50/50 p-3 rounded-xl border border-sky-100">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-sky-900 block">
-                  Website URL (In QR Code)
+                  QR Code Destination (WhatsApp or Website)
                 </span>
-                <span className="text-[10px] text-sky-700 font-bold">Auto-Encoded</span>
+                <span className="text-[10px] text-sky-700 font-bold shrink-0">Auto-Encoded</span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -2724,7 +2724,7 @@ export default function MarketingStudioPage() {
                   type="url"
                   value={config.websiteUrl}
                   onChange={(e) => updateField("websiteUrl", e.target.value)}
-                  placeholder="https://mountkenyawater.co.ke"
+                  placeholder="https://wa.me/254717562670"
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-mono text-xs focus:outline-none focus:border-sky-500 font-bold text-slate-800"
                 />
                 {config.websiteUrl && (
@@ -2733,14 +2733,30 @@ export default function MarketingStudioPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shrink-0 transition-colors"
-                    title="Open website link in new tab to test"
+                    title="Open link in new tab to test"
                   >
                     Test ↗
                   </a>
                 )}
               </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    websiteUrl: "https://wa.me/254717562670",
+                    qrCallout: "Scan to Chat & Order on WhatsApp",
+                  }))
+                }
+                className="w-full py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <span>💬</span>
+                <span>Use WhatsApp Direct Link (0717562670)</span>
+              </button>
+
               <p className="text-[10px] text-slate-500">
-                Any customer pointing their smartphone camera at the card will immediately open this website.
+                Any customer scanning the QR code will open this link directly (e.g. WhatsApp chat at 0717562670).
               </p>
             </div>
           </div>
