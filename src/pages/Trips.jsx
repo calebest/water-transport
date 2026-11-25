@@ -10,9 +10,9 @@ import BatchTripModal from "../components/BatchTripModal";
 // ─── Approval Helpers ────────────────────────────────────────────────────────
 
 const APPROVAL_BADGE = {
-  pending:      { color: "amber", label: "⏳ Awaiting Approval" },
+  pending: { color: "amber", label: "⏳ Awaiting Approval" },
   pending_edit: { color: "amber", label: "⚠️ Edit Pending" },
-  rejected:     { color: "red",   label: "❌ Rejected" },
+  rejected: { color: "red", label: "❌ Rejected" },
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -73,9 +73,9 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       if (search) {
         const s = search.toLowerCase();
         return t.tripNumber?.toString().includes(s) ||
-               t.lorry?.toLowerCase().includes(s) ||
-               t.date?.includes(s) ||
-               t.location?.toLowerCase().includes(s);
+          t.lorry?.toLowerCase().includes(s) ||
+          t.date?.includes(s) ||
+          t.location?.toLowerCase().includes(s);
       }
       return true;
     });
@@ -160,8 +160,8 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
   };
 
   const handleEdit = async (form) => {
-    await tripService.update(editTrip.id, form, { 
-      isAdmin: isPrivileged, 
+    await tripService.update(editTrip.id, form, {
+      isAdmin: isPrivileged,
       directApproval: settings?.directApproval,
       isPending: editTrip?.approvalStatus === "pending" || editTrip?.approvalStatus === "rejected",
     });
@@ -169,16 +169,16 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
   };
 
   const handleApprove = async (trip) => {
-    try { 
-      await tripService.approve(trip.id, trip, {}); 
+    try {
+      await tripService.approve(trip.id, trip, {});
       if (refreshTrips) refreshTrips();
     }
     catch (e) { alert(e.message); }
   };
 
   const handleReject = async (trip, reason) => {
-    try { 
-      await tripService.reject(trip.id, trip, reason || "Rejected by administrator."); 
+    try {
+      await tripService.reject(trip.id, trip, reason || "Rejected by administrator.");
       if (refreshTrips) refreshTrips();
     }
     catch (e) { alert(e.message); }
@@ -208,7 +208,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
     try {
       const amountPaid = newStatus === "Paid" ? Number(trip.revenue)
         : newStatus === "Pending" ? 0
-        : Number(trip.amountPaid || 0);
+          : Number(trip.amountPaid || 0);
       await tripService.markPaid(trip.id, amountPaid, newStatus);
       if (refreshTrips) refreshTrips();
     }
@@ -218,9 +218,9 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
 
   const handleDel = async () => {
     setDeleting(true);
-    try { 
-      await tripService.delete(delTrip.id); 
-      setDelTrip(null); 
+    try {
+      await tripService.delete(delTrip.id);
+      setDelTrip(null);
       if (refreshTrips) refreshTrips();
     }
     catch (e) { alert(e.message); }
@@ -267,7 +267,7 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
                 className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 hover:bg-emerald-700 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
               >
                 <svg className="w-4 h-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 <span>{isPrivileged ? "Record Trip" : "Submit Trip"}</span>
               </button>
@@ -470,10 +470,10 @@ export default function TripsPage({ trips, locations, vehicles, personnel = [], 
       />
       <Modal open={!!editTrip} onClose={() => setEditTrip(null)}
         title={
-          isPrivileged ? "Edit Trip" 
-          : editTrip?.approvalStatus === "rejected" ? "Resubmit Trip (Rejected — Edit & Resubmit for Approval)"
-          : editTrip?.approvalStatus === "pending" ? "Edit Pending Trip (Submit for Approval)"
-          : "Propose Trip Edit (requires approval)"
+          isPrivileged ? "Edit Trip"
+            : editTrip?.approvalStatus === "rejected" ? "Resubmit Trip (Rejected — Edit & Resubmit for Approval)"
+              : editTrip?.approvalStatus === "pending" ? "Edit Pending Trip (Submit for Approval)"
+                : "Propose Trip Edit (requires approval)"
         } wide>
         {editTrip && <TripForm locations={locations} personnel={personnel} vehicles={vehicles} brokers={brokers} initial={editTrip} onSave={handleEdit} onCancel={() => setEditTrip(null)} />}
       </Modal>
@@ -506,14 +506,14 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
   return (
     <div className="relative overflow-hidden rounded-3xl border border-amber-200/50 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm">
       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-      
+
       <div
         className="relative z-10 flex items-center justify-between p-5 lg:p-6 cursor-pointer hover:bg-white/40 transition-colors"
         onClick={onToggle}
       >
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shadow-sm">
-             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
           <div>
             <h3 className="text-lg font-black text-amber-900">Pending Approvals</h3>
@@ -551,20 +551,20 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
                         <p className="text-lg font-black text-slate-800">{t.date}</p>
                         <p className="text-sm text-slate-500 font-medium">{t.location || "No location specified"}</p>
                       </div>
-                      
+
                       <div className="flex bg-white rounded-xl p-2 border border-slate-100 shadow-sm self-start md:self-center gap-6">
-                         <div className="px-2">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Revenue</p>
-                            <p className="font-black text-slate-700">{fmt(t.revenue)}</p>
-                         </div>
-                         <div className="px-2 border-l border-slate-100">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Expenses</p>
-                            <p className="font-black text-rose-500">{fmt(getTripFinancials(t).operatingExpenses)}</p>
-                         </div>
-                         <div className="px-2 border-l border-slate-100">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Net Payable</p>
-                            <p className={`font-black ${getTripFinancials(t).netPayable >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmt(getTripFinancials(t).netPayable)}</p>
-                         </div>
+                        <div className="px-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Revenue</p>
+                          <p className="font-black text-slate-700">{fmt(t.revenue)}</p>
+                        </div>
+                        <div className="px-2 border-l border-slate-100">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Expenses</p>
+                          <p className="font-black text-rose-500">{fmt(getTripFinancials(t).operatingExpenses)}</p>
+                        </div>
+                        <div className="px-2 border-l border-slate-100">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Net Payable</p>
+                          <p className={`font-black ${getTripFinancials(t).netPayable >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmt(getTripFinancials(t).netPayable)}</p>
+                        </div>
                       </div>
 
                       <div className="flex gap-2 self-start md:self-center w-full md:w-auto">
@@ -609,7 +609,7 @@ function ApprovalsPanel({ newTrips, editTrips, open, onToggle, onApprove, onReje
                             <span className="text-sm font-bold text-slate-400">Trip #{t.tripNumber}</span>
                           </div>
                           <p className="text-lg font-black text-slate-800">{t.date}</p>
-                          
+
                           {changes.length > 0 ? (
                             <div className="mt-4 bg-white rounded-xl border border-amber-100 p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-3">Proposed Changes</p>
@@ -694,9 +694,9 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
     status === "Paid" ? "green" : status === "Partial" ? "amber" : "red";
 
   const paymentSelectClass = (status) =>
-    status === "Paid"    ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70"
-    : status === "Partial" ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100/70"
-    :                        "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100/70";
+    status === "Paid" ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70"
+      : status === "Partial" ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100/70"
+        : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100/70";
 
   return (
     <div className="rounded-3xl border border-slate-200/80 bg-white shadow-sm overflow-hidden transition-all">
@@ -736,9 +736,8 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ded</span>
             <span className="text-xs sm:text-sm font-black font-mono text-amber-500">{fmt(group.summary.deductions)}</span>
           </div>
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${
-            group.summary.operatingProfit >= 0 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-rose-50 border-rose-200 text-rose-700"
-          }`}>
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${group.summary.operatingProfit >= 0 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-rose-50 border-rose-200 text-rose-700"
+            }`}>
             <span className="text-[10px] font-bold uppercase tracking-wider opacity-75">Profit</span>
             <span className="text-xs sm:text-sm font-black font-mono">{fmt(group.summary.operatingProfit)}</span>
           </div>
@@ -757,11 +756,10 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
             return (
               <div
                 key={t.id}
-                className={`group flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-5 transition-colors ${
-                  isRejected ? "bg-rose-50/30" :
-                  isPending ? "bg-amber-50/30" :
-                  "hover:bg-slate-50/70 bg-white"
-                }`}
+                className={`group flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-5 transition-colors ${isRejected ? "bg-rose-50/30" :
+                    isPending ? "bg-amber-50/30" :
+                      "hover:bg-slate-50/70 bg-white"
+                  }`}
               >
                 {/* 1. Identity & Destination */}
                 <div className="flex flex-col gap-1.5 min-w-0 lg:max-w-xs xl:max-w-sm flex-1">
@@ -800,9 +798,8 @@ export function TripGroup({ group, isAdmin, onEdit, onDel, onStatusChange, marki
                     <p className="text-[9px] font-bold uppercase tracking-wider text-amber-500">Deductions</p>
                     <p className="text-xs sm:text-sm font-bold font-mono text-amber-600 break-words">{fmt(financials.totalDeductions)}</p>
                   </div>
-                  <div className={`px-3 py-1.5 rounded-xl border min-w-[95px] ${
-                    financials.netPayable >= 0 ? "bg-emerald-50/60 border-emerald-200/80" : "bg-rose-50/60 border-rose-200/80"
-                  }`}>
+                  <div className={`px-3 py-1.5 rounded-xl border min-w-[95px] ${financials.netPayable >= 0 ? "bg-emerald-50/60 border-emerald-200/80" : "bg-rose-50/60 border-rose-200/80"
+                    }`}>
                     <p className={`text-[9px] font-bold uppercase tracking-wider ${financials.netPayable >= 0 ? "text-emerald-600" : "text-rose-500"}`}>Net Payable</p>
                     <p className={`text-xs sm:text-sm font-black font-mono break-words ${financials.netPayable >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
                       {fmt(financials.netPayable)}
