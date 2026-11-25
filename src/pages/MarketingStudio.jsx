@@ -259,6 +259,9 @@ const DEFAULT_CONFIG = {
   showPassportPhoto: true,
   avatarShape: "circle", // "circle" | "rounded"
   avatarSize: 48, // 36 to 72 pixels (default 48px)
+  avatarPosX: 50, // 0% (left) to 100% (right)
+  avatarPosY: 20, // 0% (top/head) to 100% (bottom)
+  avatarZoom: 1, // 1.0 to 2.0 scale
 
   // Contacts
   primaryPhone: "+254 746 346 888",
@@ -332,6 +335,33 @@ const DEFAULT_CONFIG = {
 
 const STORAGE_KEY = "mk_marketing_studio_config_v3";
 const TAB_STORAGE_KEY = "mk_marketing_studio_active_tab";
+
+/** Framed business card avatar with configurable shape, size, pan (X/Y), and zoom. */
+const CardAvatar = ({ config, borderClass = "border-2 border-sky-500 shadow-xs", sizeOverride }) => {
+  const size = sizeOverride ?? (config.avatarSize || 48);
+  const posX = config.avatarPosX ?? 50;
+  const posY = config.avatarPosY ?? 20;
+  const zoom = config.avatarZoom ?? 1;
+  const shapeClass = config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full";
+
+  return (
+    <div
+      style={{ width: `${size}px`, height: `${size}px` }}
+      className={`overflow-hidden shrink-0 ${borderClass} ${shapeClass}`}
+    >
+      <img
+        src={config.personPhoto}
+        alt={config.personName || "Profile"}
+        style={{
+          objectPosition: `${posX}% ${posY}%`,
+          transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+          transformOrigin: `${posX}% ${posY}%`,
+        }}
+        className="w-full h-full object-cover"
+      />
+    </div>
+  );
+};
 
 export default function MarketingStudioPage() {
   const { isPrivileged } = useAuth();
@@ -992,17 +1022,7 @@ export default function MarketingStudioPage() {
                           {/* Cardholder Name & Title with optional Passport Photo */}
                           <div className="my-1.5 flex items-center gap-2.5">
                             {config.personPhoto && config.showPassportPhoto && (
-                              <img
-                                src={config.personPhoto}
-                                alt={config.personName}
-                                style={{
-                                  width: `${config.avatarSize || 48}px`,
-                                  height: `${config.avatarSize || 48}px`,
-                                }}
-                                className={`object-cover border-2 border-sky-500 shadow-xs shrink-0 ${
-                                  config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
-                                }`}
-                              />
+                              <CardAvatar config={config} borderClass="border-2 border-sky-500 shadow-xs" />
                             )}
                             <div className="min-w-0">
                               <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight truncate">
@@ -1107,17 +1127,7 @@ export default function MarketingStudioPage() {
                         {/* Middle: Person Profile with optional Passport Photo */}
                         <div className="my-1 border-l-2 border-emerald-600 pl-3 flex items-center gap-2.5">
                           {config.personPhoto && config.showPassportPhoto && (
-                            <img
-                              src={config.personPhoto}
-                              alt={config.personName}
-                              style={{
-                                width: `${config.avatarSize || 48}px`,
-                                height: `${config.avatarSize || 48}px`,
-                              }}
-                              className={`object-cover border-2 border-emerald-600 shadow-xs shrink-0 ${
-                                config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
-                              }`}
-                            />
+                            <CardAvatar config={config} borderClass="border-2 border-emerald-600 shadow-xs" />
                           )}
                           <div className="min-w-0">
                             <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight truncate">
@@ -1193,17 +1203,7 @@ export default function MarketingStudioPage() {
                         {/* Middle: Profile with optional Passport Photo */}
                         <div className="my-1 flex items-center gap-2.5">
                           {config.personPhoto && config.showPassportPhoto && (
-                            <img
-                              src={config.personPhoto}
-                              alt={config.personName}
-                              style={{
-                                width: `${config.avatarSize || 48}px`,
-                                height: `${config.avatarSize || 48}px`,
-                              }}
-                              className={`object-cover border-2 border-sky-600 shadow-xs shrink-0 ${
-                                config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
-                              }`}
-                            />
+                            <CardAvatar config={config} borderClass="border-2 border-sky-600 shadow-xs" />
                           )}
                           <div className="min-w-0">
                             <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight truncate">
@@ -1265,17 +1265,7 @@ export default function MarketingStudioPage() {
 
                           <div className="my-1 flex items-center gap-2.5">
                             {config.personPhoto && config.showPassportPhoto && (
-                              <img
-                                src={config.personPhoto}
-                                alt={config.personName}
-                                style={{
-                                  width: `${config.avatarSize || 48}px`,
-                                  height: `${config.avatarSize || 48}px`,
-                                }}
-                                className={`object-cover border-2 border-emerald-600 shadow-xs shrink-0 ${
-                                  config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
-                                }`}
-                              />
+                              <CardAvatar config={config} borderClass="border-2 border-emerald-600 shadow-xs" />
                             )}
                             <div className="min-w-0">
                               <h2 className="text-base sm:text-lg font-black text-slate-900 leading-tight truncate">{config.personName}</h2>
@@ -1343,17 +1333,7 @@ export default function MarketingStudioPage() {
 
                         <div className="relative z-10 my-1 flex items-center gap-2.5">
                           {config.personPhoto && config.showPassportPhoto && (
-                            <img
-                              src={config.personPhoto}
-                              alt={config.personName}
-                              style={{
-                                width: `${config.avatarSize || 48}px`,
-                                height: `${config.avatarSize || 48}px`,
-                              }}
-                              className={`object-cover border-2 border-amber-400 shadow-md ring-2 ring-emerald-500/50 shrink-0 ${
-                                config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
-                              }`}
-                            />
+                            <CardAvatar config={config} borderClass="border-2 border-amber-400 shadow-md ring-2 ring-emerald-500/50" />
                           )}
                           <div className="min-w-0">
                             <h2 className="text-base sm:text-lg font-black text-white leading-tight truncate">{config.personName}</h2>
@@ -1407,17 +1387,7 @@ export default function MarketingStudioPage() {
 
                         <div className="relative z-10 my-1 flex items-center gap-2.5">
                           {config.personPhoto && config.showPassportPhoto && (
-                            <img
-                              src={config.personPhoto}
-                              alt={config.personName}
-                              style={{
-                                width: `${config.avatarSize || 48}px`,
-                                height: `${config.avatarSize || 48}px`,
-                              }}
-                              className={`object-cover border-2 border-emerald-400 shadow-md ring-2 ring-white/10 shrink-0 ${
-                                config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
-                              }`}
-                            />
+                            <CardAvatar config={config} borderClass="border-2 border-emerald-400 shadow-md ring-2 ring-white/10" />
                           )}
                           <div className="min-w-0">
                             <h2 className="text-base sm:text-lg font-black text-white leading-tight truncate">{config.personName}</h2>
@@ -2310,13 +2280,7 @@ export default function MarketingStudioPage() {
                     {/* Row 1: Preview Thumbnail, Status & Primary Actions (Replace / Remove) */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <img
-                          src={config.personPhoto}
-                          alt="Passport headshot"
-                          className={`w-11 h-11 object-cover border-2 border-slate-300 shadow-2xs shrink-0 ${
-                            config.avatarShape === "rounded" ? "rounded-xl" : "rounded-full"
-                          }`}
-                        />
+                        <CardAvatar config={config} borderClass="border-2 border-slate-300 shadow-2xs" sizeOverride={44} />
                         <div className="min-w-0">
                           <span className="text-xs font-bold text-slate-800 block truncate">
                             Passport Photo
@@ -2434,6 +2398,106 @@ export default function MarketingStudioPage() {
                             </button>
                           );
                         })}
+                      </div>
+                    </div>
+
+                    {/* Row 4: Photo Framing (Position & Zoom) */}
+                    <div className="pt-2 border-t border-slate-200/80 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span className="flex items-center gap-1.5">
+                          <span>🎯</span> Photo Framing (Headroom &amp; Zoom)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setConfig((prev) => ({
+                              ...prev,
+                              avatarPosX: 50,
+                              avatarPosY: 20,
+                              avatarZoom: 1,
+                            }))
+                          }
+                          className="text-[10px] font-bold text-sky-700 hover:underline cursor-pointer"
+                        >
+                          Reset
+                        </button>
+                      </div>
+
+                      {/* Vertical Framing Presets */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[
+                          { label: "Top (Head)", y: 10 },
+                          { label: "Upper", y: 25 },
+                          { label: "Center", y: 50 },
+                          { label: "Lower", y: 75 },
+                        ].map((preset) => {
+                          const isActive = (config.avatarPosY ?? 20) === preset.y;
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => updateField("avatarPosY", preset.y)}
+                              className={`py-1 text-[10px] font-bold rounded-md cursor-pointer transition-all ${
+                                isActive
+                                  ? "bg-sky-600 text-white shadow-xs"
+                                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Vertical Position Slider */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                          <span>Vertical Position (Top ↔ Bottom)</span>
+                          <span className="font-mono text-slate-700">{config.avatarPosY ?? 20}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={config.avatarPosY ?? 20}
+                          onChange={(e) => updateField("avatarPosY", Number(e.target.value))}
+                          className="w-full accent-sky-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
+                        />
+                      </div>
+
+                      {/* Horizontal Position Slider */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                          <span>Horizontal Position (Left ↔ Right)</span>
+                          <span className="font-mono text-slate-700">{config.avatarPosX ?? 50}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={config.avatarPosX ?? 50}
+                          onChange={(e) => updateField("avatarPosX", Number(e.target.value))}
+                          className="w-full accent-sky-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
+                        />
+                      </div>
+
+                      {/* Zoom Slider */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                          <span>Zoom</span>
+                          <span className="font-mono text-slate-700">{(config.avatarZoom ?? 1).toFixed(2)}×</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="2"
+                          step="0.05"
+                          value={config.avatarZoom ?? 1}
+                          onChange={(e) => updateField("avatarZoom", Number(e.target.value))}
+                          className="w-full accent-sky-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
+                        />
                       </div>
                     </div>
                   </div>
