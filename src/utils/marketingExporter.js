@@ -15,6 +15,13 @@ const captureElementToPng = async (element, pixelRatio = 3) => {
   const width = element.offsetWidth || element.clientWidth || 600;
   const height = element.offsetHeight || element.clientHeight || 400;
 
+  // Force full opacity during capture so inactive/hidden card sides (opacity: 0) render properly
+  const captureStyle = {
+    opacity: "1",
+    visibility: "visible",
+    transition: "none",
+  };
+
   try {
     const dataUrl = await toPng(element, {
       pixelRatio: pixelRatio,
@@ -22,6 +29,7 @@ const captureElementToPng = async (element, pixelRatio = 3) => {
       cacheBust: true,
       canvasWidth: width * pixelRatio,
       canvasHeight: height * pixelRatio,
+      style: captureStyle,
     });
     return dataUrl;
   } catch (err) {
@@ -30,6 +38,7 @@ const captureElementToPng = async (element, pixelRatio = 3) => {
     return await toPng(element, {
       pixelRatio: Math.min(pixelRatio, 2),
       quality: 0.92,
+      style: captureStyle,
     });
   }
 };
